@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 
@@ -24,18 +25,24 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _discountController = TextEditingController();
   late TabController _tabController;
+  SharedPreferences? _prefs;
   
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _initPrefs();
+  }
+
+  Future<void> _initPrefs() async {
+    _prefs = await SharedPreferences.getInstance();
     _loadCart();
   }
 
-  Future<void> _loadCart() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cartString = prefs.getString('cart');
-    if (cartString != null) {
+  void _loadCart() {
+    if (_prefs == null) return;
+    final cartString = _prefs!.getString('cart');
+    if (cartString != null && mounted) {
       setState(() {
         _cart.clear();
         final List<dynamic> decodedCart = jsonDecode(cartString);
@@ -45,9 +52,9 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   }
 
   Future<void> _saveCart() async {
-    final prefs = await SharedPreferences.getInstance();
+    if (_prefs == null) return;
     final cartString = jsonEncode(_cart);
-    await prefs.setString('cart', cartString);
+    await _prefs!.setString('cart', cartString);
   }
 
   double get _subtotal {
@@ -87,8 +94,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   void _removeProductFromCart(Product product) {
     setState(() {
       _cart.removeWhere((item) => item['id'] == product.id);
-      _saveCart();
     });
+    _saveCart();
     HapticFeedback.mediumImpact();
   }
 
@@ -112,8 +119,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
           'stock': product.stock,
         });
       }
-      _saveCart();
     });
+    _saveCart();
     HapticFeedback.lightImpact();
   }
 
@@ -124,8 +131,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
       } else {
         _cart.removeAt(index);
       }
-      _saveCart();
     });
+    _saveCart();
     HapticFeedback.lightImpact();
   }
 
@@ -133,7 +140,10 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
     if (_cart.isEmpty) return;
 
     final totalAmount = _total;
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
+    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -143,14 +153,31 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
     try {
       final productRepo = ref.read(productRepositoryProvider);
       final saleRepo = ref.read(saleRepositoryProvider);
+      final authState = ref.read(authProvider);
 
+      // 1. Validate stock first
       for (var cartItem in _cart) {
-        await productRepo.decreaseStock(
+        final product = await productRepo.getProductById(cartItem['id']);
+        if (product == null) {
+          throw Exception('Product ${cartItem['name']} not found');
+        }
+        if (product.stock < cartItem['quantity']) {
+          throw Exception('Insufficient stock for ${cartItem['name']}');
+        }
+      }
+
+      // 2. Process stock deduction
+      for (var cartItem in _cart) {
+        final success = await productRepo.decreaseStock(
           cartItem['id'],
           cartItem['quantity'],
         );
+        if (!success) {
+          throw Exception('Failed to update stock for ${cartItem['name']}');
+        }
       }
 
+      // 3. Create Sale Record
       final saleItems = _cart.map((item) {
         return SaleItem(
           productId: item['id'],
@@ -160,50 +187,74 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         );
       }).toList();
 
+      // Get current user email or default
+      String employeeId = 'default-employee';
+      if (authState.hasValue && authState.value == true) {
+        final prefs = await SharedPreferences.getInstance();
+        employeeId = prefs.getString('userEmail') ?? 'default-employee';
+      }
+
       final sale = Sale(
         id: const Uuid().v4(),
         items: saleItems,
         total: totalAmount,
         paymentMethod: method,
-        employeeId: 'default-employee',
+        employeeId: employeeId,
         customerId: _customerController.text.isNotEmpty 
             ? _customerController.text 
             : null,
+        createdAt: DateTime.now(),
       );
 
       await saleRepo.insertSale(sale);
 
+      // 4. Update UI State
       ref.invalidate(productsProvider);
       ref.invalidate(todaysSalesCountProvider);
       ref.invalidate(todaysRevenueProvider);
+      ref.invalidate(salesProvider);
+      ref.invalidate(totalRevenueProvider);
+      ref.invalidate(totalSalesCountProvider);
 
+      // 5. Clear Local State
       setState(() {
         _cart.clear();
-        _saveCart();
         _customerController.clear();
         _discountController.clear();
         _paymentMethod = 'Cash';
       });
+      _saveCart();
 
-      if (mounted) Navigator.of(context).pop(); // Close loading
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (mounted) Navigator.of(context).pop(); // Close checkout sheet
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (mounted) _tabController.animateTo(0); // Go to products tab
-      
+      // 6. Navigation & Feedback
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        navigator.pop(); // Close loading
+        navigator.pop(); // Close checkout sheet
+        _tabController.animateTo(0); // Go to products tab
+        
+        scaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text('Payment successful! ${totalAmount.toStringAsFixed(0)} RWF'),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Payment successful! ${totalAmount.toStringAsFixed(0)} RWF'),
+              ],
+            ),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
-      if (mounted) Navigator.of(context).pop();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        navigator.pop(); // Close loading
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'), 
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
