@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
@@ -27,6 +29,25 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadCart();
+  }
+
+  Future<void> _loadCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cartString = prefs.getString('cart');
+    if (cartString != null) {
+      setState(() {
+        _cart.clear();
+        final List<dynamic> decodedCart = jsonDecode(cartString);
+        _cart.addAll(decodedCart.cast<Map<String, dynamic>>());
+      });
+    }
+  }
+
+  Future<void> _saveCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cartString = jsonEncode(_cart);
+    await prefs.setString('cart', cartString);
   }
 
   double get _subtotal {
@@ -66,6 +87,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   void _removeProductFromCart(Product product) {
     setState(() {
       _cart.removeWhere((item) => item['id'] == product.id);
+      _saveCart();
     });
     HapticFeedback.mediumImpact();
   }
@@ -90,6 +112,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
           'stock': product.stock,
         });
       }
+      _saveCart();
     });
     HapticFeedback.lightImpact();
   }
@@ -101,6 +124,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
       } else {
         _cart.removeAt(index);
       }
+      _saveCart();
     });
     HapticFeedback.lightImpact();
   }
@@ -155,6 +179,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
 
       setState(() {
         _cart.clear();
+        _saveCart();
         _customerController.clear();
         _discountController.clear();
         _paymentMethod = 'Cash';
