@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../models/product.dart';
 import '../../../providers/product_provider.dart';
-import '../../themes/app_theme.dart';
 
 class ProductCatalogPage extends ConsumerStatefulWidget {
   const ProductCatalogPage({super.key});

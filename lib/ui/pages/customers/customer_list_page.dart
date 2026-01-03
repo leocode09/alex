@@ -21,53 +21,64 @@ class _CustomerListPageState extends State<CustomerListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Customers'),
+        title: const Text('Customers', style: TextStyle(fontWeight: FontWeight.w600)),
+        centerTitle: false,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddCustomerDialog(context),
+        backgroundColor: Colors.black,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'Search Customer',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: 'Search customers...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
               ),
             ),
           ),
-
-          // Customer List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ListView.separated(
+              padding: const EdgeInsets.only(bottom: 80),
               itemCount: _customers.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
               itemBuilder: (context, index) {
                 final customer = _customers[index];
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Text(customer['name'].toString().substring(0, 1)),
+                return ListTile(
+                  onTap: () => context.push('/customer/${customer['id']}'),
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.grey[200],
+                    child: Text(
+                      customer['name'].toString().substring(0, 1),
+                      style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                     ),
-                    title: Text(customer['name'] as String),
-                    subtitle: Text('${customer['purchases']} purchases'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () => context.push('/customer/${customer['id']}'),
                   ),
+                  title: Text(customer['name'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
+                  subtitle: Text(
+                    '${customer['purchases']} purchases • ${customer['phone']}',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                 );
               },
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Implement add customer
-          _showAddCustomerDialog(context);
-        },
-        icon: const Icon(Icons.person_add),
-        label: const Text('Add Customer'),
       ),
     );
   }
@@ -79,23 +90,25 @@ class _CustomerListPageState extends State<CustomerListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Customer'),
+        title: const Text('Add Customer', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Name',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: phoneController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Phone',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
               ),
               keyboardType: TextInputType.phone,
             ),
@@ -104,25 +117,20 @@ class _CustomerListPageState extends State<CustomerListPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () {
+              // TODO: Implement add customer
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Customer added')),
               );
             },
-            child: const Text('Add'),
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
           ),
         ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 }

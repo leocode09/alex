@@ -8,237 +8,147 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('More'),
+        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          // Quick Access Section
-          _buildSection(
+          _buildSectionHeader('General'),
+          _buildSettingTile(
             context,
-            'Quick Access',
-            [
-              _buildTile(
-                context,
-                Icons.inventory_2,
-                'Inventory',
-                'Manage stock and inventory',
-                () => context.push('/inventory'),
-              ),
-              _buildTile(
-                context,
-                Icons.people,
-                'Customers',
-                'View and manage customers',
-                () => context.push('/customers'),
-              ),
-              _buildTile(
-                context,
-                Icons.badge,
-                'Employees',
-                'Manage staff and permissions',
-                () => context.push('/employees'),
-              ),
-              _buildTile(
-                context,
-                Icons.store,
-                'Stores',
-                'Multi-store management',
-                () => context.push('/stores'),
-              ),
-              _buildTile(
-                context,
-                Icons.local_offer,
-                'Promotions',
-                'Discounts and loyalty programs',
-                () => context.push('/promotions'),
-              ),
-              _buildTile(
-                context,
-                Icons.devices,
-                'Hardware Setup',
-                'Connect printers and scanners',
-                () => context.push('/hardware'),
-              ),
-              _buildTile(
-                context,
-                Icons.notifications_active,
-                'Notifications',
-                'View all notifications',
-                () => context.push('/notifications'),
-              ),
-            ],
+            'Store Profile',
+            'Manage store details and branding',
+            Icons.store_outlined,
+            onTap: () => context.push('/stores'),
           ),
-          _buildSection(
+          _buildSettingTile(
+            context,
+            'Hardware Setup',
+            'Printers, scanners, and terminals',
+            Icons.devices_outlined,
+            onTap: () => context.push('/hardware'),
+          ),
+          _buildSettingTile(
+            context,
+            'Promotions',
+            'Discounts and loyalty programs',
+            Icons.local_offer_outlined,
+            onTap: () => context.push('/promotions'),
+          ),
+
+          const SizedBox(height: 24),
+          _buildSectionHeader('Account & Security'),
+          _buildSettingTile(
+            context,
+            'Employees',
+            'Manage staff and permissions',
+            Icons.people_outline,
+            onTap: () => context.push('/employees'),
+          ),
+          _buildSettingTile(
             context,
             'Security',
-            [
-              _buildTile(
-                context,
-                Icons.lock,
-                'Change PIN',
-                'Update your security PIN',
-                () {
-                  // TODO: Implement change PIN
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Change PIN feature')),
-                  );
-                },
-              ),
-              _buildTile(
-                context,
-                Icons.admin_panel_settings,
-                'User Permissions',
-                'Manage user roles and access',
-                () {
-                  // TODO: Implement permissions
-                },
-              ),
-            ],
+            'PIN, passwords, and access logs',
+            Icons.lock_outline,
+            onTap: () {},
           ),
-          _buildSection(
+
+          const SizedBox(height: 24),
+          _buildSectionHeader('App Preferences'),
+          _buildSettingTile(
             context,
-            'Data Management',
-            [
-              _buildTile(
-                context,
-                Icons.backup,
-                'Backup & Restore',
-                'Backup your data to cloud',
-                () {
-                  // TODO: Implement backup
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Backup feature')),
-                  );
-                },
-              ),
-              _buildTile(
-                context,
-                Icons.sync,
-                'Sync Data',
-                'Sync with other stores',
-                () {
-                  // TODO: Implement sync
-                },
-              ),
-            ],
+            'Language',
+            'English (US)',
+            Icons.language,
+            onTap: () {},
           ),
-          _buildSection(
+          _buildSettingTile(
             context,
-            'Payment Settings',
-            [
-              _buildTile(
-                context,
-                Icons.payment,
-                'Payment Methods',
-                'Configure payment options',
-                () {
-                  // TODO: Navigate to payment methods
-                },
-              ),
-              _buildTile(
-                context,
-                Icons.receipt,
-                'Receipt Settings',
-                'Customize receipt format',
-                () {
-                  // TODO: Implement receipt settings
-                },
-              ),
-            ],
+            'Theme',
+            'Light Mode',
+            Icons.brightness_6_outlined,
+            onTap: () {},
           ),
-          _buildSection(
+          _buildSettingTile(
             context,
-            'General',
-            [
-              _buildTile(
-                context,
-                Icons.business,
-                'Business Information',
-                'Update store details',
-                () {
-                  // TODO: Implement business info
-                },
-              ),
-              _buildTile(
-                context,
-                Icons.notifications,
-                'Notifications',
-                'Manage notification preferences',
-                () {
-                  // TODO: Implement notification settings
-                },
-              ),
-              _buildTile(
-                context,
-                Icons.language,
-                'Language',
-                'Change app language',
-                () {
-                  // TODO: Implement language settings
-                },
-              ),
-            ],
+            'Notifications',
+            'Manage alerts and sounds',
+            Icons.notifications_outlined,
+            onTap: () => context.push('/notifications'),
           ),
-          _buildSection(
+
+          const SizedBox(height: 24),
+          _buildSectionHeader('Support'),
+          _buildSettingTile(
+            context,
+            'Help Center',
+            'FAQ and support contact',
+            Icons.help_outline,
+            onTap: () {},
+          ),
+          _buildSettingTile(
             context,
             'About',
-            [
-              _buildTile(
-                context,
-                Icons.info,
-                'App Version',
-                'Version 1.0.0',
-                null,
-              ),
-              _buildTile(
-                context,
-                Icons.help,
-                'Help & Support',
-                'Get help and contact support',
-                () {
-                  // TODO: Navigate to support
-                },
-              ),
-            ],
+            'Version 1.0.0',
+            Icons.info_outline,
+            onTap: () {},
           ),
+
+          const SizedBox(height: 32),
+          OutlinedButton(
+            onPressed: () {
+              context.go('/login');
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Text('Log Out'),
+          ),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _buildSection(BuildContext context, String title, List<Widget> tiles) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+          letterSpacing: 1.0,
         ),
-        ...tiles,
-        const Divider(),
-      ],
+      ),
     );
   }
 
-  Widget _buildTile(
+  Widget _buildSettingTile(
     BuildContext context,
-    IconData icon,
     String title,
     String subtitle,
-    VoidCallback? onTap,
-  ) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: onTap != null ? const Icon(Icons.arrow_forward_ios, size: 16) : null,
-      onTap: onTap,
+    IconData icon, {
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: Colors.black87, size: 22),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+        subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      ),
     );
   }
 }

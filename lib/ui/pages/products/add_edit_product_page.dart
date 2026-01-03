@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../../models/product.dart';
 import '../../../providers/product_provider.dart';
-import '../../../providers/category_provider.dart';
-import '../../themes/app_theme.dart';
 
 class AddEditProductPage extends ConsumerStatefulWidget {
   final String? productId;
@@ -16,8 +14,7 @@ class AddEditProductPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<AddEditProductPage> createState() =>
-      _AddEditProductPageState();
+  ConsumerState<AddEditProductPage> createState() => _AddEditProductPageState();
 }
 
 class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
@@ -67,7 +64,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
       return;
     }
 
-    // Check if barcode is unique
     if (_barcodeController.text.isNotEmpty) {
       final barcodeExists = await ref
           .read(productNotifierProvider.notifier)
@@ -98,63 +94,35 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
         id: widget.productId ?? const Uuid().v4(),
         name: _nameController.text.trim(),
         price: double.parse(_priceController.text),
-        costPrice: _costPriceController.text.trim().isEmpty
+        stock: int.parse(_stockController.text),
+        category: _selectedCategory,
+        barcode: _barcodeController.text.isEmpty ? null : _barcodeController.text,
+        costPrice: _costPriceController.text.isEmpty
             ? null
             : double.parse(_costPriceController.text),
-        stock: int.parse(_stockController.text),
-        barcode: _barcodeController.text.trim().isEmpty
-            ? null
-            : _barcodeController.text.trim(),
-        category: _selectedCategory,
-        supplier: _supplierController.text.trim().isEmpty
-            ? null
-            : _supplierController.text.trim(),
-        createdAt: _existingProduct?.createdAt,
-        updatedAt: DateTime.now(),
+        supplier: _supplierController.text.isEmpty ? null : _supplierController.text,
+        sku: '', // Assuming SKU is generated or optional
       );
 
-      bool success;
       if (isEditing) {
-        success =
-            await ref.read(productNotifierProvider.notifier).updateProduct(
-                  product,
-                );
+        await ref.read(productNotifierProvider.notifier).updateProduct(product);
       } else {
-        success =
-            await ref.read(productNotifierProvider.notifier).addProduct(
-                  product,
-                );
+        await ref.read(productNotifierProvider.notifier).addProduct(product);
       }
 
       if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                isEditing
-                    ? 'Product updated successfully'
-                    : 'Product added successfully',
-              ),
-              backgroundColor: AppTheme.greenPantone,
-            ),
-          );
-          context.go('/products');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to save product'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isEditing ? 'Product updated' : 'Product added'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -168,254 +136,101 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   @override
   Widget build(BuildContext context) {
-    final categoriesAsync = ref.watch(categoriesListProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Product' : 'Add Product'),
-        backgroundColor: AppTheme.amberSae,
+        title: Text(isEditing ? 'Edit Product' : 'Add Product', style: const TextStyle(fontWeight: FontWeight.w600)),
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : _saveProduct,
+            child: _isLoading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           children: [
-            // Product Name
-            TextFormField(
+            _buildSectionTitle('Basic Info'),
+            _buildTextField(
               controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Product Name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.inventory_2),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter product name';
-                }
-                return null;
-              },
+              label: 'Product Name',
+              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
             ),
             const SizedBox(height: 16),
-
-            // Cost Price
-            TextFormField(
-              controller: _costPriceController,
-              decoration: InputDecoration(
-                labelText: 'Cost Price (RWF)',
-                hintText: 'Purchase/Wholesale Price',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _priceController,
+                    label: 'Selling Price',
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                  ),
                 ),
-                prefixIcon: const Icon(Icons.shopping_cart),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value != null && value.isNotEmpty) {
-                  final price = double.tryParse(value);
-                  if (price == null || price < 0) {
-                    return 'Please enter a valid cost price';
-                  }
-                }
-                return null;
-              },
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _stockController,
+                    label: 'Stock',
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-
-            // Selling Price
-            TextFormField(
-              controller: _priceController,
-              decoration: InputDecoration(
-                labelText: 'Selling Price (RWF)',
-                hintText: 'Retail/Customer Price',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.attach_money),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter selling price';
-                }
-                final price = double.tryParse(value);
-                if (price == null || price <= 0) {
-                  return 'Please enter a valid price';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Stock Quantity
-            TextFormField(
-              controller: _stockController,
-              decoration: InputDecoration(
-                labelText: 'Stock Quantity',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.numbers),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter stock quantity';
-                }
-                final stock = int.tryParse(value);
-                if (stock == null || stock < 0) {
-                  return 'Please enter a valid stock quantity';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Barcode
-            TextFormField(
-              controller: _barcodeController,
-              decoration: InputDecoration(
-                labelText: 'Barcode (Optional)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.qr_code),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.qr_code_scanner),
-                  onPressed: () {
-                    // TODO: Implement barcode scanning
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Barcode scanning not yet implemented'),
-                      ),
-                    );
-                  },
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Category
+            const SizedBox(height: 24),
+            
+            _buildSectionTitle('Category'),
             categoriesAsync.when(
-              data: (categories) {
-                final categoryNames = categories.map((c) => c.name).toList();
-                return DropdownButtonFormField<String>(
-                  value: _selectedCategory,
-                  decoration: InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    prefixIcon: const Icon(Icons.category),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Select Category'),
-                    ),
-                    ...categoryNames.map((categoryName) {
-                      return DropdownMenuItem(
-                        value: categoryName,
-                        child: Text(categoryName),
-                      );
-                    }),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedCategory = value;
-                    });
-                  },
-                );
-              },
-              loading: () => DropdownButtonFormField<String>(
-                value: _selectedCategory,
+              data: (categories) => DropdownButtonFormField<String>(
+                initialValue: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Category',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.category),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: null,
-                    child: Text('Loading...'),
-                  ),
-                ],
-                onChanged: null,
+                items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: (v) => setState(() => _selectedCategory = v),
               ),
-              error: (_, __) => TextFormField(
-                enabled: false,
-                decoration: InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.category),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Supplier
-            TextFormField(
-              controller: _supplierController,
-              decoration: InputDecoration(
-                labelText: 'Supplier (Optional)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.local_shipping),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
+              loading: () => const LinearProgressIndicator(),
+              error: (_, __) => const Text('Error loading categories'),
             ),
             const SizedBox(height: 24),
 
-            // Save Button
-            ElevatedButton(
-              onPressed: _isLoading ? null : _saveProduct,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: AppTheme.amberSae,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            _buildSectionTitle('Additional Details'),
+            _buildTextField(
+              controller: _barcodeController,
+              label: 'Barcode (Optional)',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.qr_code_scanner),
+                onPressed: () {
+                  // TODO: Implement scanner
+                },
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Text(
-                      isEditing ? 'Update Product' : 'Add Product',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _costPriceController,
+                    label: 'Cost Price',
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _supplierController,
+                    label: 'Supplier',
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -423,13 +238,33 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _priceController.dispose();
-    _stockController.dispose();
-    _barcodeController.dispose();
-    _supplierController.dispose();
-    super.dispose();
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    Widget? suffixIcon,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        suffixIcon: suffixIcon,
+      ),
+    );
   }
 }

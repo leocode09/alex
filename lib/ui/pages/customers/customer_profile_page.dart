@@ -28,90 +28,98 @@ class CustomerProfilePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Customer Profile'),
+        title: const Text('Customer Profile', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit_outlined),
             onPressed: () {
               // TODO: Implement edit customer
             },
           ),
         ],
       ),
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        children: [
-          // Customer Info Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // Header
+            Center(
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 40,
+                    backgroundColor: Colors.grey[200],
                     child: Text(
                       customer['name'].toString().substring(0, 1),
-                      style: const TextStyle(fontSize: 32),
+                      style: const TextStyle(fontSize: 32, color: Colors.black, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     customer['name'] as String,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
-                  Text(customer['phone'] as String),
-                  Text(customer['email'] as String),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  _buildInfoRow('Total Purchases', '${customer['totalPurchases']}'),
-                  _buildInfoRow('Total Spent', '${customer['totalSpent']} RWF'),
-                  _buildInfoRow('Member Since', customer['joinDate'] as String),
+                  const SizedBox(height: 4),
+                  Text(customer['phone'] as String, style: TextStyle(color: Colors.grey[600])),
+                  Text(customer['email'] as String, style: TextStyle(color: Colors.grey[600])),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 32),
 
-          // Recent Purchases
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+            // Stats
+            Row(
+              children: [
+                Expanded(child: _buildStatItem('Purchases', '${customer['totalPurchases']}')),
+                Container(width: 1, height: 40, color: Colors.grey[200]),
+                Expanded(child: _buildStatItem('Spent', '${customer['totalSpent']} RWF')),
+                Container(width: 1, height: 40, color: Colors.grey[200]),
+                Expanded(child: _buildStatItem('Joined', customer['joinDate'] as String)),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Recent Purchases
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Recent Purchases', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[200]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recent Purchases',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  ...recentPurchases.map((purchase) => ListTile(
-                        title: Text('${purchase['amount']} RWF'),
-                        subtitle: Text('${purchase['items']} items'),
-                        trailing: Text(purchase['date'] as String),
-                      )).toList(),
-                ],
+                children: recentPurchases.map((purchase) => Column(
+                  children: [
+                    ListTile(
+                      title: Text('${purchase['amount']} RWF', style: const TextStyle(fontWeight: FontWeight.w500)),
+                      subtitle: Text('${purchase['items']} items', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                      trailing: Text(purchase['date'] as String, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    ),
+                    if (purchase != recentPurchases.last) const Divider(height: 1, indent: 16, endIndent: 16),
+                  ],
+                )).toList(),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

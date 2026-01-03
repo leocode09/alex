@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../themes/app_theme.dart';
 
 class EmployeeProfilePage extends StatelessWidget {
   final String employeeId;
@@ -25,169 +24,118 @@ class EmployeeProfilePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Employee Profile'),
+        title: const Text('Employee Profile', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit_outlined),
             onPressed: () {
               // TODO: Implement edit employee
             },
           ),
         ],
       ),
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        children: [
-          // Employee Info Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // Header
+            Center(
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 40,
+                    backgroundColor: Colors.grey[200],
                     child: Text(
                       employee['name'].toString().substring(0, 1),
-                      style: const TextStyle(fontSize: 32),
+                      style: const TextStyle(fontSize: 32, color: Colors.black, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     employee['name'] as String,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.successContainer,
-                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       employee['role'] as String,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.success,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: Colors.green[700], fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Divider(),
-                  _buildInfoRow('Email', employee['email'] as String),
-                  _buildInfoRow('Phone', employee['phone'] as String),
-                  _buildInfoRow('Status', employee['status'] as String),
-                  _buildInfoRow('Join Date', employee['joinDate'] as String),
+                  Text(employee['email'] as String, style: TextStyle(color: Colors.grey[600])),
+                  Text(employee['phone'] as String, style: TextStyle(color: Colors.grey[600])),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 32),
 
-          // Performance Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+            // Stats
+            Row(
+              children: [
+                Expanded(child: _buildStatItem('Sales', '${employee['salesCount']}')),
+                Container(width: 1, height: 40, color: Colors.grey[200]),
+                Expanded(child: _buildStatItem('Revenue', '${(employee['totalSales'] as int) ~/ 1000}K RWF')),
+                Container(width: 1, height: 40, color: Colors.grey[200]),
+                Expanded(child: _buildStatItem('Joined', employee['joinDate'] as String)),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Performance
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Performance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[200]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Performance',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInfoRow('Total Sales', '${employee['salesCount']}'),
-                  _buildInfoRow('Total Revenue', '${employee['totalSales']} RWF'),
-                  _buildInfoRow('Average/Day', '${(employee['salesCount'] as int) / 30} sales'),
+                  _buildPerformanceRow('Total Sales', '${employee['salesCount']}'),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _buildPerformanceRow('Total Revenue', '${employee['totalSales']} RWF'),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _buildPerformanceRow('Average/Day', '${(employee['salesCount'] as int) ~/ 30} sales'),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Permissions Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Permissions',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildPermissionRow(context, 'Process Sales', true),
-                  _buildPermissionRow(context, 'Manage Inventory', false),
-                  _buildPermissionRow(context, 'View Reports', false),
-                  _buildPermissionRow(context, 'Manage Customers', true),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Actions
-          ElevatedButton.icon(
-            onPressed: () {
-              // TODO: Implement deactivate
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Deactivate Employee'),
-                  content: const Text('Are you sure you want to deactivate this employee?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-                      child: const Text('Deactivate'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            icon: const Icon(Icons.block),
-            label: const Text('Deactivate Employee'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
-  Widget _buildPermissionRow(BuildContext context, String permission, bool enabled) {
+  Widget _buildPerformanceRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.all(16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(permission),
-          Icon(
-            enabled ? Icons.check_circle : Icons.cancel,
-            color: enabled ? Theme.of(context).colorScheme.success : Theme.of(context).colorScheme.error,
-          ),
+          Text(label, style: TextStyle(color: Colors.grey[600])),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
         ],
       ),
     );

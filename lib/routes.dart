@@ -71,7 +71,9 @@ int _getCurrentIndex(String location) {
       location.startsWith('/store') ||
       location.startsWith('/hardware') ||
       location.startsWith('/promotions') ||
-      location.startsWith('/notifications')) return 4;
+      location.startsWith('/notifications')) {
+    return 4;
+  }
   return 0;
 }
 
@@ -100,8 +102,8 @@ final router = GoRouter(
         GoRoute(
           path: '/dashboard',
           name: 'dashboard',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: const DashboardPage(),
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: DashboardPage(),
           ),
         ),
 
@@ -109,8 +111,8 @@ final router = GoRouter(
         GoRoute(
           path: '/sales',
           name: 'sales',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: const SalesPage(),
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: SalesPage(),
           ),
         ),
 
@@ -118,8 +120,8 @@ final router = GoRouter(
         GoRoute(
           path: '/products',
           name: 'products',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: const ProductCatalogPage(),
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: ProductCatalogPage(),
           ),
           routes: [
             GoRoute(
@@ -174,8 +176,8 @@ final router = GoRouter(
         GoRoute(
           path: '/reports',
           name: 'reports',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: const ReportsPage(),
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: ReportsPage(),
           ),
         ),
 
@@ -183,8 +185,8 @@ final router = GoRouter(
         GoRoute(
           path: '/settings',
           name: 'settings',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: const SettingsPage(),
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: SettingsPage(),
           ),
         ),
 

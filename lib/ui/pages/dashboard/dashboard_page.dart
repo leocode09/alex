@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../themes/app_theme.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -130,24 +129,24 @@ class DashboardPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.amberLight.withOpacity(0.3),
+                    color: Colors.orange[50],
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.amberSae.withOpacity(0.3)),
+                    border: Border.all(color: Colors.orange[200]!),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: AppTheme.amberDark, size: 20),
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange[800], size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Low Stock: 4 items need restocking',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppTheme.amberDark,
+                                color: Colors.orange[800],
                                 fontWeight: FontWeight.w500,
                               ),
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.amberDark),
+                      Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orange[800]),
                     ],
                   ),
                 ),
@@ -297,7 +296,7 @@ class DashboardPage extends StatelessWidget {
           child: Text(
             'View All',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.primaryColor,
+                  color: Colors.black,
                   fontWeight: FontWeight.w600,
                 ),
           ),

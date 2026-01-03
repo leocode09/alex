@@ -5,6 +5,8 @@ class Product {
   final double? costPrice;
   final int stock;
   final String? barcode;
+  final String? sku;
+  final String? description;
   final String? category;
   final String? supplier;
   final DateTime createdAt;
@@ -17,6 +19,8 @@ class Product {
     this.costPrice,
     required this.stock,
     this.barcode,
+    this.sku,
+    this.description,
     this.category,
     this.supplier,
     DateTime? createdAt,
@@ -32,6 +36,8 @@ class Product {
       'costPrice': costPrice,
       'stock': stock,
       'barcode': barcode,
+      'sku': sku,
+      'description': description,
       'category': category,
       'supplier': supplier,
       'createdAt': createdAt.toIso8601String(),
@@ -47,6 +53,8 @@ class Product {
       costPrice: map['costPrice'] != null ? (map['costPrice'] as num).toDouble() : null,
       stock: map['stock'] as int,
       barcode: map['barcode'] as String?,
+      sku: map['sku'] as String?,
+      description: map['description'] as String?,
       category: map['category'] as String?,
       supplier: map['supplier'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),

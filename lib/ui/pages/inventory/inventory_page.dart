@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../themes/app_theme.dart';
 
 class InventoryPage extends StatelessWidget {
   const InventoryPage({super.key});
@@ -15,100 +14,114 @@ class InventoryPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inventory Management'),
+        title: const Text('Inventory', style: TextStyle(fontWeight: FontWeight.w600)),
+        centerTitle: false,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Low Stock Alerts Section
-          Card(
-            color: Theme.of(context).colorScheme.warningContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.warning, color: Theme.of(context).colorScheme.warning),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Low Stock Alerts',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ...lowStockItems.map((item) => ListTile(
-                        title: Text(item['name'] as String),
-                        subtitle: Text('Only ${item['stock']} left (Min: ${item['minStock']})'),
-                        trailing: ElevatedButton(
-                          onPressed: () {
-                            // TODO: Implement add stock
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Adding stock for ${item['name']}')),
-                            );
-                          },
-                          child: const Text('Add Stock'),
-                        ),
-                      )),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Quick Actions
+          // Summary
           Row(
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push('/products'),
-                  icon: const Icon(Icons.inventory),
-                  label: const Text('View All Products'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement bulk update
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Bulk update feature')),
-                    );
-                  },
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Bulk Update'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
+              Expanded(child: _buildSummaryCard(context, 'Total Items', '156', Icons.inventory_2_outlined)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildSummaryCard(context, 'Low Stock', '3', Icons.warning_amber_rounded, isWarning: true)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
-          // Inventory Summary
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // Low Stock Alerts
+          const Text('Low Stock Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[200]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: lowStockItems.map((item) => Column(
                 children: [
-                  Text(
-                    'Inventory Summary',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 20),
+                    ),
+                    title: Text(item['name'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
+                    subtitle: Text(
+                      '${item['stock']} left (Min: ${item['minStock']})',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    ),
+                    trailing: TextButton(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Adding stock for ${item['name']}')),
+                        );
+                      },
+                      child: const Text('Restock'),
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildSummaryRow('Total Products', '45'),
-                  _buildSummaryRow('Low Stock Items', '4', Theme.of(context).colorScheme.warning),
-                  _buildSummaryRow('Out of Stock', '0', Theme.of(context).colorScheme.error),
-                  _buildSummaryRow('Total Value', '2,450,000 RWF', Theme.of(context).colorScheme.success),
+                  if (item != lowStockItems.last) const Divider(height: 1, indent: 16, endIndent: 16),
                 ],
-              ),
+              )).toList(),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Actions
+          const Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          _buildActionTile(
+            context,
+            'View All Products',
+            Icons.inventory_2_outlined,
+            () => context.push('/products'),
+          ),
+          const SizedBox(height: 8),
+          _buildActionTile(
+            context,
+            'Bulk Update',
+            Icons.edit_outlined,
+            () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Bulk update feature')),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(BuildContext context, String title, String value, IconData icon, {bool isWarning = false}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isWarning ? Colors.orange[50] : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isWarning ? Colors.orange[100]! : Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: isWarning ? Colors.orange[700] : Colors.black87, size: 24),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: isWarning ? Colors.orange[900] : Colors.black87,
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              color: isWarning ? Colors.orange[800] : Colors.grey[600],
+              fontSize: 12,
             ),
           ),
         ],
@@ -116,23 +129,16 @@ class InventoryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, [Color? valueColor]) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 16)),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: valueColor,
-            ),
-          ),
-        ],
+  Widget _buildActionTile(BuildContext context, String title, IconData icon, VoidCallback onTap) {
+    return ListTile(
+      onTap: onTap,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(8),
       ),
+      leading: Icon(icon, color: Colors.black87),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
     );
   }
 }

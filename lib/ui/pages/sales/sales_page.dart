@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import '../../themes/app_theme.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
-import '../../../repositories/product_repository.dart';
-import '../../../repositories/sale_repository.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
   const SalesPage({super.key});

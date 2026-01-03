@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../themes/app_theme.dart';
 
 class EmployeeListPage extends StatefulWidget {
   const EmployeeListPage({super.key});
@@ -20,51 +19,44 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Employees'),
+        title: const Text('Employees', style: TextStyle(fontWeight: FontWeight.w600)),
+        centerTitle: false,
       ),
-      body: ListView.builder(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEmployeeDialog(context),
+        backgroundColor: Colors.black,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: ListView.separated(
         padding: const EdgeInsets.all(16.0),
         itemCount: _employees.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
         itemBuilder: (context, index) {
           final employee = _employees[index];
-          return Card(
-            child: ListTile(
-              leading: CircleAvatar(
-                child: Text(employee['name'].toString().substring(0, 1)),
+          return ListTile(
+            onTap: () => context.push('/employee/${employee['id']}'),
+            leading: CircleAvatar(
+              backgroundColor: Colors.grey[200],
+              child: Text(
+                employee['name'].toString().substring(0, 1),
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
               ),
-              title: Text(employee['name'] as String),
-              subtitle: Text(employee['role'] as String),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.successContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      employee['status'] as String,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.success,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
+            ),
+            title: Text(employee['name'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
+            subtitle: Text(employee['role'] as String, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(12),
               ),
-              onTap: () => context.push('/employee/${employee['id']}'),
+              child: Text(
+                employee['status'] as String,
+                style: TextStyle(color: Colors.green[700], fontSize: 10, fontWeight: FontWeight.bold),
+              ),
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Implement add employee
-          _showAddEmployeeDialog(context);
-        },
-        icon: const Icon(Icons.person_add),
-        label: const Text('Add Employee'),
       ),
     );
   }
@@ -77,7 +69,7 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Employee'),
+        title: const Text('Add Employee', style: TextStyle(fontWeight: FontWeight.bold)),
         content: StatefulBuilder(
           builder: (context, setState) {
             return Column(
@@ -85,37 +77,35 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Name',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: emailController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Email',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   ),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedRole,
-                  decoration: const InputDecoration(
+                  initialValue: selectedRole,
+                  decoration: InputDecoration(
                     labelText: 'Role',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   ),
-                  items: ['Cashier', 'Manager', 'Stock Clerk']
-                      .map((role) => DropdownMenuItem(
-                            value: role,
-                            child: Text(role),
-                          ))
+                  items: ['Cashier', 'Manager', 'Stock Clerk', 'Admin']
+                      .map((role) => DropdownMenuItem(value: role, child: Text(role)))
                       .toList(),
                   onChanged: (value) {
-                    setState(() {
-                      selectedRole = value!;
-                    });
+                    if (value != null) setState(() => selectedRole = value);
                   },
                 ),
               ],
@@ -125,16 +115,17 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () {
+              // TODO: Implement add employee
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Employee added')),
               );
             },
-            child: const Text('Add'),
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
           ),
         ],
       ),

@@ -1,178 +1,150 @@
 import 'package:flutter/material.dart';
-import '../../themes/app_theme.dart';
 
-class PromotionsPage extends StatelessWidget {
+class PromotionsPage extends StatefulWidget {
   const PromotionsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final promotions = [
-      {
-        'title': '10% OFF on Bread',
-        'description': 'Valid until Dec 31, 2024',
-        'type': 'Discount',
-        'active': true,
-      },
-      {
-        'title': 'Buy 2 Get 1 Free - Soda',
-        'description': 'Valid for all soda products',
-        'type': 'Bundle',
-        'active': true,
-      },
-      {
-        'title': 'Happy Hour Special',
-        'description': '20% off 5PM - 7PM',
-        'type': 'Time-based',
-        'active': false,
-      },
-    ];
+  State<PromotionsPage> createState() => _PromotionsPageState();
+}
 
+class _PromotionsPageState extends State<PromotionsPage> {
+  // Mock data
+  final List<Map<String, dynamic>> _promotions = [
+    {
+      'title': '10% OFF on Bread',
+      'description': 'Valid until Dec 31, 2024',
+      'type': 'Discount',
+      'active': true,
+      'code': 'BREAD10',
+    },
+    {
+      'title': 'Buy 2 Get 1 Free - Soda',
+      'description': 'Valid for all soda products',
+      'type': 'Bundle',
+      'active': true,
+      'code': 'SODA21',
+    },
+    {
+      'title': 'Happy Hour Special',
+      'description': '20% off 5PM - 7PM',
+      'type': 'Time-based',
+      'active': false,
+      'code': 'HAPPY20',
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Loyalty & Promotions'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // Active Promotions
-          ...promotions.map((promo) {
-            return Card(
-              child: ListTile(
-                leading: Icon(
-                  Icons.local_offer,
-                  color: promo['active'] as bool ? Theme.of(context).colorScheme.success : Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-                  size: 32,
-                ),
-                title: Text(promo['title'] as String),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(promo['description'] as String),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        promo['type'] as String,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                trailing: Switch(
-                  value: promo['active'] as bool,
-                  onChanged: (value) {
-                    // TODO: Toggle promotion status
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          value ? 'Promotion activated' : 'Promotion deactivated',
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            );
-          }).toList(),
-          const SizedBox(height: 16),
-
-          // Loyalty Program Card
-          Card(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.card_giftcard, color: Theme.of(context).colorScheme.secondary),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Loyalty Program',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('Reward your loyal customers with points and special offers'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      // TODO: Configure loyalty program
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Configure loyalty program')),
-                      );
-                    },
-                    child: const Text('Configure Program'),
-                  ),
-                ],
-              ),
-            ),
+        title: const Text('Promotions', style: TextStyle(fontWeight: FontWeight.w600)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              // TODO: Add promotion
+            },
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showAddPromotionDialog(context);
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Add Promotion'),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildSectionHeader('Active Promotions'),
+          ..._promotions.where((p) => p['active'] == true).map(_buildPromotionTile),
+
+          const SizedBox(height: 24),
+          _buildSectionHeader('Inactive'),
+          ..._promotions.where((p) => p['active'] == false).map(_buildPromotionTile),
+        ],
       ),
     );
   }
 
-  void _showAddPromotionDialog(BuildContext context) {
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+          letterSpacing: 1.0,
+        ),
+      ),
+    );
+  }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Promotion'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+  Widget _buildPromotionTile(Map<String, dynamic> promo) {
+    final isActive = promo['active'] as bool;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.green[50] : Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.local_offer_outlined,
+            color: isActive ? Colors.green[700] : Colors.grey[500],
+            size: 24,
+          ),
+        ),
+        title: Text(promo['title'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Title',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
+            const SizedBox(height: 4),
+            Text(promo['description'] as String, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Text(
+                    promo['code'] as String,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    promo['type'] as String,
+                    style: TextStyle(color: Colors.blue[700], fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Promotion added')),
-              );
-            },
-            child: const Text('Add'),
-          ),
-        ],
+        trailing: Switch(
+          value: isActive,
+          activeThumbColor: Colors.black,
+          onChanged: (value) {
+            setState(() {
+              promo['active'] = value;
+            });
+          },
+        ),
       ),
     );
   }

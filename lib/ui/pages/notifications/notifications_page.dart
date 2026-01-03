@@ -1,30 +1,30 @@
 import 'package:flutter/material.dart';
-import '../../themes/app_theme.dart';
 
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Mock data
     final notifications = [
       {
         'title': 'Low Stock Alert',
         'message': 'Sugar is running low (12 items left)',
-        'time': '2 hours ago',
+        'time': '2h ago',
         'type': 'warning',
         'read': false,
       },
       {
         'title': 'New Sale',
         'message': 'Sale completed: 5,000 RWF',
-        'time': '3 hours ago',
+        'time': '3h ago',
         'type': 'success',
         'read': true,
       },
       {
         'title': 'System Update',
         'message': 'New version available',
-        'time': '1 day ago',
+        'time': '1d ago',
         'type': 'info',
         'read': true,
       },
@@ -32,102 +32,89 @@ class NotificationsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
-          TextButton(
+          IconButton(
+            icon: const Icon(Icons.done_all),
             onPressed: () {
               // TODO: Mark all as read
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All notifications marked as read')),
-              );
             },
-            child: const Text('Mark all read'),
           ),
         ],
       ),
-      body: notifications.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.notifications_off, size: 64, color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: 16),
-                  const Text('No notifications'),
-                ],
+      body: ListView.separated(
+        itemCount: notifications.length,
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final notification = notifications[index];
+          final isRead = notification['read'] as bool;
+          
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            tileColor: isRead ? Colors.white : Colors.blue[50]!.withOpacity(0.2),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
               ),
-            )
-          : ListView.builder(
-              itemCount: notifications.length,
-              itemBuilder: (context, index) {
-                final notification = notifications[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  color: notification['read'] as bool ? null : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: _getNotificationColor(notification['type'] as String),
-                      child: Icon(
-                        _getNotificationIcon(notification['type'] as String),
-                        color: Colors.white,
-                      ),
-                    ),
-                    title: Text(
-                      notification['title'] as String,
-                      style: TextStyle(
-                        fontWeight: notification['read'] as bool
-                            ? FontWeight.normal
-                            : FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(notification['message'] as String),
-                        const SizedBox(height: 4),
-                        Text(
-                          notification['time'] as String,
-                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                    isThreeLine: true,
-                    onTap: () {
-                      // TODO: Handle notification tap
-                    },
-                  ),
-                );
-              },
+              child: Icon(
+                _getIcon(notification['type'] as String),
+                size: 20,
+                color: Colors.black87,
+              ),
             ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    notification['title'] as String,
+                    style: TextStyle(
+                      fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                Text(
+                  notification['time'] as String,
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
+              ],
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                notification['message'] as String,
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+            ),
+            trailing: !isRead
+                ? Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                : null,
+            onTap: () {},
+          );
+        },
+      ),
     );
   }
 
-  Color _getNotificationColor(String type) {
+  IconData _getIcon(String type) {
     switch (type) {
       case 'warning':
-        return AppTheme.amberSae;
+        return Icons.warning_amber_rounded;
       case 'success':
-        return AppTheme.greenPantone;
+        return Icons.check_circle_outline;
       case 'info':
-        return AppTheme.greenDark;
-      case 'error':
-        return AppTheme.amberDark;
+        return Icons.info_outline;
       default:
-        return AppTheme.greenDark;
-    }
-  }
-
-  IconData _getNotificationIcon(String type) {
-    switch (type) {
-      case 'warning':
-        return Icons.warning;
-      case 'success':
-        return Icons.check_circle;
-      case 'info':
-        return Icons.info;
-      case 'error':
-        return Icons.error;
-      default:
-        return Icons.notifications;
+        return Icons.notifications_outlined;
     }
   }
 }

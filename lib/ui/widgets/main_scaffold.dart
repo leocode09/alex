@@ -17,45 +17,41 @@ class MainScaffold extends StatelessWidget {
       body: child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
+          border: Border(top: BorderSide(color: Colors.grey[200]!, width: 1)),
+          color: Colors.white,
         ),
         child: NavigationBar(
           selectedIndex: currentIndex,
           onDestinationSelected: (index) => _onTap(context, index),
           elevation: 0,
-          height: 70,
+          height: 65,
+          backgroundColor: Colors.white,
+          indicatorColor: Colors.black.withOpacity(0.05),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          animationDuration: const Duration(milliseconds: 300),
-          destinations: [
+          destinations: const [
             NavigationDestination(
               icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
+              selectedIcon: Icon(Icons.dashboard, color: Colors.black),
               label: 'Dashboard',
             ),
             NavigationDestination(
               icon: Icon(Icons.point_of_sale_outlined),
-              selectedIcon: Icon(Icons.point_of_sale),
+              selectedIcon: Icon(Icons.point_of_sale, color: Colors.black),
               label: 'Sales',
             ),
             NavigationDestination(
               icon: Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2),
+              selectedIcon: Icon(Icons.inventory_2, color: Colors.black),
               label: 'Products',
             ),
             NavigationDestination(
               icon: Icon(Icons.assessment_outlined),
-              selectedIcon: Icon(Icons.assessment),
+              selectedIcon: Icon(Icons.assessment, color: Colors.black),
               label: 'Reports',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
+              selectedIcon: Icon(Icons.settings, color: Colors.black),
               label: 'More',
             ),
           ],
