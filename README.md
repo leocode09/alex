@@ -1,6 +1,6 @@
 # pos_system
 
-[![Build Android APK](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/actions/workflows/build-apk.yml/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/actions/workflows/build-apk.yml)
+[![Build Android APK](https://github.com/leocode09/alex/actions/workflows/build-apk.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/build-apk.yml)
 
 A new Flutter project.
 
@@ -30,6 +30,6 @@ This project uses GitHub Actions to automatically build Android APKs. The workfl
   - Actions tab with detailed logs and summaries
 
 To view build status and download APKs:
-1. Go to the **Actions** tab in your GitHub repository
+1. Go to the [Actions tab](https://github.com/leocode09/alex/actions) in your GitHub repository
 2. Click on the latest workflow run
 3. Download the `release-apk` artifact from the workflow summary
