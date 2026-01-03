@@ -146,15 +146,4 @@ class SaleRepository {
     
     return Map.fromEntries(sortedEntries.take(limit));
   }
-
-  // Delete sale (for corrections)
-  Future<bool> deleteSale(String id) async {
-    final sales = await getAllSales();
-    final initialLength = sales.length;
-    sales.removeWhere((s) => s.id == id);
-    
-    if (sales.length == initialLength) return false;
-    
-    return await _saveSales(sales);
-  }
 }

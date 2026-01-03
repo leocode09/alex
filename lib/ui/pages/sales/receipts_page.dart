@@ -6,94 +6,102 @@ import '../../../models/sale.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/printer_provider.dart';
 
-class ReceiptsPage extends ConsumerStatefulWidget {
-  const ReceiptsPage({super.key});
+class ReceiptsTab extends ConsumerStatefulWidget {
+  const ReceiptsTab({super.key});
 
   @override
-  ConsumerState<ReceiptsPage> createState() => _ReceiptsPageState();
+  ConsumerState<ReceiptsTab> createState() => _ReceiptsTabState();
 }
 
-class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
+class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
   @override
   Widget build(BuildContext context) {
     final salesAsync = ref.watch(salesProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Receipts'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.print),
-            onPressed: () => _showPrinterDialog(context),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () => _showPrinterDialog(context),
+                icon: const Icon(Icons.print),
+                label: const Text('Connect Printer'),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: salesAsync.when(
-        data: (sales) {
-          if (sales.isEmpty) {
-            return const Center(child: Text('No receipts found'));
-          }
-          return ListView.builder(
-            itemCount: sales.length,
-            itemBuilder: (context, index) {
-              final sale = sales[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ExpansionTile(
-                  title: Text(
-                    '${sale.total.toStringAsFixed(0)} RWF',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${DateFormat('MMM d, y HH:mm').format(sale.createdAt)} • ${sale.paymentMethod}',
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Items:', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          ...sale.items.map((item) => Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('${item.quantity}x ${item.productName}'),
-                                  Text('${item.subtotal.toStringAsFixed(0)} RWF'),
-                                ],
-                              )),
-                          const Divider(),
-                          if (sale.customerId != null)
-                            Text('Customer: ${sale.customerId}'),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+        ),
+        Expanded(
+          child: salesAsync.when(
+            data: (sales) {
+              if (sales.isEmpty) {
+                return const Center(child: Text('No receipts found'));
+              }
+              return ListView.builder(
+                itemCount: sales.length,
+                itemBuilder: (context, index) {
+                  final sale = sales[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: ExpansionTile(
+                      title: Text(
+                        '${sale.total.toStringAsFixed(0)} RWF',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        '${DateFormat('MMM d, y HH:mm').format(sale.createdAt)} • ${sale.paymentMethod}',
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              TextButton.icon(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                label: const Text('Delete', style: TextStyle(color: Colors.red)),
-                                onPressed: () => _confirmDelete(context, sale),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.print),
-                                label: const Text('Print'),
-                                onPressed: () => _printReceipt(sale),
+                              const Text('Items:', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              ...sale.items.map((item) => Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('${item.quantity}x ${item.productName}'),
+                                      Text('${item.subtotal.toStringAsFixed(0)} RWF'),
+                                    ],
+                                  )),
+                              const Divider(),
+                              if (sale.customerId != null)
+                                Text('Customer: ${sale.customerId}'),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                    onPressed: () => _confirmDelete(context, sale),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.print),
+                                    label: const Text('Print'),
+                                    onPressed: () => _printReceipt(sale),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               );
             },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
-      ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(child: Text('Error: $err')),
+          ),
+        ),
+      ],
     );
   }
 
@@ -178,14 +186,29 @@ class PrinterDialog extends ConsumerStatefulWidget {
 }
 
 class _PrinterDialogState extends ConsumerState<PrinterDialog> {
+  bool _isConnecting = false;
+  String? _error;
+
   @override
   void initState() {
     super.initState();
-    ref.read(printerServiceProvider).startScan();
+    _startScan();
+  }
+
+  Future<void> _startScan() async {
+    try {
+      setState(() => _error = null);
+      await ref.read(printerServiceProvider).startScan();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e.toString());
+      }
+    }
   }
 
   @override
   void dispose() {
+    // Use read to avoid watching in dispose
     ref.read(printerServiceProvider).stopScan();
     super.dispose();
   }
@@ -199,45 +222,102 @@ class _PrinterDialogState extends ConsumerState<PrinterDialog> {
       content: SizedBox(
         width: double.maxFinite,
         height: 300,
-        child: StreamBuilder<List<ScanResult>>(
-          stream: printerService.scanResults,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final results = snapshot.data!;
-            if (results.isEmpty) {
-              return const Center(child: Text('No devices found'));
-            }
-            return ListView.builder(
-              itemCount: results.length,
-              itemBuilder: (context, index) {
-                final result = results[index];
-                final device = result.device;
-                return ListTile(
-                  title: Text(device.platformName.isNotEmpty ? device.platformName : 'Unknown Device'),
-                  subtitle: Text(device.remoteId.toString()),
-                  onTap: () async {
-                    try {
-                      await printerService.connect(device);
-                      if (mounted) Navigator.pop(context);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Connected to ${device.platformName}')),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Connection failed: $e')),
-                        );
-                      }
+        child: Column(
+          children: [
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+            if (_isConnecting)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else
+              Expanded(
+                child: StreamBuilder<BluetoothAdapterState>(
+                  stream: printerService.adapterState,
+                  initialData: BluetoothAdapterState.unknown,
+                  builder: (context, stateSnapshot) {
+                    if (stateSnapshot.data != BluetoothAdapterState.on) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.bluetooth_disabled, size: 48, color: Colors.grey),
+                            const SizedBox(height: 16),
+                            Text('Bluetooth is ${stateSnapshot.data?.name ?? "unknown"}'),
+                            if (stateSnapshot.data == BluetoothAdapterState.off)
+                              TextButton(
+                                onPressed: _startScan,
+                                child: const Text('Turn On & Scan'),
+                              ),
+                          ],
+                        ),
+                      );
                     }
+
+                    return StreamBuilder<List<ScanResult>>(
+                      stream: printerService.scanResults,
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        
+                        final results = snapshot.data!
+                            .where((r) => r.device.platformName.isNotEmpty)
+                            .toList();
+                            
+                        if (results.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('No devices found'),
+                                TextButton(
+                                  onPressed: _startScan,
+                                  child: const Text('Retry Scan'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: results.length,
+                          itemBuilder: (context, index) {
+                            final result = results[index];
+                            final device = result.device;
+                            return ListTile(
+                              leading: const Icon(Icons.print),
+                              title: Text(device.platformName),
+                              subtitle: Text(device.remoteId.toString()),
+                              onTap: () async {
+                                setState(() => _isConnecting = true);
+                                try {
+                                  await printerService.connect(device);
+                                  if (mounted) Navigator.pop(context);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Connected to ${device.platformName}')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isConnecting = false;
+                                      _error = 'Connection failed: $e';
+                                    });
+                                  }
+                                }
+                              },
+                            );
+                          },
+                        );
+                      },
+                    );
                   },
-                );
-              },
-            );
-          },
+                ),
+              ),
+          ],
         ),
       ),
       actions: [
