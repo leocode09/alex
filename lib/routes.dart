@@ -51,6 +51,9 @@ import 'ui/pages/promotions/promotions_page.dart';
 // Notifications
 import 'ui/pages/notifications/notifications_page.dart';
 
+// Sync
+import 'ui/pages/sync_page.dart';
+
 // Navigation state key
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -272,6 +275,13 @@ final router = GoRouter(
           path: '/notifications',
           name: 'notifications',
           builder: (context, state) => const NotificationsPage(),
+        ),
+
+        // Sync
+        GoRoute(
+          path: '/sync',
+          name: 'sync',
+          builder: (context, state) => const SyncPage(),
         ),
       ],
     ),

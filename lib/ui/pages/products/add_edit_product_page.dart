@@ -309,7 +309,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
             // Category
             categoriesAsync.when(
               data: (categories) {
-                final categoryNames = categories.map((c) => c.name).toList();
                 return DropdownButtonFormField<String>(
                   value: _selectedCategory,
                   decoration: InputDecoration(
@@ -326,8 +325,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                       value: null,
                       child: Text('Select Category'),
                     ),
-                    ...categoryNames.map((categoryName) {
-                      return DropdownMenuItem(
+                    ...categories.map((categoryName) {
+                      return DropdownMenuItem<String>(
                         value: categoryName,
                         child: Text(categoryName),
                       );

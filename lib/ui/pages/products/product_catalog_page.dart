@@ -259,7 +259,7 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                   itemBuilder: (context, index) {
                     final category = allCategories[index];
                     final isSelected = category == 'All'
-                        ? selectedCategory == null || selectedCategory.isEmpty
+                        ? selectedCategory == 'All'
                         : selectedCategory == category;
 
                     return Padding(
@@ -270,7 +270,7 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         onSelected: (selected) {
                           if (category == 'All') {
                             ref.read(selectedCategoryProvider.notifier).state =
-                                null;
+                                'All';
                           } else {
                             ref.read(selectedCategoryProvider.notifier).state =
                                 category;
