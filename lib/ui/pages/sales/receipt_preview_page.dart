@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../models/sale.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../providers/printer_provider.dart';
+import '../../../providers/sale_provider.dart';
 import 'receipts_page.dart'; // For PrinterDialog
 
 class ReceiptPreviewPage extends ConsumerStatefulWidget {
@@ -16,6 +17,14 @@ class ReceiptPreviewPage extends ConsumerStatefulWidget {
 }
 
 class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
+  late Sale _sale;
+
+  @override
+  void initState() {
+    super.initState();
+    _sale = widget.sale;
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(receiptSettingsProvider);
@@ -25,16 +34,19 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
         title: const Text('Receipt', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.home),
-            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.edit),
+            tooltip: 'Edit Sale Details',
+            onPressed: () => _showEditSaleDialog(context),
           ),
           IconButton(
             icon: const Icon(Icons.store),
+            tooltip: 'Shop Settings',
             onPressed: () => _showSettingsDialog(context, settings),
           ),
           IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => _showSettingsDialog(context, settings),
+            icon: const Icon(Icons.print),
+            tooltip: 'Print',
+            onPressed: () => _printReceipt(settings),
           ),
         ],
       ),
@@ -93,19 +105,29 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            DateFormat('d MMM y HH:mm').format(widget.sale.createdAt),
+                            DateFormat('d MMM y HH:mm').format(_sale.createdAt),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            '#${widget.sale.id.substring(0, 6)}',
+                            '#${_sale.id.substring(0, 6)}',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                       const Divider(thickness: 1, height: 24, color: Colors.black),
 
+                      // Customer Info
+                      if (_sale.customerId != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Customer: ${_sale.customerId}',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+
                       // Items
-                      ...widget.sale.items.map((item) => Padding(
+                      ..._sale.items.map((item) => Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +167,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                         children: [
                           const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           Text(
-                            widget.sale.total.toStringAsFixed(2),
+                            _sale.total.toStringAsFixed(2),
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -154,9 +176,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(widget.sale.paymentMethod, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(_sale.paymentMethod, style: const TextStyle(fontWeight: FontWeight.bold)),
                           Text(
-                            widget.sale.total.toStringAsFixed(0),
+                            _sale.total.toStringAsFixed(0),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -248,6 +270,121 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
+  void _showEditSaleDialog(BuildContext context) {
+    final customerController = TextEditingController(text: _sale.customerId ?? '');
+    String paymentMethod = _sale.paymentMethod;
+    DateTime selectedDate = _sale.createdAt;
+    TimeOfDay selectedTime = TimeOfDay.fromDateTime(_sale.createdAt);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Sale Details'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: customerController,
+                  decoration: const InputDecoration(labelText: 'Customer Name'),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: paymentMethod,
+                  decoration: const InputDecoration(labelText: 'Payment Method'),
+                  items: ['Cash', 'Card', 'Mobile Money', 'Other']
+                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                      .toList(),
+                  onChanged: (val) => setState(() => paymentMethod = val!),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  title: const Text('Date & Time'),
+                  subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(
+                    DateTime(
+                      selectedDate.year,
+                      selectedDate.month,
+                      selectedDate.day,
+                      selectedTime.hour,
+                      selectedTime.minute,
+                    ),
+                  )),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (date != null) {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: selectedTime,
+                      );
+                      if (time != null) {
+                        setState(() {
+                          selectedDate = date;
+                          selectedTime = time;
+                        });
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newDateTime = DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  selectedTime.hour,
+                  selectedTime.minute,
+                );
+                
+                final updatedSale = Sale(
+                  id: _sale.id,
+                  items: _sale.items,
+                  total: _sale.total,
+                  paymentMethod: paymentMethod,
+                  customerId: customerController.text.isEmpty ? null : customerController.text,
+                  employeeId: _sale.employeeId,
+                  createdAt: newDateTime,
+                );
+
+                await ref.read(saleRepositoryProvider).updateSale(updatedSale);
+                
+                // Refresh providers
+                ref.invalidate(salesProvider);
+                ref.invalidate(todaysSalesCountProvider);
+                ref.invalidate(todaysRevenueProvider);
+                
+                if (mounted) {
+                  this.setState(() {
+                    _sale = updatedSale;
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sale updated successfully')),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showSettingsDialog(BuildContext context, ReceiptSettings currentSettings) {
     final shopNameController = TextEditingController(text: currentSettings.shopName);
     final address1Controller = TextEditingController(text: currentSettings.addressLine1);
@@ -314,7 +451,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
   Future<void> _printReceipt(ReceiptSettings settings) async {
     final printerService = ref.read(printerServiceProvider);
     try {
-      await printerService.printReceipt(widget.sale, settings);
+      await printerService.printReceipt(_sale, settings);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Printing...')),

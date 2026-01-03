@@ -71,6 +71,22 @@ class SaleRepository {
     }
   }
 
+  // Update sale
+  Future<bool> updateSale(Sale updatedSale) async {
+    try {
+      final sales = await getAllSales();
+      final index = sales.indexWhere((s) => s.id == updatedSale.id);
+      if (index != -1) {
+        sales[index] = updatedSale;
+        return await _saveSales(sales);
+      }
+      return false;
+    } catch (e) {
+      print('Error updating sale: $e');
+      return false;
+    }
+  }
+
   // Get sales by date range
   Future<List<Sale>> getSalesByDateRange(DateTime start, DateTime end) async {
     final sales = await getAllSales();
