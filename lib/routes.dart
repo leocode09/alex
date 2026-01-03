@@ -14,6 +14,7 @@ import 'ui/pages/dashboard/dashboard_page.dart';
 
 // Sales
 import 'ui/pages/sales/sales_page.dart';
+import 'ui/pages/sales/receipts_page.dart';
 
 // Products
 import 'ui/pages/products/product_catalog_page.dart';
@@ -137,6 +138,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           pageBuilder: (context, state) => const NoTransitionPage(
             child: SalesPage(),
           ),
+          routes: [
+            GoRoute(
+              path: 'receipts',
+              name: 'receipts',
+              builder: (context, state) => const ReceiptsPage(),
+            ),
+          ],
         ),
 
         // Products

@@ -59,6 +59,18 @@ class SaleRepository {
     }
   }
 
+  // Delete sale
+  Future<bool> deleteSale(String id) async {
+    try {
+      final sales = await getAllSales();
+      sales.removeWhere((s) => s.id == id);
+      return await _saveSales(sales);
+    } catch (e) {
+      print('Error deleting sale: $e');
+      return false;
+    }
+  }
+
   // Get sales by date range
   Future<List<Sale>> getSalesByDateRange(DateTime start, DateTime end) async {
     final sales = await getAllSales();

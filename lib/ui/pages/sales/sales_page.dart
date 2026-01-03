@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -412,6 +413,13 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
       appBar: AppBar(
         title: const Text('Sales', style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            onPressed: () => context.push('/sales/receipts'),
+            tooltip: 'View Receipts',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: Theme.of(context).colorScheme.primary,
