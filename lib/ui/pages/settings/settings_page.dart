@@ -142,7 +142,7 @@ class SettingsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
-        leading: Icon(icon, color: Colors.black87, size: 22),
+        leading: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
         subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),

@@ -107,7 +107,7 @@ class InventoryPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: isWarning ? Colors.orange[700] : Colors.black87, size: 24),
+          Icon(icon, color: isWarning ? Colors.orange[700] : Theme.of(context).colorScheme.primary, size: 24),
           const SizedBox(height: 12),
           Text(
             value,
@@ -136,7 +136,7 @@ class InventoryPage extends StatelessWidget {
         side: BorderSide(color: Colors.grey[200]!),
         borderRadius: BorderRadius.circular(8),
       ),
-      leading: Icon(icon, color: Colors.black87),
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
     );

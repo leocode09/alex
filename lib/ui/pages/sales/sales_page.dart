@@ -23,22 +23,10 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   final TextEditingController _discountController = TextEditingController();
   late TabController _tabController;
   
-  int _transactionsToday = 0;
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadTodaysTransactions();
-  }
-
-  void _loadTodaysTransactions() async {
-    final count = await ref.read(todaysSalesCountProvider.future);
-    if (mounted) {
-      setState(() {
-        _transactionsToday = count;
-      });
-    }
   }
 
   double get _subtotal {
@@ -156,8 +144,6 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         _discountController.clear();
         _paymentMethod = 'Cash';
       });
-      
-      _loadTodaysTransactions();
 
       if (mounted) Navigator.of(context).pop(); // Close loading
       await Future.delayed(const Duration(milliseconds: 100));
@@ -268,7 +254,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
               ElevatedButton(
                 onPressed: () => _processPayment(_paymentMethod),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -291,8 +277,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black : Colors.white,
-          border: Border.all(color: isSelected ? Colors.black : Colors.grey[300]!),
+          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white,
+          border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -337,9 +323,9 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         centerTitle: false,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.black,
+          labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.black,
+          indicatorColor: Theme.of(context).colorScheme.primary,
           indicatorSize: TabBarIndicatorSize.label,
           tabs: [
             const Tab(text: 'Products'),
@@ -391,7 +377,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                           if (selected) setState(() => _selectedCategory = category);
                         },
                         backgroundColor: Colors.white,
-                        selectedColor: Colors.black,
+                        selectedColor: Theme.of(context).colorScheme.primary,
                         labelStyle: TextStyle(
                           color: isSelected ? Colors.white : Colors.black,
                           fontSize: 12,
@@ -607,8 +593,6 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                         child: ElevatedButton(
                           onPressed: _checkout,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),

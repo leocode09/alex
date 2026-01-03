@@ -26,7 +26,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddCustomerDialog(context),
-        backgroundColor: Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Column(
@@ -65,7 +65,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
                     backgroundColor: Colors.grey[200],
                     child: Text(
                       customer['name'].toString().substring(0, 1),
-                      style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
                     ),
                   ),
                   title: Text(customer['name'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -127,7 +127,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
                 const SnackBar(content: Text('Customer added')),
               );
             },
-            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+            child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),

@@ -138,7 +138,7 @@ class _PromotionsPageState extends State<PromotionsPage> {
         ),
         trailing: Switch(
           value: isActive,
-          activeThumbColor: Colors.black,
+          activeThumbColor: Theme.of(context).colorScheme.primary,
           onChanged: (value) {
             setState(() {
               promo['active'] = value;

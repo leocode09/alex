@@ -39,7 +39,6 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
   Widget build(BuildContext context) {
     final filteredProductsAsync = ref.watch(filteredProductsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
-    final totalCountAsync = ref.watch(totalProductsCountProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
 
     return Scaffold(
@@ -122,8 +121,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? Colors.black : Colors.white,
-                                  border: Border.all(color: isSelected ? Colors.black : Colors.grey[300]!),
+                                  color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white,
+                                  border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Text(

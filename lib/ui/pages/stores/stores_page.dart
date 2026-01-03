@@ -22,7 +22,7 @@ class StoresPage extends StatelessWidget {
             const SnackBar(content: Text('Add store feature')),
           );
         },
-        backgroundColor: Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: ListView.separated(
@@ -40,7 +40,7 @@ class StoresPage extends StatelessWidget {
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.store_outlined, color: Colors.black87, size: 20),
+              child: Icon(Icons.store_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
             ),
             title: Text(store['name'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
             subtitle: Text(store['location'] as String, style: TextStyle(color: Colors.grey[500], fontSize: 12)),

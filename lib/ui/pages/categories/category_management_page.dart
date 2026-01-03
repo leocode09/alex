@@ -23,7 +23,7 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditDialog(),
-        backgroundColor: Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: categoriesAsync.when(
@@ -198,7 +198,7 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                   );
                 }
               },
-              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+              child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
             ),
           ],
         ),

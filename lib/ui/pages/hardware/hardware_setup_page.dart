@@ -51,8 +51,8 @@ class _HardwareSetupPageState extends State<HardwareSetupPage> {
             label: const Text('Add New Device'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              side: const BorderSide(color: Colors.black),
-              foregroundColor: Colors.black,
+              side: BorderSide(color: Theme.of(context).colorScheme.primary),
+              foregroundColor: Theme.of(context).colorScheme.primary,
             ),
           ),
         ],

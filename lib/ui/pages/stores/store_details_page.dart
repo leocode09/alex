@@ -147,7 +147,7 @@ class StoreDetailsPage extends StatelessWidget {
           color: Colors.grey[50],
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: Colors.black87, size: 20),
+        child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),

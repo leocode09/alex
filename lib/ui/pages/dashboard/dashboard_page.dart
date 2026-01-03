@@ -208,7 +208,7 @@ class DashboardPage extends StatelessWidget {
                 value,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
               ),
               if (unit.isNotEmpty) ...[
@@ -265,7 +265,7 @@ class DashboardPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey[200]!),
               ),
-              child: Icon(icon, color: Colors.black87, size: 24),
+              child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
             ),
             const SizedBox(height: 8),
             Text(
@@ -296,7 +296,7 @@ class DashboardPage extends StatelessWidget {
           child: Text(
             'View All',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.w600,
                 ),
           ),

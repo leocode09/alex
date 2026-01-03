@@ -28,7 +28,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   String? _selectedCategory;
   bool _isLoading = false;
-  Product? _existingProduct;
 
   bool get isEditing => widget.productId != null;
 
@@ -47,7 +46,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
     if (product != null) {
       setState(() {
-        _existingProduct = product;
         _nameController.text = product.name;
         _priceController.text = product.price.toStringAsFixed(0);
         _costPriceController.text = product.costPrice?.toStringAsFixed(0) ?? '';

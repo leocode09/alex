@@ -51,7 +51,7 @@ class NotificationsPage extends StatelessWidget {
           
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            tileColor: isRead ? Colors.white : Colors.blue[50]!.withOpacity(0.2),
+            tileColor: isRead ? Colors.white : Theme.of(context).colorScheme.primary.withOpacity(0.05),
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -61,7 +61,7 @@ class NotificationsPage extends StatelessWidget {
               child: Icon(
                 _getIcon(notification['type'] as String),
                 size: 20,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             title: Row(
@@ -92,8 +92,8 @@ class NotificationsPage extends StatelessWidget {
                 ? Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
                   )

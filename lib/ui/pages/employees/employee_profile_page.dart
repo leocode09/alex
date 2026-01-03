@@ -47,7 +47,7 @@ class EmployeeProfilePage extends StatelessWidget {
                     backgroundColor: Colors.grey[200],
                     child: Text(
                       employee['name'].toString().substring(0, 1),
-                      style: const TextStyle(fontSize: 32, color: Colors.black, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 32, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 16),

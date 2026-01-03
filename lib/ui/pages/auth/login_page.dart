@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.store_outlined, size: 64, color: Colors.black),
+                  Icon(Icons.store_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: 32),
                   const Text(
                     'POS System',
@@ -96,8 +96,6 @@ class _LoginPageState extends State<LoginPage> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleLogin,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         elevation: 0,
                       ),

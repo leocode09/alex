@@ -31,9 +31,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         title: const Text('Reports', style: TextStyle(fontWeight: FontWeight.w600)),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.black,
+          labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.black,
+          indicatorColor: Theme.of(context).colorScheme.primary,
           tabs: const [
             Tab(text: 'Sales'),
             Tab(text: 'Inventory'),
@@ -110,12 +110,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       FlSpot(6, 4),
                     ],
                     isCurved: true,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.primary,
                     barWidth: 2,
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.black.withOpacity(0.05),
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                     ),
                   ),
                 ],
@@ -155,7 +155,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 sectionsSpace: 0,
                 centerSpaceRadius: 40,
                 sections: [
-                  PieChartSectionData(color: Colors.black, value: 40, title: '40%', radius: 50, titleStyle: const TextStyle(color: Colors.white, fontSize: 12)),
+                  PieChartSectionData(color: Theme.of(context).colorScheme.primary, value: 40, title: '40%', radius: 50, titleStyle: const TextStyle(color: Colors.white, fontSize: 12)),
                   PieChartSectionData(color: Colors.grey[400], value: 30, title: '30%', radius: 50, titleStyle: const TextStyle(color: Colors.black, fontSize: 12)),
                   PieChartSectionData(color: Colors.grey[200], value: 15, title: '15%', radius: 50, titleStyle: const TextStyle(color: Colors.black, fontSize: 12)),
                   PieChartSectionData(color: Colors.grey[100], value: 15, title: '15%', radius: 50, titleStyle: const TextStyle(color: Colors.black, fontSize: 12)),

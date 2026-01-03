@@ -24,7 +24,7 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEmployeeDialog(context),
-        backgroundColor: Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: ListView.separated(
@@ -39,7 +39,7 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
               backgroundColor: Colors.grey[200],
               child: Text(
                 employee['name'].toString().substring(0, 1),
-                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
               ),
             ),
             title: Text(employee['name'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -125,7 +125,7 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
                 const SnackBar(content: Text('Employee added')),
               );
             },
-            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+            child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),
