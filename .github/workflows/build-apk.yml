@@ -35,6 +35,10 @@ jobs:
       - name: Verify Flutter installation
         run: flutter doctor -v
         
+      - name: Accept Android SDK licenses
+        run: |
+          yes | flutter doctor --android-licenses || true
+        
       - name: Build APK
         run: flutter build apk --release
         
