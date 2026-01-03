@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../providers/auth_provider.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -97,7 +99,7 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 32),
           OutlinedButton(
             onPressed: () {
-              context.go('/login');
+              ref.read(authProvider.notifier).logout();
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,

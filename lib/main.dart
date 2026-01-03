@@ -13,11 +13,13 @@ void main() async {
   );
 }
 
-class POSApp extends StatelessWidget {
+class POSApp extends ConsumerWidget {
   const POSApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+    
     return MaterialApp.router(
       title: 'Alex POS',
       debugShowCheckedModeBanner: false,

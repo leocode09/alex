@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // Widgets
@@ -6,6 +7,7 @@ import 'ui/widgets/main_scaffold.dart';
 
 // Auth
 import 'ui/pages/auth/login_page.dart';
+import 'providers/auth_provider.dart';
 
 // Dashboard
 import 'ui/pages/dashboard/dashboard_page.dart';
@@ -77,35 +79,56 @@ int _getCurrentIndex(String location) {
   return 0;
 }
 
-final router = GoRouter(
-  navigatorKey: _rootNavigatorKey,
-  initialLocation: '/',
-  routes: [
-    // Auth (no bottom bar)
-    GoRoute(
-      path: '/',
-      name: 'login',
-      builder: (context, state) => const LoginPage(),
-    ),
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
 
-    // Main app with persistent bottom navigation
-    ShellRoute(
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) {
-        return MainScaffold(
-          currentIndex: _getCurrentIndex(state.uri.path),
-          child: child,
-        );
-      },
-      routes: [
-        // Dashboard
-        GoRoute(
-          path: '/dashboard',
-          name: 'dashboard',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: DashboardPage(),
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/',
+    redirect: (context, state) {
+      final isLoggedIn = authState.value ?? false;
+      final isLoggingIn = state.uri.path == '/';
+
+      if (authState.isLoading) {
+        return null; // Or a loading screen
+      }
+
+      if (!isLoggedIn && !isLoggingIn) {
+        return '/';
+      }
+
+      if (isLoggedIn && isLoggingIn) {
+        return '/dashboard';
+      }
+
+      return null;
+    },
+    routes: [
+      // Auth (no bottom bar)
+      GoRoute(
+        path: '/',
+        name: 'login',
+        builder: (context, state) => const LoginPage(),
+      ),
+
+      // Main app with persistent bottom navigation
+      ShellRoute(
+        navigatorKey: _shellNavigatorKey,
+        builder: (context, state, child) {
+          return MainScaffold(
+            currentIndex: _getCurrentIndex(state.uri.path),
+            child: child,
+          );
+        },
+        routes: [
+          // Dashboard
+          GoRoute(
+            path: '/dashboard',
+            name: 'dashboard',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DashboardPage(),
+            ),
           ),
-        ),
 
         // Sales
         GoRoute(
@@ -278,4 +301,5 @@ final router = GoRouter(
       ],
     ),
   ],
-);
+  );
+});
