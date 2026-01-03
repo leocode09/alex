@@ -66,7 +66,6 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/products/add'),
-        backgroundColor: Colors.black,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Column(

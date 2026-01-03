@@ -137,6 +137,37 @@ class AppTheme {
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         minLeadingWidth: 24,
       ),
+
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: _orange,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+
+      switchTheme: SwitchThemeData(
+        thumbColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return _orange;
+          return null;
+        }),
+        trackColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return _orange.withOpacity(0.5);
+          return null;
+        }),
+      ),
+
+      checkboxTheme: CheckboxThemeData(
+        fillColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return _orange;
+          return null;
+        }),
+      ),
+
+      radioTheme: RadioThemeData(
+        fillColor: MaterialStateProperty.resolveWith((states) {
+          if (states.contains(MaterialState.selected)) return _orange;
+          return null;
+        }),
+      ),
     );
   }
 }
