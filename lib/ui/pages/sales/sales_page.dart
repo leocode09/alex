@@ -10,6 +10,8 @@ import '../../../providers/sale_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
+import '../../../services/printer_service.dart';
+import '../../../providers/receipt_provider.dart';
 import 'receipts_page.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
@@ -142,13 +144,18 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
     if (_cart.isEmpty) return;
 
     final totalAmount = _total;
-    final navigator = Navigator.of(context);
+    // Capture navigators before async gap
+    // showDialog uses root navigator by default
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    // showModalBottomSheet uses local navigator (Shell) by default
+    final localNavigator = Navigator.of(context); 
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
@@ -210,6 +217,17 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
 
       await saleRepo.insertSale(sale);
 
+      // Attempt to print receipt
+      String? printError;
+      try {
+        final printerService = ref.read(printerServiceProvider);
+        final receiptSettings = ref.read(receiptSettingsProvider);
+        await printerService.printReceipt(sale, receiptSettings);
+      } catch (e) {
+        printError = e.toString();
+        debugPrint('Auto-print failed: $e');
+      }
+
       // 4. Update UI State
       ref.invalidate(productsProvider);
       ref.invalidate(todaysSalesCountProvider);
@@ -229,8 +247,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
 
       // 6. Navigation & Feedback
       if (mounted) {
-        navigator.pop(); // Close loading
-        navigator.pop(); // Close checkout sheet
+        rootNavigator.pop(); // Close loading (Dialog)
+        localNavigator.pop(); // Close checkout sheet (BottomSheet)
         _tabController.animateTo(0); // Go to products tab
         
         scaffoldMessenger.showSnackBar(
@@ -239,10 +257,16 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('Payment successful! ${totalAmount.toStringAsFixed(0)} RWF'),
+                Expanded(
+                  child: Text(
+                    'Payment successful! ${totalAmount.toStringAsFixed(0)} RWF${printError != null ? "\n(Print failed: Check printer connection)" : ""}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: printError != null ? Colors.orange : Colors.green,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 3),
           ),
@@ -250,7 +274,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
       }
     } catch (e) {
       if (mounted) {
-        navigator.pop(); // Close loading
+        rootNavigator.pop(); // Close loading
         scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text('Error: $e'), 
