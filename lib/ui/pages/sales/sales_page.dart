@@ -10,6 +10,7 @@ import '../../../providers/sale_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
+import 'receipts_page.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
   const SalesPage({super.key});
@@ -413,13 +414,6 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
       appBar: AppBar(
         title: const Text('Sales', style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.receipt_long),
-            onPressed: () => context.push('/sales/receipts'),
-            tooltip: 'View Receipts',
-          ),
-        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: Theme.of(context).colorScheme.primary,
@@ -429,6 +423,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
           tabs: [
             const Tab(text: 'Products'),
             Tab(text: 'Cart (${_cart.length})'),
+            const Tab(text: 'Receipts'),
           ],
         ),
       ),
@@ -735,6 +730,9 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
               ),
             ],
           ),
+          
+          // Receipts Tab
+          const ReceiptsTab(),
         ],
       ),
     );
