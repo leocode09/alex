@@ -7,6 +7,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/sale.dart';
 import 'package:intl/intl.dart';
 
+import '../providers/receipt_provider.dart';
+
 class PrinterService {
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _writeCharacteristic;
@@ -101,7 +103,7 @@ class PrinterService {
     throw Exception('No write characteristic found');
   }
 
-  Future<void> printReceipt(Sale sale) async {
+  Future<void> printReceipt(Sale sale, ReceiptSettings settings) async {
     if (_connectedDevice == null) {
       throw Exception('Printer not connected');
     }
@@ -115,35 +117,39 @@ class PrinterService {
     List<int> bytes = [];
 
     // Header
-    bytes += generator.text('Alex POS',
+    bytes += generator.text(settings.shopName,
         styles: const PosStyles(
           align: PosAlign.center,
           height: PosTextSize.size2,
           width: PosTextSize.size2,
           bold: true,
         ));
-    bytes += generator.text('Receipt', styles: const PosStyles(align: PosAlign.center));
+    if (settings.addressLine1.isNotEmpty) {
+      bytes += generator.text(settings.addressLine1, styles: const PosStyles(align: PosAlign.center));
+    }
+    if (settings.addressLine2.isNotEmpty) {
+      bytes += generator.text(settings.addressLine2, styles: const PosStyles(align: PosAlign.center));
+    }
+    if (settings.phone.isNotEmpty) {
+      bytes += generator.text(settings.phone, styles: const PosStyles(align: PosAlign.center));
+    }
     bytes += generator.hr();
 
     // Sale Info
-    final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
-    bytes += generator.text('Date: ${dateFormat.format(sale.createdAt)}');
-    bytes += generator.text('ID: ${sale.id.substring(0, 8)}');
+    final dateFormat = DateFormat('d MMM y HH:mm');
+    bytes += generator.row([
+      PosColumn(text: dateFormat.format(sale.createdAt), width: 8),
+      PosColumn(text: '#${sale.id.substring(0, 6)}', width: 4, styles: const PosStyles(align: PosAlign.right)),
+    ]);
     bytes += generator.hr();
 
     // Items
-    bytes += generator.row([
-      PosColumn(text: 'Item', width: 6),
-      PosColumn(text: 'Qty', width: 2),
-      PosColumn(text: 'Price', width: 4, styles: const PosStyles(align: PosAlign.right)),
-    ]);
-    
     for (var item in sale.items) {
+      bytes += generator.text(item.productName, styles: const PosStyles(bold: true));
       bytes += generator.row([
-        PosColumn(text: item.productName, width: 6),
-        PosColumn(text: '${item.quantity}', width: 2),
+        PosColumn(text: '${item.quantity}x ${item.price.toStringAsFixed(0)}', width: 8),
         PosColumn(
-          text: item.subtotal.toStringAsFixed(0),
+          text: item.subtotal.toStringAsFixed(2),
           width: 4,
           styles: const PosStyles(align: PosAlign.right),
         ),
@@ -152,20 +158,43 @@ class PrinterService {
 
     bytes += generator.hr();
 
+    // Delivery (Placeholder for now, as it's not in Sale model yet)
+    // bytes += generator.row([
+    //   PosColumn(text: 'Delivery', width: 8),
+    //   PosColumn(text: '0', width: 4, styles: const PosStyles(align: PosAlign.right)),
+    // ]);
+    // bytes += generator.hr();
+
     // Totals
     bytes += generator.row([
-      PosColumn(text: 'Total', width: 6, styles: const PosStyles(bold: true)),
+      PosColumn(text: 'Total', width: 6, styles: const PosStyles(bold: true, height: PosTextSize.size2)),
       PosColumn(
-        text: '${sale.total.toStringAsFixed(0)} RWF',
+        text: sale.total.toStringAsFixed(2),
         width: 6,
-        styles: const PosStyles(align: PosAlign.right, bold: true),
+        styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2),
       ),
     ]);
 
-    bytes += generator.text('Payment: ${sale.paymentMethod}');
-    if (sale.customerId != null) {
-      bytes += generator.text('Customer: ${sale.customerId}');
-    }
+    bytes += generator.row([
+      PosColumn(text: sale.paymentMethod, width: 6),
+      PosColumn(
+        text: sale.total.toStringAsFixed(0),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
+    ]);
+
+    // Change due (Placeholder)
+    // bytes += generator.row([
+    //   PosColumn(text: 'Change due', width: 6),
+    //   PosColumn(text: '0.00', width: 6, styles: const PosStyles(align: PosAlign.right)),
+    // ]);
+
+    bytes += generator.feed(1);
+    bytes += generator.text('_' * 20, styles: const PosStyles(align: PosAlign.right)); // Signature line
+    
+    bytes += generator.feed(1);
+    bytes += generator.text(settings.footerMessage, styles: const PosStyles(align: PosAlign.center, bold: true));
 
     bytes += generator.feed(2);
     bytes += generator.cut();

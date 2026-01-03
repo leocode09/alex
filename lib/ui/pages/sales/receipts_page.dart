@@ -5,6 +5,8 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../../../models/sale.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/printer_provider.dart';
+import '../../../providers/receipt_provider.dart';
+import 'receipt_preview_page.dart';
 
 class ReceiptsTab extends ConsumerStatefulWidget {
   const ReceiptsTab({super.key});
@@ -45,53 +47,41 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                   final sale = sales[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: ExpansionTile(
-                      title: Text(
-                        '${sale.total.toStringAsFixed(0)} RWF',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        '${DateFormat('MMM d, y HH:mm').format(sale.createdAt)} • ${sale.paymentMethod}',
-                      ),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Items:', style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              ...sale.items.map((item) => Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text('${item.quantity}x ${item.productName}'),
-                                      Text('${item.subtotal.toStringAsFixed(0)} RWF'),
-                                    ],
-                                  )),
-                              const Divider(),
-                              if (sale.customerId != null)
-                                Text('Customer: ${sale.customerId}'),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton.icon(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    label: const Text('Delete', style: TextStyle(color: Colors.red)),
-                                    onPressed: () => _confirmDelete(context, sale),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.print),
-                                    label: const Text('Print'),
-                                    onPressed: () => _printReceipt(sale),
-                                  ),
-                                ],
-                              ),
-                            ],
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ReceiptPreviewPage(sale: sale),
                           ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${sale.total.toStringAsFixed(0)} RWF',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                Text(
+                                  DateFormat('MMM d, HH:mm').format(sale.createdAt),
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${sale.items.length} items • ${sale.paymentMethod}',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 },
@@ -153,8 +143,9 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
 
   Future<void> _printReceipt(Sale sale) async {
     final printerService = ref.read(printerServiceProvider);
+    final settings = ref.read(receiptSettingsProvider);
     try {
-      await printerService.printReceipt(sale);
+      await printerService.printReceipt(sale, settings);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Printing...')),

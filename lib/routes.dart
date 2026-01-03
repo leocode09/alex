@@ -148,17 +148,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           routes: [
             GoRoute(
+              path: 'add',
+              name: 'add-product',
+              builder: (context, state) => const AddEditProductPage(),
+            ),
+            GoRoute(
               path: ':id',
               name: 'product-details',
               builder: (context, state) {
                 final id = state.pathParameters['id']!;
                 return ProductDetailsPage(productId: id);
               },
-            ),
-            GoRoute(
-              path: 'add',
-              name: 'add-product',
-              builder: (context, state) => const AddEditProductPage(),
             ),
             GoRoute(
               path: 'edit/:id',
