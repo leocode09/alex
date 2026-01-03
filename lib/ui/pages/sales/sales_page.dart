@@ -35,15 +35,11 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   }
 
   void _loadTodaysTransactions() async {
-    try {
-      final count = await ref.read(todaysSalesCountProvider.future);
-      if (mounted) {
-        setState(() {
-          _transactionsToday = count;
-        });
-      }
-    } catch (e) {
-      // Handle error silently
+    final count = await ref.read(todaysSalesCountProvider.future);
+    if (mounted) {
+      setState(() {
+        _transactionsToday = count;
+      });
     }
   }
 
@@ -157,8 +153,11 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         id: const Uuid().v4(),
         items: saleItems,
         total: totalAmount,
-        timestamp: DateTime.now(),
         paymentMethod: method,
+        employeeId: 'default-employee', // TODO: Add employee management
+        customerId: _customerController.text.isNotEmpty 
+            ? _customerController.text 
+            : null,
       );
 
       // Save sale
@@ -226,6 +225,70 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         );
       }
     }
+  }
+
+  void _showSuccessDialog(BuildContext context, String method, double totalAmount) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.greenLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: AppTheme.greenPantone,
+                size: 64,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Payment Successful!',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Paid via $method',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Total: ${totalAmount.toStringAsFixed(0)} RWF',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.greenPantone,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.print),
+                    label: const Text('Print Receipt'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Done'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _checkout() {

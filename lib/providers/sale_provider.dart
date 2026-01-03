@@ -1,31 +1,50 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/sale.dart';
-import '../services/sale_service.dart';
+import '../repositories/sale_repository.dart';
 
-// Sale service provider
-final saleServiceProvider = Provider<SaleService>((ref) {
-  return SaleService();
+// Repository provider
+final saleRepositoryProvider = Provider<SaleRepository>((ref) {
+  return SaleRepository();
 });
 
-// Sales list provider
+// All sales provider
 final salesProvider = FutureProvider<List<Sale>>((ref) async {
-  final service = ref.watch(saleServiceProvider);
-  return await service.getSales();
+  final repository = ref.watch(saleRepositoryProvider);
+  return await repository.getAllSales();
 });
 
-// Today's sales count
+// Today's sales provider
+final todaysSalesProvider = FutureProvider<List<Sale>>((ref) async {
+  final repository = ref.watch(saleRepositoryProvider);
+  return await repository.getTodaysSales();
+});
+
+// Today's sales count provider
 final todaysSalesCountProvider = FutureProvider<int>((ref) async {
-  final service = ref.watch(saleServiceProvider);
-  return await service.getSalesCountToday();
+  final repository = ref.watch(saleRepositoryProvider);
+  return await repository.getTodaysSalesCount();
 });
 
-// Today's revenue
+// Today's revenue provider
 final todaysRevenueProvider = FutureProvider<double>((ref) async {
-  final service = ref.watch(saleServiceProvider);
-  return await service.getTotalSalesToday();
+  final repository = ref.watch(saleRepositoryProvider);
+  return await repository.getTodaysRevenue();
 });
 
-// Sale repository provider (for compatibility)
-final saleRepositoryProvider = Provider<SaleService>((ref) {
-  return ref.watch(saleServiceProvider);
+// Total revenue provider
+final totalRevenueProvider = FutureProvider<double>((ref) async {
+  final repository = ref.watch(saleRepositoryProvider);
+  return await repository.getTotalRevenue();
+});
+
+// Total sales count provider
+final totalSalesCountProvider = FutureProvider<int>((ref) async {
+  final repository = ref.watch(saleRepositoryProvider);
+  return await repository.getTotalSalesCount();
+});
+
+// Top selling products provider
+final topSellingProductsProvider = FutureProvider<Map<String, int>>((ref) async {
+  final repository = ref.watch(saleRepositoryProvider);
+  return await repository.getTopSellingProducts(limit: 10);
 });

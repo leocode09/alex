@@ -2,24 +2,30 @@ class Sale {
   final String id;
   final List<SaleItem> items;
   final double total;
-  final DateTime timestamp;
   final String paymentMethod;
+  final String? customerId;
+  final String employeeId;
+  final DateTime createdAt;
 
   Sale({
     required this.id,
     required this.items,
     required this.total,
-    required this.timestamp,
-    this.paymentMethod = 'Cash',
-  });
+    required this.paymentMethod,
+    this.customerId,
+    required this.employeeId,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'items': items.map((item) => item.toMap()).toList(),
       'total': total,
-      'timestamp': timestamp.toIso8601String(),
       'paymentMethod': paymentMethod,
+      'customerId': customerId,
+      'employeeId': employeeId,
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 
@@ -30,8 +36,10 @@ class Sale {
           .map((item) => SaleItem.fromMap(item as Map<String, dynamic>))
           .toList(),
       total: (map['total'] as num).toDouble(),
-      timestamp: DateTime.parse(map['timestamp'] as String),
-      paymentMethod: map['paymentMethod'] as String? ?? 'Cash',
+      paymentMethod: map['paymentMethod'] as String,
+      customerId: map['customerId'] as String?,
+      employeeId: map['employeeId'] as String,
+      createdAt: DateTime.parse(map['createdAt'] as String),
     );
   }
 }
@@ -39,24 +47,24 @@ class Sale {
 class SaleItem {
   final String productId;
   final String productName;
-  final double price;
   final int quantity;
+  final double price;
+  final double subtotal;
 
   SaleItem({
     required this.productId,
     required this.productName,
-    required this.price,
     required this.quantity,
-  });
-
-  double get subtotal => price * quantity;
+    required this.price,
+  }) : subtotal = quantity * price;
 
   Map<String, dynamic> toMap() {
     return {
       'productId': productId,
       'productName': productName,
-      'price': price,
       'quantity': quantity,
+      'price': price,
+      'subtotal': subtotal,
     };
   }
 
@@ -64,8 +72,8 @@ class SaleItem {
     return SaleItem(
       productId: map['productId'] as String,
       productName: map['productName'] as String,
-      price: (map['price'] as num).toDouble(),
       quantity: map['quantity'] as int,
+      price: (map['price'] as num).toDouble(),
     );
   }
 }
