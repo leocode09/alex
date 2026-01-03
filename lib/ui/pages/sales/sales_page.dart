@@ -55,6 +55,21 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
     }).toList();
   }
 
+  int _getCartQuantity(Product product) {
+    final index = _cart.indexWhere((item) => item['id'] == product.id);
+    if (index >= 0) {
+      return _cart[index]['quantity'];
+    }
+    return 0;
+  }
+
+  void _removeProductFromCart(Product product) {
+    setState(() {
+      _cart.removeWhere((item) => item['id'] == product.id);
+    });
+    HapticFeedback.mediumImpact();
+  }
+
   void _addToCart(Product product) {
     setState(() {
       final existingIndex = _cart.indexWhere((item) => item['id'] == product.id);
@@ -410,51 +425,86 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
                         final product = filtered[index];
+                        final cartQuantity = _getCartQuantity(product);
+                        final isInCart = cartQuantity > 0;
+
                         return InkWell(
                           onTap: () => _addToCart(product),
+                          onLongPress: () => _removeProductFromCart(product),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[200]!),
+                              border: Border.all(
+                                color: isInCart ? Theme.of(context).colorScheme.primary : Colors.grey[200]!,
+                                width: isInCart ? 2 : 1,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Stack(
                               children: [
-                                Expanded(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: isInCart ? Theme.of(context).colorScheme.primary.withOpacity(0.05) : Colors.grey[100],
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                        ),
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.inventory_2_outlined, 
+                                            color: isInCart ? Theme.of(context).colorScheme.primary : Colors.grey[400], 
+                                            size: 32
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                    child: Center(
-                                      child: Icon(Icons.inventory_2_outlined, color: Colors.grey[400], size: 32),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            product.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${product.price.toInt()} RWF',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                          ),
+                                          Text(
+                                            'Stock: ${product.stock}',
+                                            style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (isInCart)
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '$cartQuantity',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        product.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '${product.price.toInt()} RWF',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                                      ),
-                                      Text(
-                                        'Stock: ${product.stock}',
-                                        style: TextStyle(color: Colors.grey[500], fontSize: 10),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -500,10 +550,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                                 Row(
                                   children: [
                                     IconButton(
-                                      icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                      icon: const Icon(Icons.remove_circle_outline, size: 28),
                                       onPressed: () => _removeFromCart(index),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
                                     ),
                                     SizedBox(
                                       width: 32,
@@ -514,7 +562,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.add_circle_outline, size: 20),
+                                      icon: const Icon(Icons.add_circle_outline, size: 28),
                                       onPressed: () => _addToCart(Product(
                                         id: item['id'],
                                         name: item['name'],
@@ -523,8 +571,6 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                                         category: '',
                                         sku: '',
                                       )),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
                                     ),
                                   ],
                                 ),
