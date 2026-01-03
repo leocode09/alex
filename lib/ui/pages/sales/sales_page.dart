@@ -11,6 +11,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../services/printer_service.dart';
+import '../../../providers/printer_provider.dart';
 import '../../../providers/receipt_provider.dart';
 import 'receipts_page.dart';
 
