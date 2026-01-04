@@ -171,7 +171,7 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                   itemBuilder: (context, index) {
                     final product = sortedProducts[index];
                     return ListTile(
-                      onTap: () => context.push('/products/details/${product.id}', extra: product),
+                      onTap: () => context.push('/products/${product.id}', extra: product),
                       leading: Container(
                         width: 40,
                         height: 40,
