@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/tax_provider.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -10,7 +11,8 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Settings',
+            style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -37,7 +39,13 @@ class SettingsPage extends ConsumerWidget {
             Icons.local_offer_outlined,
             onTap: () => context.push('/promotions'),
           ),
-
+          _buildSettingTile(
+            context,
+            'Tax Settings',
+            'Configure tax rate and calculation',
+            Icons.receipt_long_outlined,
+            onTap: () => _showTaxSettings(context, ref),
+          ),
           const SizedBox(height: 24),
           _buildSectionHeader('Account & Security'),
           _buildSettingTile(
@@ -54,7 +62,6 @@ class SettingsPage extends ConsumerWidget {
             Icons.lock_outline,
             onTap: () {},
           ),
-
           const SizedBox(height: 24),
           _buildSectionHeader('App Preferences'),
           _buildSettingTile(
@@ -78,7 +85,6 @@ class SettingsPage extends ConsumerWidget {
             Icons.notifications_outlined,
             onTap: () => context.push('/notifications'),
           ),
-
           const SizedBox(height: 24),
           _buildSectionHeader('Support'),
           _buildSettingTile(
@@ -95,7 +101,6 @@ class SettingsPage extends ConsumerWidget {
             Icons.info_outline,
             onTap: () {},
           ),
-
           const SizedBox(height: 32),
           OutlinedButton(
             onPressed: () {
@@ -144,12 +149,95 @@ class SettingsPage extends ConsumerWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
-        subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+        leading:
+            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+        subtitle: Text(subtitle,
+            style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        trailing:
+            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      ),
+    );
+  }
+
+  void _showTaxSettings(BuildContext context, WidgetRef ref) {
+    final taxSettings = ref.read(taxSettingsProvider);
+    final taxRateController = TextEditingController(
+      text: (taxSettings.taxRate * 100).toStringAsFixed(0),
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tax Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tax Rate (%)',
+                style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: taxRateController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: 'Enter tax rate (e.g., 18 for 18%)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Consumer(
+              builder: (context, ref, child) {
+                final settings = ref.watch(taxSettingsProvider);
+                return SwitchListTile(
+                  title: const Text('Include Tax in Sales',
+                      style: TextStyle(fontSize: 14)),
+                  value: settings.includeTax,
+                  onChanged: (value) {
+                    ref
+                        .read(taxSettingsProvider.notifier)
+                        .updateIncludeTax(value);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final rateText = taxRateController.text;
+              final rate = double.tryParse(rateText);
+              if (rate != null && rate >= 0 && rate <= 100) {
+                ref
+                    .read(taxSettingsProvider.notifier)
+                    .updateTaxRate(rate / 100);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Tax settings updated')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Please enter a valid tax rate (0-100)')),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }

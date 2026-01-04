@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/tax_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../services/printer_service.dart';
@@ -22,7 +23,8 @@ class SalesPage extends ConsumerStatefulWidget {
   ConsumerState<SalesPage> createState() => _SalesPageState();
 }
 
-class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProviderStateMixin {
+class _SalesPageState extends ConsumerState<SalesPage>
+    with SingleTickerProviderStateMixin {
   final List<Map<String, dynamic>> _cart = [];
   final _searchController = TextEditingController();
   String _selectedCategory = 'All';
@@ -31,7 +33,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   final TextEditingController _discountController = TextEditingController();
   late TabController _tabController;
   SharedPreferences? _prefs;
-  
+
   @override
   void initState() {
     super.initState();
@@ -63,7 +65,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   }
 
   double get _subtotal {
-    return _cart.fold(0.0, (sum, item) => sum + (item['price'] * item['quantity']));
+    return _cart.fold(
+        0.0, (sum, item) => sum + (item['price'] * item['quantity']));
   }
 
   double get _discount {
@@ -72,7 +75,9 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   }
 
   double get _tax {
-    return (_subtotal - _discount) * 0.18; // 18% tax
+    final taxSettings = ref.read(taxSettingsProvider);
+    if (!taxSettings.includeTax) return 0.0;
+    return (_subtotal - _discount) * taxSettings.taxRate;
   }
 
   double get _total {
@@ -82,8 +87,10 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
   List<Product> _getFilteredProducts(List<Product> allProducts) {
     final query = _searchController.text.toLowerCase();
     return allProducts.where((product) {
-      final matchesCategory = _selectedCategory == 'All' || product.category == _selectedCategory;
-      final matchesSearch = query.isEmpty || product.name.toLowerCase().contains(query);
+      final matchesCategory =
+          _selectedCategory == 'All' || product.category == _selectedCategory;
+      final matchesSearch =
+          query.isEmpty || product.name.toLowerCase().contains(query);
       return matchesCategory && matchesSearch;
     }).toList();
   }
@@ -106,7 +113,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
 
   void _addToCart(Product product) {
     setState(() {
-      final existingIndex = _cart.indexWhere((item) => item['id'] == product.id);
+      final existingIndex =
+          _cart.indexWhere((item) => item['id'] == product.id);
       if (existingIndex >= 0) {
         if (_cart[existingIndex]['quantity'] < product.stock) {
           _cart[existingIndex]['quantity']++;
@@ -149,7 +157,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
     // showDialog uses root navigator by default
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     // showModalBottomSheet uses local navigator (Shell) by default
-    final localNavigator = Navigator.of(context); 
+    final localNavigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     // Show loading dialog
@@ -210,8 +218,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         total: totalAmount,
         paymentMethod: method,
         employeeId: employeeId,
-        customerId: _customerController.text.isNotEmpty 
-            ? _customerController.text 
+        customerId: _customerController.text.isNotEmpty
+            ? _customerController.text
             : null,
         createdAt: DateTime.now(),
       );
@@ -251,7 +259,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         rootNavigator.pop(); // Close loading (Dialog)
         localNavigator.pop(); // Close checkout sheet (BottomSheet)
         _tabController.animateTo(0); // Go to products tab
-        
+
         scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Row(
@@ -278,7 +286,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
         rootNavigator.pop(); // Close loading
         scaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text('Error: $e'), 
+            content: Text('Error: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -341,15 +349,22 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                     const SizedBox(height: 8),
                     _buildSummaryRow('Discount', -_discount),
                     const SizedBox(height: 8),
-                    _buildSummaryRow('Tax (18%)', _tax),
+                    Builder(builder: (context) {
+                      final taxSettings = ref.watch(taxSettingsProvider);
+                      final taxPercent =
+                          (taxSettings.taxRate * 100).toStringAsFixed(0);
+                      return _buildSummaryRow('Tax ($taxPercent%)', _tax);
+                    }),
                     const Divider(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('Total',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(
                           '${_total.toStringAsFixed(0)} RWF',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, color: Colors.green),
                         ),
                       ],
                     ),
@@ -357,15 +372,22 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Payment Method', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Payment Method',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _buildPaymentMethodChip(setModalState, 'Cash', Icons.money)),
+                  Expanded(
+                      child: _buildPaymentMethodChip(
+                          setModalState, 'Cash', Icons.money)),
                   const SizedBox(width: 8),
-                  Expanded(child: _buildPaymentMethodChip(setModalState, 'Card', Icons.credit_card)),
+                  Expanded(
+                      child: _buildPaymentMethodChip(
+                          setModalState, 'Card', Icons.credit_card)),
                   const SizedBox(width: 8),
-                  Expanded(child: _buildPaymentMethodChip(setModalState, 'Mobile Money', Icons.phone_android)),
+                  Expanded(
+                      child: _buildPaymentMethodChip(
+                          setModalState, 'Mobile Money', Icons.phone_android)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -375,7 +397,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 child: Text('Pay ${_total.toStringAsFixed(0)} RWF'),
               ),
@@ -387,7 +410,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
     );
   }
 
-  Widget _buildPaymentMethodChip(StateSetter setModalState, String method, IconData icon) {
+  Widget _buildPaymentMethodChip(
+      StateSetter setModalState, String method, IconData icon) {
     final isSelected = _paymentMethod == method;
     return InkWell(
       onTap: () => setModalState(() => _paymentMethod = method),
@@ -395,13 +419,18 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white,
-          border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!),
+          color:
+              isSelected ? Theme.of(context).colorScheme.primary : Colors.white,
+          border: Border.all(
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey[300]!),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? Colors.white : Colors.grey[600], size: 20),
+            Icon(icon,
+                color: isSelected ? Colors.white : Colors.grey[600], size: 20),
             const SizedBox(height: 4),
             Text(
               method,
@@ -437,7 +466,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sales', style: TextStyle(fontWeight: FontWeight.w600)),
+        title:
+            const Text('Sales', style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: false,
         bottom: TabBar(
           controller: _tabController,
@@ -465,7 +495,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                   decoration: InputDecoration(
                     hintText: 'Search products...',
                     prefixIcon: const Icon(Icons.search, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(color: Colors.grey[300]!),
@@ -485,7 +516,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: ['All', 'Beverages', 'Food', 'Snacks', 'Household'].map((category) {
+                  children: ['All', 'Beverages', 'Food', 'Snacks', 'Household']
+                      .map((category) {
                     final isSelected = _selectedCategory == category;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -493,7 +525,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                         label: Text(category),
                         selected: isSelected,
                         onSelected: (selected) {
-                          if (selected) setState(() => _selectedCategory = category);
+                          if (selected)
+                            setState(() => _selectedCategory = category);
                         },
                         backgroundColor: Colors.white,
                         selectedColor: Theme.of(context).colorScheme.primary,
@@ -503,7 +536,10 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(color: isSelected ? Colors.transparent : Colors.grey[300]!),
+                          side: BorderSide(
+                              color: isSelected
+                                  ? Colors.transparent
+                                  : Colors.grey[300]!),
                         ),
                       ),
                     );
@@ -520,7 +556,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                     }
                     return GridView.builder(
                       padding: const EdgeInsets.all(12),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         childAspectRatio: 0.8,
                         crossAxisSpacing: 12,
@@ -539,7 +576,9 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                           child: Container(
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: isInCart ? Theme.of(context).colorScheme.primary : Colors.grey[200]!,
+                                color: isInCart
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.grey[200]!,
                                 width: isInCart ? 2 : 1,
                               ),
                               borderRadius: BorderRadius.circular(8),
@@ -552,37 +591,54 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                                     Expanded(
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: isInCart ? Theme.of(context).colorScheme.primary.withOpacity(0.05) : Colors.grey[100],
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                          color: isInCart
+                                              ? Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withOpacity(0.05)
+                                              : Colors.grey[100],
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                  top: Radius.circular(8)),
                                         ),
                                         child: Center(
                                           child: Icon(
-                                            Icons.inventory_2_outlined, 
-                                            color: isInCart ? Theme.of(context).colorScheme.primary : Colors.grey[400], 
-                                            size: 32
-                                          ),
+                                              Icons.inventory_2_outlined,
+                                              color: isInCart
+                                                  ? Theme.of(context)
+                                                      .colorScheme
+                                                      .primary
+                                                  : Colors.grey[400],
+                                              size: 32),
                                         ),
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             product.name,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                fontSize: 12),
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
                                             '${product.price.toInt()} RWF',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11),
                                           ),
                                           Text(
                                             'Stock: ${product.stock}',
-                                            style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                                            style: TextStyle(
+                                                color: Colors.grey[500],
+                                                fontSize: 10),
                                           ),
                                         ],
                                       ),
@@ -596,7 +652,9 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                                     child: Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
                                         shape: BoxShape.circle,
                                       ),
                                       child: Text(
@@ -616,7 +674,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                       },
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
               ),
@@ -641,12 +700,17 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(item['name'], style: const TextStyle(fontWeight: FontWeight.w500)),
+                                      Text(item['name'],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w500)),
                                       Text(
                                         '${item['price'].toInt()} RWF',
-                                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                        style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12),
                                       ),
                                     ],
                                   ),
@@ -654,7 +718,9 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                                 Row(
                                   children: [
                                     IconButton(
-                                      icon: const Icon(Icons.remove_circle_outline, size: 28),
+                                      icon: const Icon(
+                                          Icons.remove_circle_outline,
+                                          size: 28),
                                       onPressed: () => _removeFromCart(index),
                                     ),
                                     SizedBox(
@@ -662,11 +728,13 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                                       child: Text(
                                         '${item['quantity']}',
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.add_circle_outline, size: 28),
+                                      icon: const Icon(Icons.add_circle_outline,
+                                          size: 28),
                                       onPressed: () => _addToCart(Product(
                                         id: item['id'],
                                         name: item['name'],
@@ -730,10 +798,13 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Text('Total',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
                           Text(
                             '${_total.toStringAsFixed(0)} RWF',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -744,7 +815,8 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
                           onPressed: _checkout,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text('Checkout'),
                         ),
@@ -755,7 +827,7 @@ class _SalesPageState extends ConsumerState<SalesPage> with SingleTickerProvider
               ),
             ],
           ),
-          
+
           // Receipts Tab
           const ReceiptsTab(),
         ],
