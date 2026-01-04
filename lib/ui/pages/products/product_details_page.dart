@@ -114,7 +114,7 @@ class ProductDetailsPage extends ConsumerWidget {
                       child: _buildStatItem(
                         context,
                         'Price',
-                        '${product.price.toInt()}',
+                        '\$${product.price.toInt()}',
                         Theme.of(context).colorScheme.primary,
                       ),
                     ),
@@ -123,7 +123,7 @@ class ProductDetailsPage extends ConsumerWidget {
                       child: _buildStatItem(
                         context,
                         'Value',
-                        '${(product.price * product.stock).toInt()}',
+                        '\$${(product.price * product.stock).toInt()}',
                         Colors.green,
                       ),
                     ),
@@ -136,7 +136,7 @@ class ProductDetailsPage extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _buildDetailRow('Barcode', product.barcode ?? '-'),
                 _buildDetailRow('Supplier', product.supplier ?? '-'),
-                _buildDetailRow('Cost Price', product.costPrice != null ? '${product.costPrice!.toInt()} RWF' : '-'),
+                _buildDetailRow('Cost Price', product.costPrice != null ? '\$${product.costPrice!.toInt()}' : '-'),
                 if (product.costPrice != null)
                   _buildDetailRow('Margin', '${((product.price - product.costPrice!) / product.price * 100).toStringAsFixed(1)}%'),
                 _buildDetailRow('Description', product.description ?? '-'),

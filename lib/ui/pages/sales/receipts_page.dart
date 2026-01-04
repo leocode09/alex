@@ -65,7 +65,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${sale.total.toStringAsFixed(0)} RWF',
+                                  '\$${sale.total.toStringAsFixed(0)}',
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                                 Text(

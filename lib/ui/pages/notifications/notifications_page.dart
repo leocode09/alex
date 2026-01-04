@@ -16,7 +16,7 @@ class NotificationsPage extends StatelessWidget {
       },
       {
         'title': 'New Sale',
-        'message': 'Sale completed: 5,000 RWF',
+        'message': 'Sale completed: \$5,000',
         'time': '3h ago',
         'type': 'success',
         'read': true,

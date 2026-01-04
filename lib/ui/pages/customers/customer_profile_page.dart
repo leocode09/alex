@@ -72,7 +72,7 @@ class CustomerProfilePage extends StatelessWidget {
               children: [
                 Expanded(child: _buildStatItem('Purchases', '${customer['totalPurchases']}')),
                 Container(width: 1, height: 40, color: Colors.grey[200]),
-                Expanded(child: _buildStatItem('Spent', '${customer['totalSpent']} RWF')),
+                Expanded(child: _buildStatItem('Spent', '\$${customer['totalSpent']}')),
                 Container(width: 1, height: 40, color: Colors.grey[200]),
                 Expanded(child: _buildStatItem('Joined', customer['joinDate'] as String)),
               ],
@@ -94,7 +94,7 @@ class CustomerProfilePage extends StatelessWidget {
                 children: recentPurchases.map((purchase) => Column(
                   children: [
                     ListTile(
-                      title: Text('${purchase['amount']} RWF', style: const TextStyle(fontWeight: FontWeight.w500)),
+                      title: Text('\$${purchase['amount']}', style: const TextStyle(fontWeight: FontWeight.w500)),
                       subtitle: Text('${purchase['items']} items', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                       trailing: Text(purchase['date'] as String, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                     ),

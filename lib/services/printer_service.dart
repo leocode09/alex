@@ -147,9 +147,9 @@ class PrinterService {
     for (var item in sale.items) {
       bytes += generator.text(item.productName, styles: const PosStyles(bold: true));
       bytes += generator.row([
-        PosColumn(text: '${item.quantity}x ${item.price.toStringAsFixed(0)}', width: 8),
+        PosColumn(text: '${item.quantity}x \$${item.price.toStringAsFixed(0)}', width: 8),
         PosColumn(
-          text: item.subtotal.toStringAsFixed(2),
+          text: '\$${item.subtotal.toStringAsFixed(2)}',
           width: 4,
           styles: const PosStyles(align: PosAlign.right),
         ),
@@ -169,7 +169,7 @@ class PrinterService {
     bytes += generator.row([
       PosColumn(text: 'Total', width: 6, styles: const PosStyles(bold: true, height: PosTextSize.size2)),
       PosColumn(
-        text: sale.total.toStringAsFixed(2),
+        text: '\$${sale.total.toStringAsFixed(2)}',
         width: 6,
         styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2),
       ),
@@ -178,7 +178,7 @@ class PrinterService {
     bytes += generator.row([
       PosColumn(text: sale.paymentMethod, width: 6),
       PosColumn(
-        text: sale.total.toStringAsFixed(0),
+        text: '\$${sale.total.toStringAsFixed(0)}',
         width: 6,
         styles: const PosStyles(align: PosAlign.right),
       ),

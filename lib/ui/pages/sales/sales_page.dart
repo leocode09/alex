@@ -268,7 +268,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Payment successful! ${totalAmount.toStringAsFixed(0)} RWF${printError != null ? "\n(Print failed: Check printer connection)" : ""}',
+                    'Payment successful! \$${totalAmount.toStringAsFixed(0)}${printError != null ? "\n(Print failed: Check printer connection)" : ""}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -362,7 +362,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         const Text('Total',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(
-                          '${_total.toStringAsFixed(0)} RWF',
+                          '\$${_total.toStringAsFixed(0)}',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, color: Colors.green),
                         ),
@@ -400,7 +400,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
-                child: Text('Pay ${_total.toStringAsFixed(0)} RWF'),
+                child: Text('Pay \$${_total.toStringAsFixed(0)}'),
               ),
               const SizedBox(height: 16),
             ],
@@ -453,7 +453,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
       children: [
         Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
         Text(
-          '${value.toStringAsFixed(0)} RWF',
+          '\$${value.toStringAsFixed(0)}',
           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         ),
       ],
@@ -629,7 +629,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '${product.price.toInt()} RWF',
+                                            '\$${product.price.toInt()}',
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 11),
@@ -707,7 +707,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w500)),
                                       Text(
-                                        '${item['price'].toInt()} RWF',
+                                        '\$${item['price'].toInt()}',
                                         style: TextStyle(
                                             color: Colors.grey[600],
                                             fontSize: 12),
@@ -802,7 +802,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold)),
                           Text(
-                            '${_total.toStringAsFixed(0)} RWF',
+                            '\$${_total.toStringAsFixed(0)}',
                             style: const TextStyle(
                                 fontSize: 20, fontWeight: FontWeight.bold),
                           ),

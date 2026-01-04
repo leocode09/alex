@@ -187,7 +187,7 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
                       trailing: Text(
-                        '${product.price.toInt()} RWF',
+                        '\$${product.price.toInt()}',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     );

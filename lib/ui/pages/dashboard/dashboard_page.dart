@@ -34,8 +34,8 @@ class DashboardPage extends StatelessWidget {
                     child: _buildMetricCard(
                       context,
                       title: 'Today\'s Sales',
-                      value: '120,000',
-                      unit: 'RWF',
+                      value: '\$120,000',
+                      unit: '',
                       trend: '+12%',
                       trendPositive: true,
                     ),
@@ -60,8 +60,8 @@ class DashboardPage extends StatelessWidget {
                     child: _buildMetricCard(
                       context,
                       title: 'Weekly Sales',
-                      value: '1.2M',
-                      unit: 'RWF',
+                      value: '\$1.2M',
+                      unit: '',
                       trend: '+15%',
                       trendPositive: true,
                     ),
@@ -337,7 +337,7 @@ class DashboardPage extends StatelessWidget {
             ),
           ),
           Text(
-            '$revenue RWF',
+            '\$$revenue',
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ],

@@ -119,10 +119,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             children: [
               _buildSummaryCards([
                 _SummaryData(
-                    'Total Sales', 'RWF ${_formatNumber(totalRevenue)}', ''),
+                    'Total Sales', '\$${_formatNumber(totalRevenue)}', ''),
                 _SummaryData('Orders', '$salesCount', ''),
                 _SummaryData(
-                    'Avg. Order', 'RWF ${_formatNumber(avgOrder)}', ''),
+                    'Avg. Order', '\$${_formatNumber(avgOrder)}', ''),
               ]),
               const SizedBox(height: 32),
               const Text('Revenue Trend (Last 7 Days)',
@@ -177,7 +177,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       final revenue = productRevenues[entry.key] ?? 0.0;
                       return _buildListRow(
                           entry.key,
-                          'RWF ${_formatNumber(revenue)}',
+                          '\$${_formatNumber(revenue)}',
                           '${entry.value} units');
                     }).toList(),
                   );
@@ -244,7 +244,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 _SummaryData('Total Items', '$totalItems', ''),
                 _SummaryData('Low Stock', '${lowStockItems.length}',
                     lowStockItems.isNotEmpty ? 'Alert' : ''),
-                _SummaryData('Value', 'RWF ${_formatNumber(totalValue)}', ''),
+                _SummaryData('Value', '\$${_formatNumber(totalValue)}', ''),
               ]),
               const SizedBox(height: 32),
               const Text('Stock Distribution by Category',
@@ -324,7 +324,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     'Top Seller',
                     topSeller != null ? topSeller.key.split('@').first : 'N/A',
                     topSeller != null
-                        ? 'RWF ${_formatNumber(topSeller.value['revenue'] as double)}'
+                        ? '\$${_formatNumber(topSeller.value['revenue'] as double)}'
                         : ''),
               ]),
               const SizedBox(height: 32),
@@ -340,7 +340,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                   final count = entry.value['count'] as int;
                   return _buildListRow(
                     employeeName,
-                    'RWF ${_formatNumber(revenue)}',
+                    '\$${_formatNumber(revenue)}',
                     '$count Sales',
                   );
                 }).toList(),

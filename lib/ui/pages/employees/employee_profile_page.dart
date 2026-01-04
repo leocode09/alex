@@ -80,7 +80,7 @@ class EmployeeProfilePage extends StatelessWidget {
               children: [
                 Expanded(child: _buildStatItem('Sales', '${employee['salesCount']}')),
                 Container(width: 1, height: 40, color: Colors.grey[200]),
-                Expanded(child: _buildStatItem('Revenue', '${(employee['totalSales'] as int) ~/ 1000}K RWF')),
+                Expanded(child: _buildStatItem('Revenue', '\$${(employee['totalSales'] as int) ~/ 1000}K')),
                 Container(width: 1, height: 40, color: Colors.grey[200]),
                 Expanded(child: _buildStatItem('Joined', employee['joinDate'] as String)),
               ],
@@ -102,7 +102,7 @@ class EmployeeProfilePage extends StatelessWidget {
                 children: [
                   _buildPerformanceRow('Total Sales', '${employee['salesCount']}'),
                   const Divider(height: 1, indent: 16, endIndent: 16),
-                  _buildPerformanceRow('Total Revenue', '${employee['totalSales']} RWF'),
+                  _buildPerformanceRow('Total Revenue', '\$${employee['totalSales']}'),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   _buildPerformanceRow('Average/Day', '${(employee['salesCount'] as int) ~/ 30} sales'),
                 ],
