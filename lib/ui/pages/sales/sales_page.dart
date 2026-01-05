@@ -34,6 +34,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
   String _discountType = 'Fixed'; // 'Fixed' or 'Percentage'
   late TabController _tabController;
   SharedPreferences? _prefs;
+  bool _hasLoadedEditingReceipt = false;
 
   @override
   void initState() {
@@ -50,8 +51,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
   }
 
   Future<void> _loadEditingReceipt() async {
-    final editingReceipt = ref.read(editingReceiptProvider);
-    if (editingReceipt != null && _cart.isEmpty) {
+    final editingReceipt = ref.watch(editingReceiptProvider);
+    if (editingReceipt != null && !_hasLoadedEditingReceipt) {
+      _hasLoadedEditingReceipt = true;
       // Load the receipt items into the cart
       setState(() {
         _cart.clear();
@@ -70,7 +72,14 @@ class _SalesPageState extends ConsumerState<SalesPage>
       });
       _saveCart();
       // Switch to cart tab to show the loaded items
-      _tabController.animateTo(1);
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _tabController.animateTo(1);
+        }
+      });
+    } else if (editingReceipt == null && _hasLoadedEditingReceipt) {
+      // Reset the flag when editing is cancelled
+      _hasLoadedEditingReceipt = false;
     }
   }
 

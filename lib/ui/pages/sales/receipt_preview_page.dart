@@ -178,7 +178,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           onPressed: () {
                             // Set this receipt as the one being edited
                             ref.read(editingReceiptProvider.notifier).state = _sale;
-                            // Navigate to sales page
+                            // Pop the receipt preview page first
+                            Navigator.of(context).pop();
+                            // Then navigate to sales page
                             context.go('/sales');
                           },
                           icon: const Icon(Icons.add),
