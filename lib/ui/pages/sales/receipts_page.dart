@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import '../../../models/sale.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/printer_provider.dart';
-import '../../../providers/receipt_provider.dart';
 import 'receipt_preview_page.dart';
 
 class ReceiptsTab extends ConsumerStatefulWidget {
@@ -93,72 +91,6 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
         ),
       ],
     );
-  }
-
-  void _confirmDelete(BuildContext context, Sale sale) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Receipt'),
-        content: const Text('Are you sure you want to delete this receipt? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteSale(sale);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteSale(Sale sale) async {
-    final repo = ref.read(saleRepositoryProvider);
-    final success = await repo.deleteSale(sale.id);
-    if (success) {
-      ref.invalidate(salesProvider);
-      ref.invalidate(todaysSalesCountProvider);
-      ref.invalidate(todaysRevenueProvider);
-      ref.invalidate(totalRevenueProvider);
-      ref.invalidate(totalSalesCountProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Receipt deleted')),
-        );
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete receipt')),
-        );
-      }
-    }
-  }
-
-  Future<void> _printReceipt(Sale sale) async {
-    final printerService = ref.read(printerServiceProvider);
-    final settings = ref.read(receiptSettingsProvider);
-    try {
-      await printerService.printReceipt(sale, settings);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Printing...')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Print Error: $e')),
-        );
-        _showPrinterDialog(context);
-      }
-    }
   }
 
   void _showPrinterDialog(BuildContext context) {

@@ -3,11 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../models/sale.dart';
-import '../../../models/product.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
-import '../../../providers/product_provider.dart';
 import 'receipts_page.dart'; // For PrinterDialog
 
 class ReceiptPreviewPage extends ConsumerStatefulWidget {
@@ -400,105 +398,6 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
           ),
         ],
       ),
-    );
-  }
-
-  void _addNewItem(BuildContext context) {
-    final productsAsync = ref.read(productsProvider);
-    
-    productsAsync.when(
-      data: (products) {
-        if (products.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No products available')),
-          );
-          return;
-        }
-
-        Product? selectedProduct = products.first;
-        final quantityController = TextEditingController(text: '1');
-        final priceController = TextEditingController(text: selectedProduct.price.toStringAsFixed(2));
-
-        showDialog(
-          context: context,
-          builder: (context) => StatefulBuilder(
-            builder: (context, setState) => AlertDialog(
-              title: const Text('Add Item'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<Product>(
-                    value: selectedProduct,
-                    decoration: const InputDecoration(labelText: 'Product'),
-                    items: products.map((product) {
-                      return DropdownMenuItem(
-                        value: product,
-                        child: Text(product.name),
-                      );
-                    }).toList(),
-                    onChanged: (product) {
-                      if (product != null) {
-                        setState(() {
-                          selectedProduct = product;
-                          priceController.text = product.price.toStringAsFixed(2);
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: quantityController,
-                    decoration: const InputDecoration(labelText: 'Quantity'),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: priceController,
-                    decoration: const InputDecoration(labelText: 'Price'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (selectedProduct == null) return;
-
-                    final quantity = int.tryParse(quantityController.text) ?? 1;
-                    final price = double.tryParse(priceController.text) ?? selectedProduct!.price;
-
-                    final newItem = SaleItem(
-                      productId: selectedProduct!.id,
-                      productName: selectedProduct!.name,
-                      quantity: quantity,
-                      price: price,
-                    );
-
-                    final updatedItems = [..._sale.items, newItem];
-                    await _updateSaleItems(updatedItems);
-                    if (mounted) Navigator.pop(context);
-                  },
-                  child: const Text('Add'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      loading: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Loading products...')),
-        );
-      },
-      error: (err, stack) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading products: $err')),
-        );
-      },
     );
   }
 

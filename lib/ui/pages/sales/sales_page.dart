@@ -11,7 +11,6 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/tax_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
-import '../../../services/printer_service.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/receipt_provider.dart';
 import 'receipts_page.dart';
@@ -32,6 +31,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _discountController = TextEditingController();
   String _discountType = 'Fixed'; // 'Fixed' or 'Percentage'
+  int? _selectedCartItemIndex; // Track selected item for per-item discount
+  final TextEditingController _itemDiscountController = TextEditingController();
+  String _itemDiscountType = 'Fixed'; // 'Fixed' or 'Percentage'
   late TabController _tabController;
   SharedPreferences? _prefs;
   bool _hasLoadedEditingReceipt = false;
@@ -108,7 +110,11 @@ class _SalesPageState extends ConsumerState<SalesPage>
 
   double get _subtotal {
     return _cart.fold(
-        0.0, (sum, item) => sum + ((item['finalPrice'] ?? item['price']) * item['quantity']));
+        0.0, (sum, item) {
+          final itemPrice = (item['finalPrice'] ?? item['price']);
+          final cartDiscount = item['cartDiscount'] ?? 0.0;
+          return sum + ((itemPrice - cartDiscount) * item['quantity']);
+        });
   }
 
   double get _discount {
@@ -175,6 +181,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
           'price': product.price,
           'finalPrice': product.finalPrice,
           'discount': product.totalDiscount,
+          'cartDiscount': 0.0, // Additional cart-level discount per item
           'quantity': 1,
           'stock': product.stock,
         });
@@ -190,10 +197,49 @@ class _SalesPageState extends ConsumerState<SalesPage>
         _cart[index]['quantity']--;
       } else {
         _cart.removeAt(index);
+        if (_selectedCartItemIndex == index) {
+          _selectedCartItemIndex = null;
+          _itemDiscountController.clear();
+        } else if (_selectedCartItemIndex != null && _selectedCartItemIndex! > index) {
+          _selectedCartItemIndex = _selectedCartItemIndex! - 1;
+        }
       }
     });
     _saveCart();
     HapticFeedback.lightImpact();
+  }
+
+  void _applyItemDiscount() {
+    if (_selectedCartItemIndex == null) return;
+    
+    final discountValue = double.tryParse(_itemDiscountController.text) ?? 0.0;
+    final itemPrice = _cart[_selectedCartItemIndex!]['finalPrice'] ?? _cart[_selectedCartItemIndex!]['price'];
+    
+    double discount = 0.0;
+    if (_itemDiscountType == 'Percentage') {
+      discount = itemPrice * (discountValue / 100);
+    } else {
+      discount = discountValue;
+    }
+    
+    // Ensure discount doesn't exceed item price
+    if (discount > itemPrice) {
+      discount = itemPrice;
+    }
+    
+    setState(() {
+      _cart[_selectedCartItemIndex!]['cartDiscount'] = discount;
+    });
+    _saveCart();
+  }
+
+  void _clearItemDiscount() {
+    if (_selectedCartItemIndex == null) return;
+    setState(() {
+      _cart[_selectedCartItemIndex!]['cartDiscount'] = 0.0;
+      _itemDiscountController.clear();
+    });
+    _saveCart();
   }
 
   void _processPayment(String method) async {
@@ -346,13 +392,11 @@ class _SalesPageState extends ConsumerState<SalesPage>
         await saleRepo.insertSale(sale);
 
         // Attempt to print receipt
-        String? printError;
         try {
           final printerService = ref.read(printerServiceProvider);
           final receiptSettings = ref.read(receiptSettingsProvider);
           await printerService.printReceipt(sale, receiptSettings);
         } catch (e) {
-          printError = e.toString();
           debugPrint('Auto-print failed: $e');
         }
       }
@@ -1038,6 +1082,104 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         },
                       ),
               ),
+              if (_selectedCartItemIndex != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    border: Border(
+                      top: BorderSide(color: Colors.blue[200]!, width: 2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.edit, size: 16, color: Colors.blue[700]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Discount for: ${_cart[_selectedCartItemIndex!]['name']}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue[900],
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () {
+                              setState(() {
+                                _selectedCartItemIndex = null;
+                                _itemDiscountController.clear();
+                              });
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              controller: _itemDiscountController,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: _itemDiscountType == 'Percentage' ? 'Discount %' : 'Discount',
+                                isDense: true,
+                                border: const OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Colors.white,
+                                suffixText: _itemDiscountType == 'Percentage' ? '%' : '\$',
+                              ),
+                              onChanged: (_) => _applyItemDiscount(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _itemDiscountType,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 12))),
+                                DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 12))),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  _itemDiscountType = value!;
+                                  _itemDiscountController.clear();
+                                  _clearItemDiscount();
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: _clearItemDiscount,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: Size.zero,
+                            ),
+                            child: const Text('Clear', style: TextStyle(fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -1102,7 +1244,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                           ),
                         ],
                       ),
-                      if (_discount > 0) ..[
+                      if (_discount > 0) ...[
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.all(8),
@@ -1138,7 +1280,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         child: Column(
                           children: [
                             _buildCartSummaryRow('Subtotal', _subtotal, false),
-                            if (_discount > 0) ..[
+                            if (_discount > 0) ...[
                               const SizedBox(height: 6),
                               _buildCartSummaryRow('Cart Discount', -_discount, false),
                             ],
