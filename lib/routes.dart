@@ -150,7 +150,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: 'add',
               name: 'add-product',
-              builder: (context, state) => const AddEditProductPage(),
+              builder: (context, state) {
+                final initialName = state.uri.queryParameters['name'];
+                return AddEditProductPage(initialName: initialName);
+              },
             ),
             GoRoute(
               path: ':id',
@@ -176,7 +179,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         GoRoute(
           path: '/product/add',
           name: 'add-product-alt',
-          builder: (context, state) => const AddEditProductPage(),
+          builder: (context, state) {
+            final initialName = state.uri.queryParameters['name'];
+            return AddEditProductPage(initialName: initialName);
+          },
         ),
         GoRoute(
           path: '/product/edit/:id',

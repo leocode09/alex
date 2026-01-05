@@ -48,7 +48,8 @@ class SaleItem {
   final String productId;
   final String productName;
   final int quantity;
-  final double price;
+  final double price; // Original price
+  final double? discount; // Discount amount per item
   final double subtotal;
 
   SaleItem({
@@ -56,7 +57,8 @@ class SaleItem {
     required this.productName,
     required this.quantity,
     required this.price,
-  }) : subtotal = quantity * price;
+    this.discount,
+  }) : subtotal = quantity * (price - (discount ?? 0));
 
   Map<String, dynamic> toMap() {
     return {
@@ -64,6 +66,7 @@ class SaleItem {
       'productName': productName,
       'quantity': quantity,
       'price': price,
+      'discount': discount,
       'subtotal': subtotal,
     };
   }
@@ -74,6 +77,7 @@ class SaleItem {
       productName: map['productName'] as String,
       quantity: map['quantity'] as int,
       price: (map['price'] as num).toDouble(),
+      discount: map['discount'] != null ? (map['discount'] as num).toDouble() : null,
     );
   }
 }

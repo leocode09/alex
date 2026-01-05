@@ -127,6 +127,49 @@ class SaleRepository {
     return todaysSales.fold<double>(0.0, (sum, sale) => sum + sale.total);
   }
 
+  // Get yesterday's sales
+  Future<List<Sale>> getYesterdaysSales() async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final startOfDay = DateTime(yesterday.year, yesterday.month, yesterday.day);
+    final endOfDay = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+    return getSalesByDateRange(startOfDay, endOfDay);
+  }
+
+  // Get yesterday's sales count
+  Future<int> getYesterdaysSalesCount() async {
+    final yesterdaysSales = await getYesterdaysSales();
+    return yesterdaysSales.length;
+  }
+
+  // Get yesterday's revenue
+  Future<double> getYesterdaysRevenue() async {
+    final yesterdaysSales = await getYesterdaysSales();
+    return yesterdaysSales.fold<double>(0.0, (sum, sale) => sum + sale.total);
+  }
+
+  // Get weekly sales (last 7 days)
+  Future<List<Sale>> getWeeklySales() async {
+    final now = DateTime.now();
+    final startOfWeek = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    return getSalesByDateRange(startOfWeek, endOfDay);
+  }
+
+  // Get weekly revenue
+  Future<double> getWeeklyRevenue() async {
+    final weeklySales = await getWeeklySales();
+    return weeklySales.fold<double>(0.0, (sum, sale) => sum + sale.total);
+  }
+
+  // Get last week's revenue (7-13 days ago)
+  Future<double> getLastWeekRevenue() async {
+    final now = DateTime.now();
+    final startOfLastWeek = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 13));
+    final endOfLastWeek = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7));
+    final lastWeekSales = await getSalesByDateRange(startOfLastWeek, endOfLastWeek);
+    return lastWeekSales.fold<double>(0.0, (sum, sale) => sum + sale.total);
+  }
+
   // Get sales by payment method
   Future<List<Sale>> getSalesByPaymentMethod(String paymentMethod) async {
     final sales = await getAllSales();

@@ -7,10 +7,12 @@ import '../../../providers/product_provider.dart';
 
 class AddEditProductPage extends ConsumerStatefulWidget {
   final String? productId;
+  final String? initialName;
 
   const AddEditProductPage({
     super.key,
     this.productId,
+    this.initialName,
   });
 
   @override
@@ -25,6 +27,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   final _stockController = TextEditingController();
   final _barcodeController = TextEditingController();
   final _supplierController = TextEditingController();
+  final _discountPercentageController = TextEditingController();
+  final _discountAmountController = TextEditingController();
 
   String? _selectedCategory;
   bool _isLoading = false;
@@ -36,6 +40,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     super.initState();
     if (isEditing) {
       _loadProductData();
+    } else if (widget.initialName != null && widget.initialName!.isNotEmpty) {
+      _nameController.text = widget.initialName!;
     }
   }
 
@@ -53,6 +59,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
         _barcodeController.text = product.barcode ?? '';
         _selectedCategory = product.category;
         _supplierController.text = product.supplier ?? '';
+        _discountPercentageController.text = product.discountPercentage?.toStringAsFixed(0) ?? '';
+        _discountAmountController.text = product.discountAmount?.toStringAsFixed(0) ?? '';
       });
     }
   }
@@ -99,6 +107,12 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
             ? null
             : double.parse(_costPriceController.text),
         supplier: _supplierController.text.isEmpty ? null : _supplierController.text,
+        discountPercentage: _discountPercentageController.text.isEmpty
+            ? null
+            : double.parse(_discountPercentageController.text),
+        discountAmount: _discountAmountController.text.isEmpty
+            ? null
+            : double.parse(_discountAmountController.text),
         sku: '', // Assuming SKU is generated or optional
       );
 
@@ -229,6 +243,51 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+
+            _buildSectionTitle('Discounts (Optional)'),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _discountPercentageController,
+                    label: 'Discount %',
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      if (v != null && v.isNotEmpty) {
+                        final value = double.tryParse(v);
+                        if (value == null || value < 0 || value > 100) {
+                          return 'Must be 0-100';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _discountAmountController,
+                    label: 'Discount Amount',
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      if (v != null && v.isNotEmpty) {
+                        final value = double.tryParse(v);
+                        if (value == null || value < 0) {
+                          return 'Must be ≥ 0';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Note: Both percentage and fixed amount discounts can be applied. Percentage is calculated first.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),

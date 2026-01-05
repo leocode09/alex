@@ -46,7 +46,22 @@ class ProductDetailsPage extends ConsumerWidget {
                   ],
                 ),
               ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 20, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
             ],
+            onSelected: (value) {
+              if (value == 'delete') {
+                _confirmDelete(context, ref);
+              }
+            },
           ),
         ],
       ),
@@ -175,6 +190,53 @@ class ProductDetailsPage extends ConsumerWidget {
           ),
           Expanded(
             child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Product'),
+        content: const Text('Are you sure you want to delete this product? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              
+              try {
+                final repository = ref.read(productRepositoryProvider);
+                await repository.deleteProduct(productId);
+                
+                // Invalidate providers to refresh lists
+                ref.invalidate(productsProvider);
+                ref.invalidate(filteredProductsProvider);
+                ref.invalidate(totalProductsCountProvider);
+                ref.invalidate(totalInventoryValueProvider);
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Product deleted successfully')),
+                  );
+                  context.pop(); // Go back to list
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error deleting product: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
           ),
         ],
       ),

@@ -1,11 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../providers/sale_provider.dart';
+import '../../../providers/product_provider.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch all providers
+    final todaysRevenueAsync = ref.watch(todaysRevenueProvider);
+    final yesterdaysRevenueAsync = ref.watch(yesterdaysRevenueProvider);
+    final todaysSalesCountAsync = ref.watch(todaysSalesCountProvider);
+    final yesterdaysSalesCountAsync = ref.watch(yesterdaysSalesCountProvider);
+    final weeklyRevenueAsync = ref.watch(weeklyRevenueProvider);
+    final lastWeekRevenueAsync = ref.watch(lastWeekRevenueProvider);
+    final totalProductsCountAsync = ref.watch(totalProductsCountProvider);
+    final lowStockProductsAsync = ref.watch(lowStockProductsProvider);
+    final topSellingProductsAsync = ref.watch(topSellingProductsProvider);
+    final allSalesAsync = ref.watch(salesProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -20,7 +35,17 @@ class DashboardPage extends StatelessWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await Future.delayed(const Duration(seconds: 1));
+          // Invalidate all providers to refresh data
+          ref.invalidate(todaysRevenueProvider);
+          ref.invalidate(yesterdaysRevenueProvider);
+          ref.invalidate(todaysSalesCountProvider);
+          ref.invalidate(yesterdaysSalesCountProvider);
+          ref.invalidate(weeklyRevenueProvider);
+          ref.invalidate(lastWeekRevenueProvider);
+          ref.invalidate(totalProductsCountProvider);
+          ref.invalidate(lowStockProductsProvider);
+          ref.invalidate(topSellingProductsProvider);
+          ref.invalidate(salesProvider);
         },
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -31,24 +56,73 @@ class DashboardPage extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _buildMetricCard(
-                      context,
-                      title: 'Today\'s Sales',
-                      value: '\$120,000',
-                      unit: '',
-                      trend: '+12%',
-                      trendPositive: true,
+                    child: todaysRevenueAsync.when(
+                      data: (todaysRevenue) {
+                        final yesterdaysRevenue = yesterdaysRevenueAsync.value ?? 0.0;
+                        final trend = yesterdaysRevenue > 0
+                            ? ((todaysRevenue - yesterdaysRevenue) / yesterdaysRevenue * 100)
+                            : 0.0;
+                        return _buildMetricCard(
+                          context,
+                          title: 'Today\'s Sales',
+                          value: '\$${_formatNumber(todaysRevenue)}',
+                          unit: '',
+                          trend: '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
+                          trendPositive: trend >= 0,
+                        );
+                      },
+                      loading: () => _buildMetricCard(
+                        context,
+                        title: 'Today\'s Sales',
+                        value: '...',
+                        unit: '',
+                        trend: '--',
+                        trendPositive: true,
+                      ),
+                      error: (_, __) => _buildMetricCard(
+                        context,
+                        title: 'Today\'s Sales',
+                        value: '\$0',
+                        unit: '',
+                        trend: '--',
+                        trendPositive: true,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildMetricCard(
-                      context,
-                      title: 'Transactions',
-                      value: '47',
-                      unit: '',
-                      trend: '+8%',
-                      trendPositive: true,
+                    child: todaysSalesCountAsync.when(
+                      data: (todaysSalesCount) {
+                        final yesterdaysSalesCount = yesterdaysSalesCountAsync.value ?? 0;
+                        final diff = todaysSalesCount - yesterdaysSalesCount;
+                        final trend = yesterdaysSalesCount > 0
+                            ? ((diff / yesterdaysSalesCount) * 100)
+                            : 0.0;
+                        return _buildMetricCard(
+                          context,
+                          title: 'Transactions',
+                          value: '$todaysSalesCount',
+                          unit: '',
+                          trend: '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
+                          trendPositive: trend >= 0,
+                        );
+                      },
+                      loading: () => _buildMetricCard(
+                        context,
+                        title: 'Transactions',
+                        value: '...',
+                        unit: '',
+                        trend: '--',
+                        trendPositive: true,
+                      ),
+                      error: (_, __) => _buildMetricCard(
+                        context,
+                        title: 'Transactions',
+                        value: '0',
+                        unit: '',
+                        trend: '--',
+                        trendPositive: true,
+                      ),
                     ),
                   ),
                 ],
@@ -57,24 +131,68 @@ class DashboardPage extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _buildMetricCard(
-                      context,
-                      title: 'Weekly Sales',
-                      value: '\$1.2M',
-                      unit: '',
-                      trend: '+15%',
-                      trendPositive: true,
+                    child: weeklyRevenueAsync.when(
+                      data: (weeklyRevenue) {
+                        final lastWeekRevenue = lastWeekRevenueAsync.value ?? 0.0;
+                        final trend = lastWeekRevenue > 0
+                            ? ((weeklyRevenue - lastWeekRevenue) / lastWeekRevenue * 100)
+                            : 0.0;
+                        return _buildMetricCard(
+                          context,
+                          title: 'Weekly Sales',
+                          value: '\$${_formatNumber(weeklyRevenue)}',
+                          unit: '',
+                          trend: '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
+                          trendPositive: trend >= 0,
+                        );
+                      },
+                      loading: () => _buildMetricCard(
+                        context,
+                        title: 'Weekly Sales',
+                        value: '...',
+                        unit: '',
+                        trend: '--',
+                        trendPositive: true,
+                      ),
+                      error: (_, __) => _buildMetricCard(
+                        context,
+                        title: 'Weekly Sales',
+                        value: '\$0',
+                        unit: '',
+                        trend: '--',
+                        trendPositive: true,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildMetricCard(
-                      context,
-                      title: 'Products',
-                      value: '156',
-                      unit: '',
-                      trend: '+3',
-                      trendPositive: true,
+                    child: totalProductsCountAsync.when(
+                      data: (totalProducts) {
+                        return _buildMetricCard(
+                          context,
+                          title: 'Products',
+                          value: '$totalProducts',
+                          unit: '',
+                          trend: '',
+                          trendPositive: true,
+                        );
+                      },
+                      loading: () => _buildMetricCard(
+                        context,
+                        title: 'Products',
+                        value: '...',
+                        unit: '',
+                        trend: '',
+                        trendPositive: true,
+                      ),
+                      error: (_, __) => _buildMetricCard(
+                        context,
+                        title: 'Products',
+                        value: '0',
+                        unit: '',
+                        trend: '',
+                        trendPositive: true,
+                      ),
                     ),
                   ),
                 ],
@@ -125,47 +243,123 @@ class DashboardPage extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Alerts Section
-              if (true) // Show if there are alerts
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange[200]!),
-                  ),
-                  child: Row(
+              lowStockProductsAsync.when(
+                data: (lowStockProducts) {
+                  if (lowStockProducts.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Column(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.orange[800], size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Low Stock: 4 items need restocking',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.orange[800],
-                                fontWeight: FontWeight.w500,
+                      GestureDetector(
+                        onTap: () => context.push('/inventory'),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Colors.orange[800], size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Low Stock: ${lowStockProducts.length} items need restocking',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: Colors.orange[800],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
                               ),
+                              Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orange[800]),
+                            ],
+                          ),
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orange[800]),
+                      const SizedBox(height: 24),
                     ],
-                  ),
-                ),
-              const SizedBox(height: 24),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
 
               // Top Products
               _buildSectionHeader(context, 'Top Selling Products', () => context.push('/products')),
               const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[200]!),
-                  borderRadius: BorderRadius.circular(8),
+              topSellingProductsAsync.when(
+                data: (topProducts) {
+                  if (topProducts.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[200]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Center(
+                        child: Text('No sales data available'),
+                      ),
+                    );
+                  }
+
+                  // Calculate revenue for each product
+                  final allSales = allSalesAsync.value ?? [];
+                  final productRevenues = <String, double>{};
+                  for (var sale in allSales) {
+                    for (var item in sale.items) {
+                      productRevenues[item.productName] =
+                          (productRevenues[item.productName] ?? 0) +
+                              (item.price * item.quantity);
+                    }
+                  }
+
+                  final topProductsList = topProducts.entries.take(3).toList();
+                  
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[200]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: topProductsList.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final product = entry.value;
+                        final revenue = productRevenues[product.key] ?? 0.0;
+                        return Column(
+                          children: [
+                            _buildTopProductItem(
+                              context,
+                              index + 1,
+                              product.key,
+                              '${product.value}',
+                              _formatNumber(revenue),
+                            ),
+                            if (index < topProductsList.length - 1)
+                              Divider(height: 1, color: Colors.grey[200]),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+                loading: () => Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[200]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(child: CircularProgressIndicator()),
                 ),
-                child: Column(
-                  children: [
-                    _buildTopProductItem(context, 1, 'Coca Cola', '54', '27,000'),
-                    _buildTopProductItem(context, 2, 'Bread', '38', '19,000'),
-                    _buildTopProductItem(context, 3, 'Sugar', '25', '12,500'),
-                  ],
+                error: (_, __) => Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[200]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Text('Error loading top products'),
+                  ),
                 ),
               ),
             ],
@@ -175,7 +369,17 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildMetricCard(
+  String _formatNumber(double number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    } else {
+      return number.toStringAsFixed(0);
+    }
+  }
+
+  static Widget _buildMetricCard(
     BuildContext context, {
     required String title,
     required String value,
@@ -223,28 +427,30 @@ class DashboardPage extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: trendPositive ? Colors.green[50] : Colors.red[50],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              trend,
-              style: TextStyle(
-                color: trendPositive ? Colors.green[700] : Colors.red[700],
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+          if (trend.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: trendPositive ? Colors.green[50] : Colors.red[50],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                trend,
+                style: TextStyle(
+                  color: trendPositive ? Colors.green[700] : Colors.red[700],
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildQuickAction(
+  static Widget _buildQuickAction(
     BuildContext context, {
     required IconData icon,
     required String label,
@@ -280,7 +486,7 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
+  static Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -305,7 +511,7 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildTopProductItem(
+  static Widget _buildTopProductItem(
     BuildContext context,
     int rank,
     String name,

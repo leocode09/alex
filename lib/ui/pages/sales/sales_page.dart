@@ -31,6 +31,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
   String _paymentMethod = 'Cash';
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _discountController = TextEditingController();
+  String _discountType = 'Fixed'; // 'Fixed' or 'Percentage'
   late TabController _tabController;
   SharedPreferences? _prefs;
 
@@ -39,6 +40,38 @@ class _SalesPageState extends ConsumerState<SalesPage>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _initPrefs();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check if we're editing a receipt and load it into the cart
+    _loadEditingReceipt();
+  }
+
+  Future<void> _loadEditingReceipt() async {
+    final editingReceipt = ref.read(editingReceiptProvider);
+    if (editingReceipt != null && _cart.isEmpty) {
+      // Load the receipt items into the cart
+      setState(() {
+        _cart.clear();
+        for (var item in editingReceipt.items) {
+          _cart.add({
+            'id': item.productId,
+            'name': item.productName,
+            'price': item.price,
+            'quantity': item.quantity,
+          });
+        }
+        if (editingReceipt.customerId != null) {
+          _customerController.text = editingReceipt.customerId!;
+        }
+        _paymentMethod = editingReceipt.paymentMethod;
+      });
+      _saveCart();
+      // Switch to cart tab to show the loaded items
+      _tabController.animateTo(1);
+    }
   }
 
   Future<void> _initPrefs() async {
@@ -66,11 +99,14 @@ class _SalesPageState extends ConsumerState<SalesPage>
 
   double get _subtotal {
     return _cart.fold(
-        0.0, (sum, item) => sum + (item['price'] * item['quantity']));
+        0.0, (sum, item) => sum + ((item['finalPrice'] ?? item['price']) * item['quantity']));
   }
 
   double get _discount {
     final discountValue = double.tryParse(_discountController.text) ?? 0.0;
+    if (_discountType == 'Percentage') {
+      return _subtotal * (discountValue / 100);
+    }
     return discountValue;
   }
 
@@ -128,6 +164,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
           'id': product.id,
           'name': product.name,
           'price': product.price,
+          'finalPrice': product.finalPrice,
+          'discount': product.totalDiscount,
           'quantity': 1,
           'stock': product.stock,
         });
@@ -153,6 +191,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
     if (_cart.isEmpty) return;
 
     final totalAmount = _total;
+    final editingReceipt = ref.read(editingReceiptProvider);
+    final isEditingMode = editingReceipt != null;
+    
     // Capture navigators before async gap
     // showDialog uses root navigator by default
     final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -173,68 +214,138 @@ class _SalesPageState extends ConsumerState<SalesPage>
       final saleRepo = ref.read(saleRepositoryProvider);
       final authState = ref.read(authProvider);
 
-      // 1. Validate stock first
-      for (var cartItem in _cart) {
-        final product = await productRepo.getProductById(cartItem['id']);
-        if (product == null) {
-          throw Exception('Product ${cartItem['name']} not found');
+      if (isEditingMode) {
+        // EDITING MODE: Calculate stock differences and update
+        final oldItems = editingReceipt.items;
+        final Map<String, int> oldQuantities = {};
+        for (var item in oldItems) {
+          oldQuantities[item.productId] = (oldQuantities[item.productId] ?? 0) + item.quantity;
         }
-        if (product.stock < cartItem['quantity']) {
-          throw Exception('Insufficient stock for ${cartItem['name']}');
-        }
-      }
 
-      // 2. Process stock deduction
-      for (var cartItem in _cart) {
-        final success = await productRepo.decreaseStock(
-          cartItem['id'],
-          cartItem['quantity'],
+        // 1. Validate and adjust stock for each item
+        for (var cartItem in _cart) {
+          final product = await productRepo.getProductById(cartItem['id']);
+          if (product == null) {
+            throw Exception('Product ${cartItem['name']} not found');
+          }
+          
+          final oldQuantity = oldQuantities[cartItem['id']] ?? 0;
+          final quantityDiff = cartItem['quantity'] - oldQuantity;
+          
+          if (quantityDiff > 0) {
+            // Need more stock
+            if (product.stock < quantityDiff) {
+              throw Exception('Insufficient stock for ${cartItem['name']}');
+            }
+            await productRepo.decreaseStock(cartItem['id'], quantityDiff);
+          } else if (quantityDiff < 0) {
+            // Return stock
+            await productRepo.increaseStock(cartItem['id'], -quantityDiff);
+          }
+        }
+
+        // Check for removed items and restore their stock
+        for (var oldItem in oldItems) {
+          final stillInCart = _cart.any((cartItem) => cartItem['id'] == oldItem.productId);
+          if (!stillInCart) {
+            await productRepo.increaseStock(oldItem.productId, oldItem.quantity);
+          }
+        }
+
+        // 3. Update Sale Record
+        final saleItems = _cart.map((item) {
+          return SaleItem(
+            productId: item['id'],
+            productName: item['name'],
+            quantity: item['quantity'],
+            price: item['price'],
+            discount: item['discount'],
+          );
+        }).toList();
+
+        final updatedSale = Sale(
+          id: editingReceipt.id,
+          items: saleItems,
+          total: totalAmount,
+          paymentMethod: method,
+          employeeId: editingReceipt.employeeId,
+          customerId: _customerController.text.isNotEmpty
+              ? _customerController.text
+              : null,
+          createdAt: editingReceipt.createdAt,
         );
-        if (!success) {
-          throw Exception('Failed to update stock for ${cartItem['name']}');
+
+        await saleRepo.updateSale(updatedSale);
+
+        // Clear editing state
+        ref.read(editingReceiptProvider.notifier).state = null;
+
+      } else {
+        // NEW SALE MODE: Original logic
+        // 1. Validate stock first
+        for (var cartItem in _cart) {
+          final product = await productRepo.getProductById(cartItem['id']);
+          if (product == null) {
+            throw Exception('Product ${cartItem['name']} not found');
+          }
+          if (product.stock < cartItem['quantity']) {
+            throw Exception('Insufficient stock for ${cartItem['name']}');
+          }
         }
-      }
 
-      // 3. Create Sale Record
-      final saleItems = _cart.map((item) {
-        return SaleItem(
-          productId: item['id'],
-          productName: item['name'],
-          quantity: item['quantity'],
-          price: item['price'],
+        // 2. Process stock deduction
+        for (var cartItem in _cart) {
+          final success = await productRepo.decreaseStock(
+            cartItem['id'],
+            cartItem['quantity'],
+          );
+          if (!success) {
+            throw Exception('Failed to update stock for ${cartItem['name']}');
+          }
+        }
+
+        // 3. Create Sale Record
+        final saleItems = _cart.map((item) {
+          return SaleItem(
+            productId: item['id'],
+            productName: item['name'],
+            quantity: item['quantity'],
+            price: item['price'],
+            discount: item['discount'],
+          );
+        }).toList();
+
+        // Get current user email or default
+        String employeeId = 'default-employee';
+        if (authState.hasValue && authState.value == true) {
+          final prefs = await SharedPreferences.getInstance();
+          employeeId = prefs.getString('userEmail') ?? 'default-employee';
+        }
+
+        final sale = Sale(
+          id: const Uuid().v4(),
+          items: saleItems,
+          total: totalAmount,
+          paymentMethod: method,
+          employeeId: employeeId,
+          customerId: _customerController.text.isNotEmpty
+              ? _customerController.text
+              : null,
+          createdAt: DateTime.now(),
         );
-      }).toList();
 
-      // Get current user email or default
-      String employeeId = 'default-employee';
-      if (authState.hasValue && authState.value == true) {
-        final prefs = await SharedPreferences.getInstance();
-        employeeId = prefs.getString('userEmail') ?? 'default-employee';
-      }
+        await saleRepo.insertSale(sale);
 
-      final sale = Sale(
-        id: const Uuid().v4(),
-        items: saleItems,
-        total: totalAmount,
-        paymentMethod: method,
-        employeeId: employeeId,
-        customerId: _customerController.text.isNotEmpty
-            ? _customerController.text
-            : null,
-        createdAt: DateTime.now(),
-      );
-
-      await saleRepo.insertSale(sale);
-
-      // Attempt to print receipt
-      String? printError;
-      try {
-        final printerService = ref.read(printerServiceProvider);
-        final receiptSettings = ref.read(receiptSettingsProvider);
-        await printerService.printReceipt(sale, receiptSettings);
-      } catch (e) {
-        printError = e.toString();
-        debugPrint('Auto-print failed: $e');
+        // Attempt to print receipt
+        String? printError;
+        try {
+          final printerService = ref.read(printerServiceProvider);
+          final receiptSettings = ref.read(receiptSettingsProvider);
+          await printerService.printReceipt(sale, receiptSettings);
+        } catch (e) {
+          printError = e.toString();
+          debugPrint('Auto-print failed: $e');
+        }
       }
 
       // 4. Update UI State
@@ -268,14 +379,16 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Payment successful! \$${totalAmount.toStringAsFixed(0)}${printError != null ? "\n(Print failed: Check printer connection)" : ""}',
+                    isEditingMode 
+                        ? 'Receipt updated successfully! \$${totalAmount.toStringAsFixed(0)}'
+                        : 'Payment successful! \$${totalAmount.toStringAsFixed(0)}${!isEditingMode && mounted ? "\n(Print failed: Check printer connection)" : ""}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-            backgroundColor: printError != null ? Colors.orange : Colors.green,
+            backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 3),
           ),
@@ -347,8 +460,13 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   children: [
                     _buildSummaryRow('Subtotal', _subtotal),
                     const SizedBox(height: 8),
-                    _buildSummaryRow('Discount', -_discount),
-                    const SizedBox(height: 8),
+                    if (_discount > 0) ...[
+                      _buildSummaryRow(
+                        'Cart Discount${_discountType == 'Percentage' ? ' (${_discountController.text}%)' : ''}',
+                        -_discount,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     Builder(builder: (context) {
                       final taxSettings = ref.watch(taxSettingsProvider);
                       final taxPercent =
@@ -460,20 +578,65 @@ class _SalesPageState extends ConsumerState<SalesPage>
     );
   }
 
+  Widget _buildCartSummaryRow(String label, double value, bool isBold) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: isBold ? Colors.black : Colors.grey[600],
+            fontSize: isBold ? 14 : 12,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        Text(
+          '\$${value.toStringAsFixed(2)}',
+          style: TextStyle(
+            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            fontSize: isBold ? 16 : 12,
+            color: value < 0 ? Colors.green[700] : (isBold ? Colors.black : Colors.grey[800]),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(productsProvider);
+    final editingReceipt = ref.watch(editingReceiptProvider);
+    final isEditingMode = editingReceipt != null;
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text('Sales', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(
+          isEditingMode ? 'Edit Receipt' : 'Sales',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         centerTitle: false,
+        leading: isEditingMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  // Cancel editing and clear cart
+                  ref.read(editingReceiptProvider.notifier).state = null;
+                  setState(() {
+                    _cart.clear();
+                    _customerController.clear();
+                    _discountController.clear();
+                    _paymentMethod = 'Cash';
+                  });
+                  _saveCart();
+                },
+              )
+            : null,
+        backgroundColor: isEditingMode ? Colors.orange[700] : null,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Theme.of(context).colorScheme.primary,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Theme.of(context).colorScheme.primary,
+          labelColor: isEditingMode ? Colors.white : Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: isEditingMode ? Colors.white70 : Colors.grey,
+          indicatorColor: isEditingMode ? Colors.white : Theme.of(context).colorScheme.primary,
           indicatorSize: TabBarIndicatorSize.label,
           tabs: [
             const Tab(text: 'Products'),
@@ -552,7 +715,32 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   data: (products) {
                     final filtered = _getFilteredProducts(products);
                     if (filtered.isEmpty) {
-                      return const Center(child: Text('No products found'));
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey[300]),
+                            const SizedBox(height: 16),
+                            const Text('No products found', style: TextStyle(color: Colors.grey)),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                final searchQuery = _searchController.text.trim();
+                                if (searchQuery.isNotEmpty) {
+                                  context.push('/products/add?name=${Uri.encodeComponent(searchQuery)}');
+                                } else {
+                                  context.push('/products/add');
+                                }
+                              },
+                              icon: const Icon(Icons.add),
+                              label: const Text('Create Product'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
                     }
                     return GridView.builder(
                       padding: const EdgeInsets.all(12),
@@ -601,15 +789,40 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                               const BorderRadius.vertical(
                                                   top: Radius.circular(8)),
                                         ),
-                                        child: Center(
-                                          child: Icon(
-                                              Icons.inventory_2_outlined,
-                                              color: isInCart
-                                                  ? Theme.of(context)
-                                                      .colorScheme
-                                                      .primary
-                                                  : Colors.grey[400],
-                                              size: 32),
+                                        child: Stack(
+                                          children: [
+                                            Center(
+                                              child: Icon(
+                                                  Icons.inventory_2_outlined,
+                                                  color: isInCart
+                                                      ? Theme.of(context)
+                                                          .colorScheme
+                                                          .primary
+                                                      : Colors.grey[400],
+                                                  size: 32),
+                                            ),
+                                            if (product.hasDiscount)
+                                              Positioned(
+                                                top: 4,
+                                                left: 4,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    'SALE',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 8,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -628,12 +841,34 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                                 fontSize: 12),
                                           ),
                                           const SizedBox(height: 2),
-                                          Text(
-                                            '\$${product.price.toInt()}',
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 11),
-                                          ),
+                                          if (product.hasDiscount) ...[
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  '\$${product.price.toInt()}',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.grey[500],
+                                                    decoration: TextDecoration.lineThrough,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '\$${product.finalPrice.toInt()}',
+                                                  style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 11,
+                                                      color: Colors.green),
+                                                ),
+                                              ],
+                                            ),
+                                          ] else
+                                            Text(
+                                              '\$${product.price.toInt()}',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11),
+                                            ),
                                           Text(
                                             'Stock: ${product.stock}',
                                             style: TextStyle(
@@ -694,6 +929,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final item = _cart[index];
+                          final hasDiscount = (item['discount'] ?? 0) > 0;
+                          final finalPrice = item['finalPrice'] ?? item['price'];
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Row(
@@ -706,12 +943,52 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                       Text(item['name'],
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w500)),
-                                      Text(
-                                        '\$${item['price'].toInt()}',
-                                        style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12),
-                                      ),
+                                      if (hasDiscount) ...[
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '\$${item['price'].toInt()}',
+                                              style: TextStyle(
+                                                color: Colors.grey[400],
+                                                fontSize: 12,
+                                                decoration: TextDecoration.lineThrough,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '\$${finalPrice.toInt()}',
+                                              style: const TextStyle(
+                                                color: Colors.green,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 4, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red[50],
+                                                borderRadius: BorderRadius.circular(3),
+                                              ),
+                                              child: Text(
+                                                '-\$${item['discount'].toInt()}',
+                                                style: TextStyle(
+                                                  color: Colors.red[700],
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ] else
+                                        Text(
+                                          '\$${item['price'].toInt()}',
+                                          style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12),
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -767,48 +1044,106 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 child: SafeArea(
                   child: Column(
                     children: [
+                      TextField(
+                        controller: _customerController,
+                        decoration: const InputDecoration(
+                          labelText: 'Customer (Optional)',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
-                            child: TextField(
-                              controller: _customerController,
-                              decoration: const InputDecoration(
-                                labelText: 'Customer (Optional)',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                            flex: 2,
                             child: TextField(
                               controller: _discountController,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Discount',
+                              decoration: InputDecoration(
+                                labelText: _discountType == 'Percentage' ? 'Discount %' : 'Discount Amount',
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.local_offer),
+                                suffixText: _discountType == 'Percentage' ? '%' : '\$',
                               ),
                               onChanged: (_) => setState(() {}),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total',
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold)),
-                          Text(
-                            '\$${_total.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _discountType,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 12))),
+                                DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 12))),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  _discountType = value!;
+                                });
+                              },
+                            ),
                           ),
                         ],
                       ),
+                      if (_discount > 0) ..[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.savings, size: 16, color: Colors.green[700]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'You save \$${_discount.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildCartSummaryRow('Subtotal', _subtotal, false),
+                            if (_discount > 0) ..[
+                              const SizedBox(height: 6),
+                              _buildCartSummaryRow('Cart Discount', -_discount, false),
+                            ],
+                            const SizedBox(height: 6),
+                            Builder(builder: (context) {
+                              final taxSettings = ref.watch(taxSettingsProvider);
+                              final taxPercent = (taxSettings.taxRate * 100).toStringAsFixed(0);
+                              return _buildCartSummaryRow('Tax ($taxPercent%)', _tax, false);
+                            }),
+                            const Divider(height: 16),
+                            _buildCartSummaryRow('Total', _total, true),
+                          ],
+                        ),
+                      ),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -817,8 +1152,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
+                            backgroundColor: isEditingMode ? Colors.orange[700] : null,
                           ),
-                          child: const Text('Checkout'),
+                          child: Text(isEditingMode ? 'Update Receipt' : 'Checkout'),
                         ),
                       ),
                     ],

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../models/sale.dart';
+import '../../../models/product.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
+import '../../../providers/product_provider.dart';
 import 'receipts_page.dart'; // For PrinterDialog
 
 class ReceiptPreviewPage extends ConsumerStatefulWidget {
@@ -127,29 +130,65 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                         ),
 
                       // Items
-                      ..._sale.items.map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.productName,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      ..._sale.items.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        return InkWell(
+                          onTap: () => _editItem(context, index, item),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
                               children: [
-                                Text('${item.quantity}x ${item.price.toStringAsFixed(2)}'),
-                                Text(
-                                  item.subtotal.toStringAsFixed(2),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.productName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('${item.quantity}x ${item.price.toStringAsFixed(2)}'),
+                                          Text(
+                                            item.subtotal.toStringAsFixed(2),
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _removeItem(context, index),
                                 ),
                               ],
                             ),
-                          ],
+                          ),
+                        );
+                      }),                      
+                      // Add item button
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            // Set this receipt as the one being edited
+                            ref.read(editingReceiptProvider.notifier).state = _sale;
+                            // Navigate to sales page
+                            context.go('/sales');
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Item'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 36),
+                          ),
                         ),
-                      )),
-                      const Divider(thickness: 1, height: 24, color: Colors.black),
+                      ),
+                                            const Divider(thickness: 1, height: 24, color: Colors.black),
 
                       // Delivery (Placeholder)
                       Row(
@@ -268,6 +307,230 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
         ],
       ),
     );
+  }
+
+  void _editItem(BuildContext context, int index, SaleItem item) {
+    final quantityController = TextEditingController(text: item.quantity.toString());
+    final priceController = TextEditingController(text: item.price.toStringAsFixed(2));
+    final nameController = TextEditingController(text: item.productName);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Item'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Product Name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: quantityController,
+              decoration: const InputDecoration(labelText: 'Quantity'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(labelText: 'Price'),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final quantity = int.tryParse(quantityController.text) ?? item.quantity;
+              final price = double.tryParse(priceController.text) ?? item.price;
+              final name = nameController.text.isEmpty ? item.productName : nameController.text;
+
+              final updatedItems = List<SaleItem>.from(_sale.items);
+              updatedItems[index] = SaleItem(
+                productId: item.productId,
+                productName: name,
+                quantity: quantity,
+                price: price,
+              );
+
+              await _updateSaleItems(updatedItems);
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _removeItem(BuildContext context, int index) {
+    if (_sale.items.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot remove the last item')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Item'),
+        content: Text('Remove ${_sale.items[index].productName} from this receipt?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final updatedItems = List<SaleItem>.from(_sale.items)
+                ..removeAt(index);
+              await _updateSaleItems(updatedItems);
+              if (mounted) Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addNewItem(BuildContext context) {
+    final productsAsync = ref.read(productsProvider);
+    
+    productsAsync.when(
+      data: (products) {
+        if (products.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No products available')),
+          );
+          return;
+        }
+
+        Product? selectedProduct = products.first;
+        final quantityController = TextEditingController(text: '1');
+        final priceController = TextEditingController(text: selectedProduct.price.toStringAsFixed(2));
+
+        showDialog(
+          context: context,
+          builder: (context) => StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: const Text('Add Item'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<Product>(
+                    value: selectedProduct,
+                    decoration: const InputDecoration(labelText: 'Product'),
+                    items: products.map((product) {
+                      return DropdownMenuItem(
+                        value: product,
+                        child: Text(product.name),
+                      );
+                    }).toList(),
+                    onChanged: (product) {
+                      if (product != null) {
+                        setState(() {
+                          selectedProduct = product;
+                          priceController.text = product.price.toStringAsFixed(2);
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: quantityController,
+                    decoration: const InputDecoration(labelText: 'Quantity'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(labelText: 'Price'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (selectedProduct == null) return;
+
+                    final quantity = int.tryParse(quantityController.text) ?? 1;
+                    final price = double.tryParse(priceController.text) ?? selectedProduct!.price;
+
+                    final newItem = SaleItem(
+                      productId: selectedProduct!.id,
+                      productName: selectedProduct!.name,
+                      quantity: quantity,
+                      price: price,
+                    );
+
+                    final updatedItems = [..._sale.items, newItem];
+                    await _updateSaleItems(updatedItems);
+                    if (mounted) Navigator.pop(context);
+                  },
+                  child: const Text('Add'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Loading products...')),
+        );
+      },
+      error: (err, stack) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading products: $err')),
+        );
+      },
+    );
+  }
+
+  Future<void> _updateSaleItems(List<SaleItem> updatedItems) async {
+    final newTotal = updatedItems.fold<double>(
+      0.0,
+      (sum, item) => sum + item.subtotal,
+    );
+
+    final updatedSale = Sale(
+      id: _sale.id,
+      items: updatedItems,
+      total: newTotal,
+      paymentMethod: _sale.paymentMethod,
+      customerId: _sale.customerId,
+      employeeId: _sale.employeeId,
+      createdAt: _sale.createdAt,
+    );
+
+    await ref.read(saleRepositoryProvider).updateSale(updatedSale);
+    
+    // Refresh providers
+    ref.invalidate(salesProvider);
+    ref.invalidate(todaysRevenueProvider);
+    ref.invalidate(totalRevenueProvider);
+    
+    if (mounted) {
+      setState(() {
+        _sale = updatedSale;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Items updated successfully')),
+      );
+    }
   }
 
   void _showEditSaleDialog(BuildContext context) {

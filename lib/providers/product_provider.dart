@@ -56,7 +56,7 @@ final searchProductsProvider = FutureProvider.family<List<Product>, String>((ref
 // Low stock products provider
 final lowStockProductsProvider = FutureProvider<List<Product>>((ref) async {
   final repository = ref.watch(productRepositoryProvider);
-  return await repository.getLowStockProducts(threshold: 10);
+  return await repository.getLowStockProducts(threshold: 20);
 });
 
 // Categories provider

@@ -9,6 +9,8 @@ class Product {
   final String? description;
   final String? category;
   final String? supplier;
+  final double? discountPercentage; // Discount as percentage (0-100)
+  final double? discountAmount; // Fixed discount amount
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,10 +25,41 @@ class Product {
     this.description,
     this.category,
     this.supplier,
+    this.discountPercentage,
+    this.discountAmount,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
+
+  /// Calculate the final price after applying discount
+  double get finalPrice {
+    double discountedPrice = price;
+    
+    // Apply percentage discount first
+    if (discountPercentage != null && discountPercentage! > 0) {
+      discountedPrice = price * (1 - discountPercentage! / 100);
+    }
+    
+    // Then apply fixed amount discount
+    if (discountAmount != null && discountAmount! > 0) {
+      discountedPrice = discountedPrice - discountAmount!;
+    }
+    
+    // Ensure price doesn't go below 0
+    return discountedPrice < 0 ? 0 : discountedPrice;
+  }
+
+  /// Check if product has any active discount
+  bool get hasDiscount {
+    return (discountPercentage != null && discountPercentage! > 0) ||
+           (discountAmount != null && discountAmount! > 0);
+  }
+
+  /// Get total discount amount
+  double get totalDiscount {
+    return price - finalPrice;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -40,6 +73,8 @@ class Product {
       'description': description,
       'category': category,
       'supplier': supplier,
+      'discountPercentage': discountPercentage,
+      'discountAmount': discountAmount,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -57,6 +92,8 @@ class Product {
       description: map['description'] as String?,
       category: map['category'] as String?,
       supplier: map['supplier'] as String?,
+      discountPercentage: map['discountPercentage'] != null ? (map['discountPercentage'] as num).toDouble() : null,
+      discountAmount: map['discountAmount'] != null ? (map['discountAmount'] as num).toDouble() : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -71,6 +108,8 @@ class Product {
     String? barcode,
     String? category,
     String? supplier,
+    double? discountPercentage,
+    double? discountAmount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -83,6 +122,8 @@ class Product {
       barcode: barcode ?? this.barcode,
       category: category ?? this.category,
       supplier: supplier ?? this.supplier,
+      discountPercentage: discountPercentage ?? this.discountPercentage,
+      discountAmount: discountAmount ?? this.discountAmount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

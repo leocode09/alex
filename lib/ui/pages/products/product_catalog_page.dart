@@ -160,6 +160,22 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey[300]),
                         const SizedBox(height: 16),
                         Text('No products found', style: TextStyle(color: Colors.grey[500])),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            final searchQuery = _searchController.text.trim();
+                            if (searchQuery.isNotEmpty) {
+                              context.push('/products/add?name=${Uri.encodeComponent(searchQuery)}');
+                            } else {
+                              context.push('/products/add');
+                            }
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Create Product'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -170,25 +186,68 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                   separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
                   itemBuilder: (context, index) {
                     final product = sortedProducts[index];
-                    return ListTile(
-                      onTap: () => context.push('/products/${product.id}', extra: product),
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
+                    return Dismissible(
+                      key: Key(product.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      confirmDismiss: (direction) async {
+                        return await showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete Product'),
+                            content: Text('Are you sure you want to delete ${product.name}?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      onDismissed: (direction) async {
+                        await ref.read(productRepositoryProvider).deleteProduct(product.id);
+                        ref.invalidate(productsProvider);
+                        ref.invalidate(filteredProductsProvider);
+                        ref.invalidate(totalProductsCountProvider);
+                        ref.invalidate(totalInventoryValueProvider);
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${product.name} deleted')),
+                          );
+                        }
+                      },
+                      child: ListTile(
+                        onTap: () => context.push('/products/${product.id}', extra: product),
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.inventory_2_outlined, size: 20, color: Colors.grey),
                         ),
-                        child: const Icon(Icons.inventory_2_outlined, size: 20, color: Colors.grey),
-                      ),
-                      title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      subtitle: Text(
-                        'Stock: ${product.stock} • ${product.category}',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                      ),
-                      trailing: Text(
-                        '\$${product.price.toInt()}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                        subtitle: Text(
+                          'Stock: ${product.stock} • ${product.category}',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        ),
+                        trailing: Text(
+                          '\$${product.price.toInt()}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                     );
                   },
