@@ -73,10 +73,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
         _paymentMethod = editingReceipt.paymentMethod;
       });
       _saveCart();
-      // Switch to cart tab to show the loaded items
+      // Switch to products tab so user can add items
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
-          _tabController.animateTo(1);
+          _tabController.animateTo(0);
         }
       });
     } else if (editingReceipt == null && _hasLoadedEditingReceipt) {
@@ -1240,23 +1240,23 @@ class _SalesPageState extends ConsumerState<SalesPage>
                     children: [
                       if (_cart.isNotEmpty && _selectedCartItemIndex == null)
                         Container(
-                          padding: const EdgeInsets.all(8),
-                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
                             color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: Colors.blue[200]!),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
-                              const SizedBox(width: 8),
+                              Icon(Icons.info_outline, size: 14, color: Colors.blue[700]),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   'Tap any item above to apply a discount to it',
                                   style: TextStyle(
                                     color: Colors.blue[900],
-                                    fontSize: 11,
+                                    fontSize: 10,
                                   ),
                                 ),
                               ),
@@ -1265,14 +1265,16 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         ),
                       TextField(
                         controller: _customerController,
+                        style: const TextStyle(fontSize: 13),
                         decoration: const InputDecoration(
-                          labelText: 'Customer (Optional)',
+                          hintText: 'Customer (Optional)',
                           isDense: true,
                           border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.person_outline),
+                          prefixIcon: Icon(Icons.person_outline, size: 18),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
@@ -1280,28 +1282,33 @@ class _SalesPageState extends ConsumerState<SalesPage>
                             child: TextField(
                               controller: _discountController,
                               keyboardType: TextInputType.number,
+                              style: const TextStyle(fontSize: 13),
                               decoration: InputDecoration(
-                                labelText: _discountType == 'Percentage' ? 'Discount %' : 'Discount Amount',
+                                hintText: _discountType == 'Percentage' ? 'Cart Disc %' : 'Cart Discount',
                                 isDense: true,
                                 border: const OutlineInputBorder(),
-                                prefixIcon: const Icon(Icons.local_offer),
+                                prefixIcon: const Icon(Icons.local_offer, size: 18),
                                 suffixText: _discountType == 'Percentage' ? '%' : '\$',
+                                suffixStyle: const TextStyle(fontSize: 11),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               ),
                               onChanged: (_) => setState(() {}),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
+                          const SizedBox(width: 6),
+                          SizedBox(
+                            width: 80,
                             child: DropdownButtonFormField<String>(
                               value: _discountType,
+                              style: const TextStyle(fontSize: 12, color: Colors.black),
                               decoration: const InputDecoration(
                                 isDense: true,
                                 border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                               ),
                               items: const [
-                                DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 12))),
-                                DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 12))),
+                                DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 11))),
+                                DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 11))),
                               ],
                               onChanged: (value) {
                                 setState(() {
@@ -1313,67 +1320,72 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         ],
                       ),
                       if (_discount > 0) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.green[50],
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: Colors.green[200]!),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.savings, size: 16, color: Colors.green[700]),
-                              const SizedBox(width: 8),
+                              Icon(Icons.savings, size: 14, color: Colors.green[700]),
+                              const SizedBox(width: 6),
                               Text(
                                 'You save \$${_discount.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   color: Colors.green[700],
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 12,
+                                  fontSize: 11,
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: Colors.grey[200]!),
                         ),
                         child: Column(
                           children: [
                             _buildCartSummaryRow('Subtotal', _subtotal, false),
                             if (_discount > 0) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               _buildCartSummaryRow('Cart Discount', -_discount, false),
                             ],
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Builder(builder: (context) {
                               final taxSettings = ref.watch(taxSettingsProvider);
                               final taxPercent = (taxSettings.taxRate * 100).toStringAsFixed(0);
                               return _buildCartSummaryRow('Tax ($taxPercent%)', _tax, false);
                             }),
-                            const Divider(height: 16),
+                            const Divider(height: 12),
                             _buildCartSummaryRow('Total', _total, true),
                           ],
                         ),
                       ),
+                      const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _checkout,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(6)),
                             backgroundColor: isEditingMode ? Colors.orange[700] : null,
                           ),
-                          child: Text(isEditingMode ? 'Update Receipt' : 'Checkout'),
+                          child: Text(
+                            isEditingMode ? 'Update Receipt' : 'Checkout',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                     ],
