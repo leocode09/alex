@@ -984,18 +984,56 @@ class _SalesPageState extends ConsumerState<SalesPage>
                           final item = _cart[index];
                           final hasDiscount = (item['discount'] ?? 0) > 0;
                           final finalPrice = item['finalPrice'] ?? item['price'];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(item['name'],
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w500)),
+                          final cartDiscount = item['cartDiscount'] ?? 0.0;
+                          final isSelected = _selectedCartItemIndex == index;
+                          
+                          return InkWell(
+                            onTap: () {
+                              setState(() {
+                                if (_selectedCartItemIndex == index) {
+                                  _selectedCartItemIndex = null;
+                                  _itemDiscountController.clear();
+                                } else {
+                                  _selectedCartItemIndex = index;
+                                  if (cartDiscount > 0) {
+                                    if (_itemDiscountType == 'Percentage') {
+                                      final percent = (cartDiscount / finalPrice * 100);
+                                      _itemDiscountController.text = percent.toStringAsFixed(0);
+                                    } else {
+                                      _itemDiscountController.text = cartDiscount.toStringAsFixed(0);
+                                    }
+                                  } else {
+                                    _itemDiscountController.clear();
+                                  }
+                                }
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.blue[50] : null,
+                                border: isSelected ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2) : null,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                              child: Row(
+                                children: [
+                                  if (isSelected)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Icon(
+                                        Icons.check_circle,
+                                        color: Theme.of(context).colorScheme.primary,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item['name'],
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w500)),
                                       if (hasDiscount) ...[
                                         Row(
                                           children: [
@@ -1042,6 +1080,24 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                               color: Colors.grey[600],
                                               fontSize: 12),
                                         ),
+                                      if (cartDiscount > 0)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.local_offer, size: 12, color: Colors.purple[700]),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Cart discount: -\$${cartDiscount.toStringAsFixed(2)}',
+                                                style: TextStyle(
+                                                  color: Colors.purple[700],
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -1078,104 +1134,91 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                 ),
                               ],
                             ),
-                          );
+                          ),
+                        );
                         },
                       ),
               ),
               if (_selectedCartItemIndex != null)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.blue[50],
                     border: Border(
-                      top: BorderSide(color: Colors.blue[200]!, width: 2),
+                      top: BorderSide(color: Colors.blue[200]!, width: 1),
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.edit, size: 16, color: Colors.blue[700]),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Discount for: ${_cart[_selectedCartItemIndex!]['name']}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue[900],
-                                fontSize: 13,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      Icon(Icons.edit, size: 14, color: Colors.blue[700]),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: _itemDiscountController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(fontSize: 12),
+                          decoration: InputDecoration(
+                            hintText: _itemDiscountType == 'Percentage' ? 'Disc %' : 'Discount',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            suffixText: _itemDiscountType == 'Percentage' ? '%' : '\$',
+                            suffixStyle: const TextStyle(fontSize: 11),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 18),
-                            onPressed: () {
-                              setState(() {
-                                _selectedCartItemIndex = null;
-                                _itemDiscountController.clear();
-                              });
-                            },
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
-                        ],
+                          onChanged: (_) => _applyItemDiscount(),
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: _itemDiscountController,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: _itemDiscountType == 'Percentage' ? 'Discount %' : 'Discount',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                                filled: true,
-                                fillColor: Colors.white,
-                                suffixText: _itemDiscountType == 'Percentage' ? '%' : '\$',
-                              ),
-                              onChanged: (_) => _applyItemDiscount(),
-                            ),
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        width: 70,
+                        child: DropdownButtonFormField<String>(
+                          value: _itemDiscountType,
+                          style: const TextStyle(fontSize: 11, color: Colors.black),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _itemDiscountType,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                fillColor: Colors.white,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              ),
-                              items: const [
-                                DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 12))),
-                                DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 12))),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  _itemDiscountType = value!;
-                                  _itemDiscountController.clear();
-                                  _clearItemDiscount();
-                                });
-                              },
-                            ),
+                          items: const [
+                            DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 11))),
+                            DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 11))),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _itemDiscountType = value!;
+                              _itemDiscountController.clear();
+                              _clearItemDiscount();
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        height: 32,
+                        child: ElevatedButton(
+                          onPressed: _clearItemDiscount,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
                           ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: _clearItemDiscount,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              minimumSize: Size.zero,
-                            ),
-                            child: const Text('Clear', style: TextStyle(fontSize: 11)),
-                          ),
-                        ],
+                          child: const Text('Clear', style: TextStyle(fontSize: 10)),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCartItemIndex = null;
+                            _itemDiscountController.clear();
+                          });
+                        },
+                        child: Icon(Icons.close, size: 16, color: Colors.blue[700]),
                       ),
                     ],
                   ),
@@ -1195,6 +1238,31 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 child: SafeArea(
                   child: Column(
                     children: [
+                      if (_cart.isNotEmpty && _selectedCartItemIndex == null)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Tap any item above to apply a discount to it',
+                                  style: TextStyle(
+                                    color: Colors.blue[900],
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       TextField(
                         controller: _customerController,
                         decoration: const InputDecoration(
