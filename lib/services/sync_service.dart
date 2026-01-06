@@ -87,7 +87,12 @@ class SyncService {
   /// Convert SyncData to JSON string for QR code
   String syncDataToJson(SyncData syncData) {
     try {
-      return jsonEncode(syncData.toJson());
+      final jsonString = jsonEncode(syncData.toJson());
+      // Validate size (QR codes have limits)
+      if (jsonString.length > 4000) {
+        print('Warning: QR data size is ${jsonString.length} bytes. May be too large for QR code.');
+      }
+      return jsonString;
     } catch (e) {
       print('Error converting sync data to JSON: $e');
       rethrow;

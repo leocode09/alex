@@ -46,29 +46,36 @@ class SyncData {
 
   /// Create from JSON
   factory SyncData.fromJson(Map<String, dynamic> json) {
-    return SyncData(
-      products: (json['products'] as List)
-          .map((p) => Product.fromMap(p as Map<String, dynamic>))
-          .toList(),
-      categories: (json['categories'] as List)
-          .map((c) => Category.fromMap(c as Map<String, dynamic>))
-          .toList(),
-      customers: (json['customers'] as List)
-          .map((c) => Customer.fromMap(c as Map<String, dynamic>))
-          .toList(),
-      employees: (json['employees'] as List)
-          .map((e) => Employee.fromMap(e as Map<String, dynamic>))
-          .toList(),
-      sales: (json['sales'] as List)
-          .map((s) => Sale.fromMap(s as Map<String, dynamic>))
-          .toList(),
-      stores: (json['stores'] as List)
-          .map((s) => Store.fromMap(s as Map<String, dynamic>))
-          .toList(),
-      syncTimestamp: DateTime.parse(json['syncTimestamp'] as String),
-      deviceId: json['deviceId'] as String,
-      syncVersion: json['syncVersion'] as String? ?? '1.0.0',
-    );
+    try {
+      return SyncData(
+        products: (json['products'] as List? ?? [])
+            .map((p) => Product.fromMap(p as Map<String, dynamic>))
+            .toList(),
+        categories: (json['categories'] as List? ?? [])
+            .map((c) => Category.fromMap(c as Map<String, dynamic>))
+            .toList(),
+        customers: (json['customers'] as List? ?? [])
+            .map((c) => Customer.fromMap(c as Map<String, dynamic>))
+            .toList(),
+        employees: (json['employees'] as List? ?? [])
+            .map((e) => Employee.fromMap(e as Map<String, dynamic>))
+            .toList(),
+        sales: (json['sales'] as List? ?? [])
+            .map((s) => Sale.fromMap(s as Map<String, dynamic>))
+            .toList(),
+        stores: (json['stores'] as List? ?? [])
+            .map((s) => Store.fromMap(s as Map<String, dynamic>))
+            .toList(),
+        syncTimestamp: json['syncTimestamp'] != null 
+            ? DateTime.parse(json['syncTimestamp'] as String)
+            : DateTime.now(),
+        deviceId: json['deviceId'] as String? ?? 'unknown',
+        syncVersion: json['syncVersion'] as String? ?? '1.0.0',
+      );
+    } catch (e) {
+      print('Error parsing SyncData from JSON: $e');
+      rethrow;
+    }
   }
 
   /// Get total count of all items

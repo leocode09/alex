@@ -58,16 +58,29 @@ class SyncProvider extends ChangeNotifier {
       // Export all data
       _currentSyncData = await _syncService.exportAllData();
       
+      // Check if data is empty
+      if (_currentSyncData!.isEmpty) {
+        _mode = SyncMode.error;
+        _errorMessage = 'No data to sync. Please add some products, sales, or other data first.';
+        notifyListeners();
+        return;
+      }
+      
       // Convert to JSON
       final jsonString = _syncService.syncDataToJson(_currentSyncData!);
       _qrData = jsonString;
       _dataSize = _syncService.calculateDataSize(_currentSyncData!);
 
+      // Validate QR data size
+      if (_dataSize > 4000) {
+        print('Warning: Data size ($dataSize bytes) may be too large for reliable QR scanning');
+      }
+
       _mode = SyncMode.generating;
       notifyListeners();
     } catch (e) {
       _mode = SyncMode.error;
-      _errorMessage = 'Failed to export data: $e';
+      _errorMessage = 'Failed to export data: ${e.toString()}';
       notifyListeners();
       rethrow;
     }
@@ -80,8 +93,21 @@ class SyncProvider extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
+      // Validate input
+      if (qrDataString.isEmpty) {
+        throw Exception('QR code data is empty');
+      }
+
       // Parse the scanned data
       final syncData = _syncService.jsonToSyncData(qrDataString);
+      
+      // Validate parsed data
+      if (syncData.isEmpty) {
+        _mode = SyncMode.error;
+        _errorMessage = 'The scanned QR code contains no data to import.';
+        notifyListeners();
+        return;
+      }
       
       // Import with selected strategy
       final result = await _syncService.importData(
@@ -101,7 +127,7 @@ class SyncProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _mode = SyncMode.error;
-      _errorMessage = 'Failed to import data: $e';
+      _errorMessage = 'Failed to import data: ${e.toString()}';
       notifyListeners();
       rethrow;
     }

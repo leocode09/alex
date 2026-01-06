@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
@@ -14,10 +15,12 @@ class SyncPage extends StatefulWidget {
 
 class _SyncPageState extends State<SyncPage> {
   MobileScannerController? _scannerController;
+  bool _isProcessingScan = false;
 
   @override
   void dispose() {
     _scannerController?.dispose();
+    _scannerController = null;
     super.dispose();
   }
 
@@ -321,19 +324,24 @@ class _SyncPageState extends State<SyncPage> {
   }
 
   Widget _buildScannerView(BuildContext context, SyncProvider syncProvider) {
-    _scannerController = MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
-      facing: CameraFacing.back,
-    );
+    if (_scannerController == null) {
+      _scannerController = MobileScannerController(
+        detectionSpeed: DetectionSpeed.normal,
+        facing: CameraFacing.back,
+      );
+    }
 
     return Stack(
       children: [
         MobileScanner(
           controller: _scannerController,
           onDetect: (capture) {
+            if (_isProcessingScan) return;
+            
             final List<Barcode> barcodes = capture.barcodes;
             for (final barcode in barcodes) {
-              if (barcode.rawValue != null) {
+              if (barcode.rawValue != null && !_isProcessingScan) {
+                _isProcessingScan = true;
                 _handleScannedCode(context, syncProvider, barcode.rawValue!);
                 break;
               }
@@ -675,12 +683,26 @@ class _SyncPageState extends State<SyncPage> {
   Future<void> _exportData(BuildContext context, SyncProvider syncProvider) async {
     try {
       await syncProvider.exportData();
+      
+      // Check if QR data size is reasonable
+      if (syncProvider.dataSize > 4000) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Warning: Data size is large. QR code may be hard to scan. Consider syncing in smaller batches.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to export data: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -688,6 +710,7 @@ class _SyncPageState extends State<SyncPage> {
   }
 
   void _startScanning(BuildContext context, SyncProvider syncProvider) {
+    _isProcessingScan = false;
     syncProvider.startScanning();
   }
 
@@ -696,19 +719,36 @@ class _SyncPageState extends State<SyncPage> {
     SyncProvider syncProvider,
     String code,
   ) async {
-    _scannerController?.dispose();
-    _scannerController = null;
+    // Stop the scanner
+    await _scannerController?.stop();
 
     try {
+      // Validate the scanned data
+      if (code.isEmpty) {
+        throw Exception('QR code is empty');
+      }
+
+      // Attempt to parse to validate format
+      jsonDecode(code);
+
+      // Import the data
       await syncProvider.importData(code);
     } catch (e) {
-      if (context.mounted) {
+      _isProcessingScan = false;
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to import data: $e'),
+            content: Text('Failed to import data: ${e.toString().contains('FormatException') ? 'Invalid QR code format' : e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
+        // Reset to scanning state
+        syncProvider.startScanning();
+      }
+    } finally {
+      if (mounted) {
+        _isProcessingScan = false;
       }
     }
   }
