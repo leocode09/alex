@@ -105,24 +105,23 @@ class SyncService {
     }
   }
 
-  /// Compress JSON for QR code efficiency
+  /// Compress JSON for QR code efficiency (placeholder for future implementation)
   Uint8List compressData(String jsonString) {
     try {
       // Convert string to bytes
-      final bytes = utf8.encode(jsonString);
-      // Use gzip compression
-      return gzip.encode(bytes) as Uint8List;
+      // For now, just return the bytes. Could add gzip compression later if needed
+      return Uint8List.fromList(utf8.encode(jsonString));
     } catch (e) {
       print('Error compressing data: $e');
       rethrow;
     }
   }
 
-  /// Decompress data from QR code
+  /// Decompress data from QR code (placeholder for future implementation)
   String decompressData(Uint8List compressedData) {
     try {
-      final decompressed = gzip.decode(compressedData);
-      return utf8.decode(decompressed);
+      // For now, just decode the bytes. Could add gzip decompression later if needed
+      return utf8.decode(compressedData);
     } catch (e) {
       print('Error decompressing data: $e');
       rethrow;
