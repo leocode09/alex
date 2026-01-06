@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/sync_data.dart';
 import '../services/sync_service.dart';
+import '../services/chunking_service.dart';
 
 enum SyncMode {
   idle,
@@ -14,6 +15,7 @@ enum SyncMode {
 
 class SyncProvider extends ChangeNotifier {
   final SyncService _syncService = SyncService();
+  final ChunkingService _chunkingService = ChunkingService();
 
   SyncMode _mode = SyncMode.idle;
   SyncData? _currentSyncData;
@@ -22,6 +24,12 @@ class SyncProvider extends ChangeNotifier {
   String? _qrData;
   int _dataSize = 0;
   SyncStrategy _selectedStrategy = SyncStrategy.merge;
+  
+  // Chunking support
+  List<SyncChunk> _chunks = [];
+  int _currentChunkIndex = 0;
+  List<SyncChunk> _receivedChunks = [];
+  String? _currentSessionId;
 
   // Getters
   SyncMode get mode => _mode;
@@ -32,6 +40,18 @@ class SyncProvider extends ChangeNotifier {
   int get dataSize => _dataSize;
   SyncStrategy get selectedStrategy => _selectedStrategy;
   String get dataSizeFormatted => _syncService.formatDataSize(_dataSize);
+  
+  // Chunking getters
+  List<SyncChunk> get chunks => _chunks;
+  int get currentChunkIndex => _currentChunkIndex;
+  int get totalChunks => _chunks.length;
+  bool get hasMultipleChunks => _chunks.length > 1;
+  List<SyncChunk> get receivedChunks => _receivedChunks;
+  double get scanProgress => _currentSessionId != null && _receivedChunks.isNotEmpty
+      ? _chunkingService.getProgress(_receivedChunks, _receivedChunks.first.totalChunks)
+      : 0.0;
+  int get receivedChunkCount => _receivedChunks.length;
+  int get expectedChunkCount => _receivedChunks.isNotEmpty ? _receivedChunks.first.totalChunks : 0;
 
   bool get isIdle => _mode == SyncMode.idle;
   bool get isExporting => _mode == SyncMode.exporting;
@@ -53,6 +73,8 @@ class SyncProvider extends ChangeNotifier {
       _mode = SyncMode.exporting;
       _errorMessage = null;
       _qrData = null;
+      _chunks = [];
+      _currentChunkIndex = 0;
       notifyListeners();
 
       // Export all data
@@ -68,12 +90,15 @@ class SyncProvider extends ChangeNotifier {
       
       // Convert to JSON
       final jsonString = _syncService.syncDataToJson(_currentSyncData!);
-      _qrData = jsonString;
       _dataSize = _syncService.calculateDataSize(_currentSyncData!);
 
-      // Validate QR data size
-      if (_dataSize > 4000) {
-        print('Warning: Data size ($dataSize bytes) may be too large for reliable QR scanning');
+      // Chunk the data
+      _chunks = _chunkingService.chunkData(jsonString);
+      
+      // Set current QR data to first chunk
+      if (_chunks.isNotEmpty) {
+        _qrData = _chunks[0].toJsonString();
+        _currentChunkIndex = 0;
       }
 
       _mode = SyncMode.generating;
@@ -86,51 +111,134 @@ class SyncProvider extends ChangeNotifier {
     }
   }
 
-  /// Import data from scanned QR code
+  /// Import data from scanned QR code (supports chunked data)
   Future<void> importData(String qrDataString) async {
     try {
-      _mode = SyncMode.importing;
-      _errorMessage = null;
-      notifyListeners();
-
       // Validate input
       if (qrDataString.isEmpty) {
         throw Exception('QR code data is empty');
       }
 
-      // Parse the scanned data
-      final syncData = _syncService.jsonToSyncData(qrDataString);
-      
-      // Validate parsed data
-      if (syncData.isEmpty) {
-        _mode = SyncMode.error;
-        _errorMessage = 'The scanned QR code contains no data to import.';
-        notifyListeners();
-        return;
+      // Try to parse as chunk
+      SyncChunk? chunk;
+      try {
+        chunk = SyncChunk.fromJsonString(qrDataString);
+      } catch (e) {
+        // Not a chunk, try as regular sync data
+        return await _importLegacyData(qrDataString);
       }
-      
-      // Import with selected strategy
-      final result = await _syncService.importData(
-        syncData,
-        strategy: _selectedStrategy,
-      );
 
-      _lastSyncResult = result;
-
-      if (result.success) {
-        _mode = SyncMode.success;
-      } else {
-        _mode = SyncMode.error;
-        _errorMessage = result.message;
-      }
-      
-      notifyListeners();
+      // Handle chunked data
+      await _handleChunk(chunk);
     } catch (e) {
       _mode = SyncMode.error;
       _errorMessage = 'Failed to import data: ${e.toString()}';
       notifyListeners();
       rethrow;
     }
+  }
+
+  /// Handle receiving a chunk
+  Future<void> _handleChunk(SyncChunk chunk) async {
+    // If this is a new session, reset received chunks
+    if (_currentSessionId != chunk.sessionId) {
+      _currentSessionId = chunk.sessionId;
+      _receivedChunks = [];
+    }
+
+    // Add chunk if not already received
+    if (!_receivedChunks.any((c) => c.chunkIndex == chunk.chunkIndex)) {
+      _receivedChunks.add(chunk);
+      notifyListeners();
+    }
+
+    // Check if we have all chunks
+    if (_receivedChunks.length == chunk.totalChunks) {
+      // All chunks received, merge and import
+      _mode = SyncMode.importing;
+      notifyListeners();
+
+      try {
+        final mergedData = _chunkingService.mergeChunks(_receivedChunks);
+        await _importMergedData(mergedData);
+      } catch (e) {
+        _mode = SyncMode.error;
+        _errorMessage = 'Failed to merge chunks: ${e.toString()}';
+        notifyListeners();
+        rethrow;
+      }
+    } else {
+      // Still waiting for more chunks
+      _mode = SyncMode.scanning;
+      notifyListeners();
+    }
+  }
+
+  /// Import regular (non-chunked) sync data
+  Future<void> _importLegacyData(String qrDataString) async {
+    _mode = SyncMode.importing;
+    _errorMessage = null;
+    notifyListeners();
+
+    // Parse the scanned data
+    final syncData = _syncService.jsonToSyncData(qrDataString);
+    
+    // Validate parsed data
+    if (syncData.isEmpty) {
+      _mode = SyncMode.error;
+      _errorMessage = 'The scanned QR code contains no data to import.';
+      notifyListeners();
+      return;
+    }
+    
+    // Import with selected strategy
+    final result = await _syncService.importData(
+      syncData,
+      strategy: _selectedStrategy,
+    );
+
+    _lastSyncResult = result;
+
+    if (result.success) {
+      _mode = SyncMode.success;
+      _receivedChunks = [];
+      _currentSessionId = null;
+    } else {
+      _mode = SyncMode.error;
+      _errorMessage = result.message;
+    }
+    
+    notifyListeners();
+  }
+
+  /// Import merged chunk data
+  Future<void> _importMergedData(String mergedData) async {
+    final syncData = _syncService.jsonToSyncData(mergedData);
+    
+    if (syncData.isEmpty) {
+      _mode = SyncMode.error;
+      _errorMessage = 'The merged data contains no items to import.';
+      notifyListeners();
+      return;
+    }
+    
+    final result = await _syncService.importData(
+      syncData,
+      strategy: _selectedStrategy,
+    );
+
+    _lastSyncResult = result;
+
+    if (result.success) {
+      _mode = SyncMode.success;
+      _receivedChunks = [];
+      _currentSessionId = null;
+    } else {
+      _mode = SyncMode.error;
+      _errorMessage = result.message;
+    }
+      
+    notifyListeners();
   }
 
   /// Start scanning mode
@@ -140,6 +248,30 @@ class SyncProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Navigate to next QR chunk
+  void nextChunk() {
+    if (canGoNext) {
+      _currentChunkIndex++;
+      _qrData = _chunks[_currentChunkIndex].toJsonString();
+      notifyListeners();
+    }
+  }
+
+  /// Navigate to previous QR chunk
+  void previousChunk() {
+    if (canGoPrevious) {
+      _currentChunkIndex--;
+      _qrData = _chunks[_currentChunkIndex].toJsonString();
+      notifyListeners();
+    }
+  }
+
+  /// Can navigate to next chunk
+  bool get canGoNext => _currentChunkIndex < _chunks.length - 1;
+
+  /// Can navigate to previous chunk
+  bool get canGoPrevious => _currentChunkIndex > 0;
+
   /// Reset to idle state
   void reset() {
     _mode = SyncMode.idle;
@@ -148,6 +280,10 @@ class SyncProvider extends ChangeNotifier {
     _errorMessage = null;
     _qrData = null;
     _dataSize = 0;
+    _chunks = [];
+    _currentChunkIndex = 0;
+    _receivedChunks = [];
+    _currentSessionId = null;
     notifyListeners();
   }
 

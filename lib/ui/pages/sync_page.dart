@@ -252,7 +252,7 @@ class _SyncPageState extends State<SyncPage> {
 
   Widget _buildQRCodeView(BuildContext context, SyncProvider syncProvider) {
     const int maxQrDataSize = 2900; // Safe limit for QR codes
-    final bool isDataTooLarge = syncProvider.dataSize > maxQrDataSize;
+    final bool isDataTooLarge = syncProvider.dataSize > maxQrDataSize && !syncProvider.hasMultipleChunks;
 
     return Center(
       child: SingleChildScrollView(
@@ -268,14 +268,35 @@ class _SyncPageState extends State<SyncPage> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Use another device to scan this code',
-              style: TextStyle(
+            Text(
+              syncProvider.hasMultipleChunks
+                  ? 'Scan all QR codes in sequence'
+                  : 'Use another device to scan this code',
+              style: const TextStyle(
                 fontSize: 14,
                 color: Colors.grey,
               ),
             ),
             const SizedBox(height: 24),
+            
+            // Chunk Progress (if multiple chunks)
+            if (syncProvider.hasMultipleChunks) ...[
+              Text(
+                'QR Code ${syncProvider.currentChunkIndex + 1} of ${syncProvider.totalChunks}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: (syncProvider.currentChunkIndex + 1) / syncProvider.totalChunks,
+                backgroundColor: Colors.grey[300],
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+              const SizedBox(height: 24),
+            ],
             
             // QR Code or Error Message
             if (isDataTooLarge)
@@ -304,6 +325,44 @@ class _SyncPageState extends State<SyncPage> {
               ),
             
             const SizedBox(height: 24),
+            
+            // Navigation buttons for multiple chunks
+            if (syncProvider.hasMultipleChunks)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: syncProvider.canGoPrevious
+                        ? () => syncProvider.previousChunk()
+                        : null,
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Previous'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[300],
+                      disabledForegroundColor: Colors.grey[500],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: syncProvider.canGoNext
+                        ? () => syncProvider.nextChunk()
+                        : null,
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('Next'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[300],
+                      disabledForegroundColor: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            
+            if (syncProvider.hasMultipleChunks)
+              const SizedBox(height: 24),
             
             // Stats
             _buildStatsCard(context, syncProvider),
@@ -336,6 +395,12 @@ class _SyncPageState extends State<SyncPage> {
         facing: CameraFacing.back,
       );
     }
+
+    // Check if we're collecting chunks
+    final isCollectingChunks = syncProvider.receivedChunks.isNotEmpty;
+    final progress = isCollectingChunks ? syncProvider.scanProgress : 0.0;
+    final receivedCount = syncProvider.receivedChunkCount;
+    final expectedCount = syncProvider.expectedChunkCount;
 
     return Stack(
       children: [
@@ -390,14 +455,68 @@ class _SyncPageState extends State<SyncPage> {
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
-                    const Text(
-                      'Position the QR code within the frame',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
+                    // Chunk collection progress
+                    if (isCollectingChunks) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Collecting Chunks',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '$receivedCount of $expectedCount received',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.white.withOpacity(0.3),
+                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${(progress * 100).toStringAsFixed(0)}% Complete',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
+                      const Text(
+                        'Continue scanning all QR codes',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ] else
+                      const Text(
+                        'Position the QR code within the frame',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: () => _scannerController?.toggleTorch(),

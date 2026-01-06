@@ -1,26 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product.dart';
 import '../repositories/product_repository.dart';
-import '../services/product_seeder.dart';
 
 // Repository provider
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return ProductRepository();
 });
 
-// Products list provider with auto-seeding
+// Products list provider
 final productsProvider = FutureProvider<List<Product>>((ref) async {
   final repository = ref.watch(productRepositoryProvider);
   
   try {
-    // Check if we need to seed the database
-    final count = await repository.getTotalProductsCount();
-    if (count == 0) {
-      print('Database is empty. Seeding sample data...');
-      final seeder = ProductSeeder();
-      await seeder.seedProducts();
-    }
-    
     return await repository.getAllProducts();
   } catch (e, stackTrace) {
     print('Error in productsProvider: $e');
