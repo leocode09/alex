@@ -50,8 +50,8 @@ class SyncChunk {
 
 /// Service to handle chunking of large sync data
 class ChunkingService {
-  // Maximum size per QR code chunk (bytes) - conservative limit
-  static const int maxChunkSize = 2500;
+  // Maximum size per QR code chunk (bytes) - conservative limit for reliable QR scanning
+  static const int maxChunkSize = 1000;
 
   /// Generate a unique session ID for this sync
   String generateSessionId() {

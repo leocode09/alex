@@ -251,8 +251,10 @@ class _SyncPageState extends State<SyncPage> {
   }
 
   Widget _buildQRCodeView(BuildContext context, SyncProvider syncProvider) {
-    const int maxQrDataSize = 2900; // Safe limit for QR codes
-    final bool isDataTooLarge = syncProvider.dataSize > maxQrDataSize && !syncProvider.hasMultipleChunks;
+    const int maxQrDataSize = 1200; // Safe limit for QR codes with L error correction
+    final bool isDataTooLarge = syncProvider.qrData != null && 
+                                syncProvider.qrData!.length > maxQrDataSize && 
+                                !syncProvider.hasMultipleChunks;
 
     return Center(
       child: SingleChildScrollView(
@@ -318,9 +320,17 @@ class _SyncPageState extends State<SyncPage> {
                 child: QrImageView(
                   data: syncProvider.qrData!,
                   version: QrVersions.auto,
-                  size: 300,
+                  size: 280,
                   backgroundColor: Colors.white,
-                  errorCorrectionLevel: QrErrorCorrectLevel.M,
+                  errorCorrectionLevel: QrErrorCorrectLevel.L,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Colors.black,
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             
