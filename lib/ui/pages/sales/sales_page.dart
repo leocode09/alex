@@ -74,9 +74,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
       });
       _saveCart();
       // Switch to products tab so user can add items
-      Future.delayed(const Duration(milliseconds: 100), () {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _tabController.animateTo(0);
+          _tabController.index = 0;
         }
       });
     } else if (editingReceipt == null && _hasLoadedEditingReceipt) {
