@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../providers/sync_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../services/sync_service.dart';
 
 class SyncPage extends StatefulWidget {
@@ -604,7 +606,17 @@ class _SyncPageState extends State<SyncPage> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () => syncProvider.reset(),
+                onPressed: () {
+                  // Refresh product providers
+                  if (context.mounted) {
+                    final container = riverpod.ProviderScope.containerOf(context);
+                    container.invalidate(productsProvider);
+                    container.invalidate(categoriesProvider);
+                    container.invalidate(filteredProductsProvider);
+                    container.invalidate(totalProductsCountProvider);
+                  }
+                  syncProvider.reset();
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
