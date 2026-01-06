@@ -177,10 +177,10 @@ class ChunkingService {
     return mergedData;
   }
 
-  /// Get progress percentage
+  /// Get progress as decimal (0.0 to 1.0)
   double getProgress(List<SyncChunk> receivedChunks, int totalChunks) {
     if (totalChunks == 0) return 0.0;
-    return (receivedChunks.length / totalChunks) * 100;
+    return receivedChunks.length / totalChunks;
   }
 
   /// Get missing chunk indices

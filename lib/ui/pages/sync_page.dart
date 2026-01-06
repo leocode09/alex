@@ -1096,9 +1096,6 @@ class _SyncPageState extends State<SyncPage> {
     SyncProvider syncProvider,
     String code,
   ) async {
-    // Stop the scanner
-    await _scannerController?.stop();
-
     try {
       // Validate the scanned data
       if (code.isEmpty) {
@@ -1110,6 +1107,12 @@ class _SyncPageState extends State<SyncPage> {
 
       // Import the data
       await syncProvider.importData(code);
+      
+      // If still in scanning mode (collecting chunks), restart scanner
+      if (mounted && syncProvider.isScanning) {
+        _isProcessingScan = false;
+        await _scannerController?.start();
+      }
     } catch (e) {
       _isProcessingScan = false;
       if (mounted) {
@@ -1120,8 +1123,9 @@ class _SyncPageState extends State<SyncPage> {
             duration: const Duration(seconds: 4),
           ),
         );
-        // Reset to scanning state
+        // Reset to scanning state and restart scanner
         syncProvider.startScanning();
+        await _scannerController?.start();
       }
     } finally {
       if (mounted) {
