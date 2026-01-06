@@ -138,4 +138,9 @@ class CategoryRepository {
     final categories = await getAllCategories();
     return categories.map((c) => c.name).toList();
   }
+
+  // Replace all categories (for sync)
+  Future<bool> replaceAllCategories(List<Category> categories) async {
+    return await _saveCategories(categories);
+  }
 }

@@ -212,4 +212,9 @@ class ProductRepository {
       p.barcode == barcode && (excludeId == null || p.id != excludeId)
     );
   }
+
+  // Replace all products (for sync)
+  Future<bool> replaceAllProducts(List<Product> products) async {
+    return await _saveProducts(products);
+  }
 }

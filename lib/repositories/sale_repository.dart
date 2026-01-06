@@ -205,4 +205,9 @@ class SaleRepository {
     
     return Map.fromEntries(sortedEntries.take(limit));
   }
+
+  // Replace all sales (for sync)
+  Future<bool> replaceAllSales(List<Sale> sales) async {
+    return await _saveSales(sales);
+  }
 }

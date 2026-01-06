@@ -34,6 +34,13 @@ class SettingsPage extends ConsumerWidget {
           ),
           _buildSettingTile(
             context,
+            'Data Sync',
+            'Sync data between devices via QR code',
+            Icons.sync,
+            onTap: () => context.push('/sync'),
+          ),
+          _buildSettingTile(
+            context,
             'Promotions',
             'Discounts and loyalty programs',
             Icons.local_offer_outlined,
