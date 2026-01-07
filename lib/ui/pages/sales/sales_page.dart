@@ -8,7 +8,6 @@ import 'package:uuid/uuid.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/tax_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/printer_provider.dart';
@@ -29,11 +28,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
   String _selectedCategory = 'All';
   String _paymentMethod = 'Cash';
   final TextEditingController _customerController = TextEditingController();
-  final TextEditingController _discountController = TextEditingController();
-  String _discountType = 'Fixed'; // 'Fixed' or 'Percentage'
-  int? _selectedCartItemIndex; // Track selected item for per-item discount
-  final TextEditingController _itemDiscountController = TextEditingController();
-  String _itemDiscountType = 'Fixed'; // 'Fixed' or 'Percentage'
   late TabController _tabController;
   SharedPreferences? _prefs;
   bool _hasLoadedEditingReceipt = false;
@@ -111,28 +105,13 @@ class _SalesPageState extends ConsumerState<SalesPage>
   double get _subtotal {
     return _cart.fold(
         0.0, (sum, item) {
-          final itemPrice = (item['finalPrice'] ?? item['price']);
-          final cartDiscount = item['cartDiscount'] ?? 0.0;
-          return sum + ((itemPrice - cartDiscount) * item['quantity']);
+          final itemPrice = item['price'];
+          return sum + (itemPrice * item['quantity']);
         });
   }
 
-  double get _discount {
-    final discountValue = double.tryParse(_discountController.text) ?? 0.0;
-    if (_discountType == 'Percentage') {
-      return _subtotal * (discountValue / 100);
-    }
-    return discountValue;
-  }
-
-  double get _tax {
-    final taxSettings = ref.read(taxSettingsProvider);
-    if (!taxSettings.includeTax) return 0.0;
-    return (_subtotal - _discount) * taxSettings.taxRate;
-  }
-
   double get _total {
-    return _subtotal - _discount + _tax;
+    return _subtotal;
   }
 
   List<Product> _getFilteredProducts(List<Product> allProducts) {
@@ -179,9 +158,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
           'id': product.id,
           'name': product.name,
           'price': product.price,
-          'finalPrice': product.finalPrice,
-          'discount': product.totalDiscount,
-          'cartDiscount': 0.0, // Additional cart-level discount per item
           'quantity': 1,
           'stock': product.stock,
         });
@@ -197,49 +173,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
         _cart[index]['quantity']--;
       } else {
         _cart.removeAt(index);
-        if (_selectedCartItemIndex == index) {
-          _selectedCartItemIndex = null;
-          _itemDiscountController.clear();
-        } else if (_selectedCartItemIndex != null && _selectedCartItemIndex! > index) {
-          _selectedCartItemIndex = _selectedCartItemIndex! - 1;
-        }
       }
     });
     _saveCart();
     HapticFeedback.lightImpact();
-  }
-
-  void _applyItemDiscount() {
-    if (_selectedCartItemIndex == null) return;
-    
-    final discountValue = double.tryParse(_itemDiscountController.text) ?? 0.0;
-    final itemPrice = _cart[_selectedCartItemIndex!]['finalPrice'] ?? _cart[_selectedCartItemIndex!]['price'];
-    
-    double discount = 0.0;
-    if (_itemDiscountType == 'Percentage') {
-      discount = itemPrice * (discountValue / 100);
-    } else {
-      discount = discountValue;
-    }
-    
-    // Ensure discount doesn't exceed item price
-    if (discount > itemPrice) {
-      discount = itemPrice;
-    }
-    
-    setState(() {
-      _cart[_selectedCartItemIndex!]['cartDiscount'] = discount;
-    });
-    _saveCart();
-  }
-
-  void _clearItemDiscount() {
-    if (_selectedCartItemIndex == null) return;
-    setState(() {
-      _cart[_selectedCartItemIndex!]['cartDiscount'] = 0.0;
-      _itemDiscountController.clear();
-    });
-    _saveCart();
   }
 
   void _processPayment(String method) async {
@@ -366,7 +303,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
             productName: item['name'],
             quantity: item['quantity'],
             price: item['price'],
-            discount: item['discount'],
           );
         }).toList();
 
@@ -413,7 +349,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
       setState(() {
         _cart.clear();
         _customerController.clear();
-        _discountController.clear();
         _paymentMethod = 'Cash';
       });
       _saveCart();
@@ -512,20 +447,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 child: Column(
                   children: [
                     _buildSummaryRow('Subtotal', _subtotal),
-                    const SizedBox(height: 8),
-                    if (_discount > 0) ...[
-                      _buildSummaryRow(
-                        'Cart Discount${_discountType == 'Percentage' ? ' (${_discountController.text}%)' : ''}',
-                        -_discount,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    Builder(builder: (context) {
-                      final taxSettings = ref.watch(taxSettingsProvider);
-                      final taxPercent =
-                          (taxSettings.taxRate * 100).toStringAsFixed(0);
-                      return _buildSummaryRow('Tax ($taxPercent%)', _tax);
-                    }),
                     const Divider(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -677,7 +598,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   setState(() {
                     _cart.clear();
                     _customerController.clear();
-                    _discountController.clear();
                     _paymentMethod = 'Cash';
                   });
                   _saveCart();
@@ -854,27 +774,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                                       : Colors.grey[400],
                                                   size: 32),
                                             ),
-                                            if (product.hasDiscount)
-                                              Positioned(
-                                                top: 4,
-                                                left: 4,
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.red,
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                  child: Text(
-                                                    'SALE',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 8,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
                                           ],
                                         ),
                                       ),
@@ -894,34 +793,12 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                                 fontSize: 12),
                                           ),
                                           const SizedBox(height: 2),
-                                          if (product.hasDiscount) ...[
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  '\$${product.price.toInt()}',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.grey[500],
-                                                    decoration: TextDecoration.lineThrough,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '\$${product.finalPrice.toInt()}',
-                                                  style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 11,
-                                                      color: Colors.green),
-                                                ),
-                                              ],
-                                            ),
-                                          ] else
-                                            Text(
-                                              '\$${product.price.toInt()}',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 11),
-                                            ),
+                                          Text(
+                                            '\$${product.price.toInt()}',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11),
+                                          ),
                                           Text(
                                             'Stock: ${product.stock}',
                                             style: TextStyle(
@@ -982,50 +859,12 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final item = _cart[index];
-                          final hasDiscount = (item['discount'] ?? 0) > 0;
-                          final finalPrice = item['finalPrice'] ?? item['price'];
-                          final cartDiscount = item['cartDiscount'] ?? 0.0;
-                          final isSelected = _selectedCartItemIndex == index;
+                          final finalPrice = item['price'];
                           
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                if (_selectedCartItemIndex == index) {
-                                  _selectedCartItemIndex = null;
-                                  _itemDiscountController.clear();
-                                } else {
-                                  _selectedCartItemIndex = index;
-                                  if (cartDiscount > 0) {
-                                    if (_itemDiscountType == 'Percentage') {
-                                      final percent = (cartDiscount / finalPrice * 100);
-                                      _itemDiscountController.text = percent.toStringAsFixed(0);
-                                    } else {
-                                      _itemDiscountController.text = cartDiscount.toStringAsFixed(0);
-                                    }
-                                  } else {
-                                    _itemDiscountController.clear();
-                                  }
-                                }
-                              });
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: isSelected ? Colors.blue[50] : null,
-                                border: isSelected ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2) : null,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                          return Container(
                               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                               child: Row(
                                 children: [
-                                  if (isSelected)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: Icon(
-                                        Icons.check_circle,
-                                        color: Theme.of(context).colorScheme.primary,
-                                        size: 20,
-                                      ),
-                                    ),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -1034,69 +873,11 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                         Text(item['name'],
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w500)),
-                                      if (hasDiscount) ...[
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '\$${item['price'].toInt()}',
-                                              style: TextStyle(
-                                                color: Colors.grey[400],
-                                                fontSize: 12,
-                                                decoration: TextDecoration.lineThrough,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              '\$${finalPrice.toInt()}',
-                                              style: const TextStyle(
-                                                color: Colors.green,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 4, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: Colors.red[50],
-                                                borderRadius: BorderRadius.circular(3),
-                                              ),
-                                              child: Text(
-                                                '-\$${item['discount'].toInt()}',
-                                                style: TextStyle(
-                                                  color: Colors.red[700],
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ] else
                                         Text(
                                           '\$${item['price'].toInt()}',
                                           style: TextStyle(
                                               color: Colors.grey[600],
                                               fontSize: 12),
-                                        ),
-                                      if (cartDiscount > 0)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 4),
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.local_offer, size: 12, color: Colors.purple[700]),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Cart discount: -\$${cartDiscount.toStringAsFixed(2)}',
-                                                style: TextStyle(
-                                                  color: Colors.purple[700],
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
                                         ),
                                     ],
                                   ),
@@ -1139,90 +920,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         },
                       ),
               ),
-              if (_selectedCartItemIndex != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    border: Border(
-                      top: BorderSide(color: Colors.blue[200]!, width: 1),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(Icons.edit, size: 14, color: Colors.blue[700]),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        flex: 3,
-                        child: TextField(
-                          controller: _itemDiscountController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(fontSize: 12),
-                          decoration: InputDecoration(
-                            hintText: _itemDiscountType == 'Percentage' ? 'Disc %' : 'Discount',
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            suffixText: _itemDiscountType == 'Percentage' ? '%' : '\$',
-                            suffixStyle: const TextStyle(fontSize: 11),
-                          ),
-                          onChanged: (_) => _applyItemDiscount(),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      SizedBox(
-                        width: 70,
-                        child: DropdownButtonFormField<String>(
-                          value: _itemDiscountType,
-                          style: const TextStyle(fontSize: 11, color: Colors.black),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 11))),
-                            DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 11))),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _itemDiscountType = value!;
-                              _itemDiscountController.clear();
-                              _clearItemDiscount();
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      SizedBox(
-                        height: 32,
-                        child: ElevatedButton(
-                          onPressed: _clearItemDiscount,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: Size.zero,
-                          ),
-                          child: const Text('Clear', style: TextStyle(fontSize: 10)),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedCartItemIndex = null;
-                            _itemDiscountController.clear();
-                          });
-                        },
-                        child: Icon(Icons.close, size: 16, color: Colors.blue[700]),
-                      ),
-                    ],
-                  ),
-                ),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -1238,31 +935,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 child: SafeArea(
                   child: Column(
                     children: [
-                      if (_cart.isNotEmpty && _selectedCartItemIndex == null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.blue[200]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, size: 14, color: Colors.blue[700]),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Tap any item above to apply a discount to it',
-                                  style: TextStyle(
-                                    color: Colors.blue[900],
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       TextField(
                         controller: _customerController,
                         style: const TextStyle(fontSize: 13),
@@ -1274,77 +946,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: _discountController,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(fontSize: 13),
-                              decoration: InputDecoration(
-                                hintText: _discountType == 'Percentage' ? 'Cart Disc %' : 'Cart Discount',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                                prefixIcon: const Icon(Icons.local_offer, size: 18),
-                                suffixText: _discountType == 'Percentage' ? '%' : '\$',
-                                suffixStyle: const TextStyle(fontSize: 11),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              ),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          SizedBox(
-                            width: 80,
-                            child: DropdownButtonFormField<String>(
-                              value: _discountType,
-                              style: const TextStyle(fontSize: 12, color: Colors.black),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                              ),
-                              items: const [
-                                DropdownMenuItem(value: 'Fixed', child: Text('Fixed', style: TextStyle(fontSize: 11))),
-                                DropdownMenuItem(value: 'Percentage', child: Text('%', style: TextStyle(fontSize: 11))),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  _discountType = value!;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_discount > 0) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.green[50],
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.green[200]!),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.savings, size: 14, color: Colors.green[700]),
-                              const SizedBox(width: 6),
-                              Text(
-                                'You save \$${_discount.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: Colors.green[700],
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -1356,16 +957,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         child: Column(
                           children: [
                             _buildCartSummaryRow('Subtotal', _subtotal, false),
-                            if (_discount > 0) ...[
-                              const SizedBox(height: 4),
-                              _buildCartSummaryRow('Cart Discount', -_discount, false),
-                            ],
-                            const SizedBox(height: 4),
-                            Builder(builder: (context) {
-                              final taxSettings = ref.watch(taxSettingsProvider);
-                              final taxPercent = (taxSettings.taxRate * 100).toStringAsFixed(0);
-                              return _buildCartSummaryRow('Tax ($taxPercent%)', _tax, false);
-                            }),
                             const Divider(height: 12),
                             _buildCartSummaryRow('Total', _total, true),
                           ],

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/tax_provider.dart';
 import '../../../services/database_helper.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -46,13 +45,6 @@ class SettingsPage extends ConsumerWidget {
             'Discounts and loyalty programs',
             Icons.local_offer_outlined,
             onTap: () => context.push('/promotions'),
-          ),
-          _buildSettingTile(
-            context,
-            'Tax Settings',
-            'Configure tax rate and calculation',
-            Icons.receipt_long_outlined,
-            onTap: () => _showTaxSettings(context, ref),
           ),
           const SizedBox(height: 24),
           _buildSectionHeader('Account & Security'),
@@ -176,85 +168,6 @@ class SettingsPage extends ConsumerWidget {
             const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      ),
-    );
-  }
-
-  void _showTaxSettings(BuildContext context, WidgetRef ref) {
-    final taxSettings = ref.read(taxSettingsProvider);
-    final taxRateController = TextEditingController(
-      text: (taxSettings.taxRate * 100).toStringAsFixed(0),
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Tax Settings'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Tax Rate (%)',
-                style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: taxRateController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Enter tax rate (e.g., 18 for 18%)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Consumer(
-              builder: (context, ref, child) {
-                final settings = ref.watch(taxSettingsProvider);
-                return SwitchListTile(
-                  title: const Text('Include Tax in Sales',
-                      style: TextStyle(fontSize: 14)),
-                  value: settings.includeTax,
-                  onChanged: (value) {
-                    ref
-                        .read(taxSettingsProvider.notifier)
-                        .updateIncludeTax(value);
-                  },
-                  contentPadding: EdgeInsets.zero,
-                );
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final rateText = taxRateController.text;
-              final rate = double.tryParse(rateText);
-              if (rate != null && rate >= 0 && rate <= 100) {
-                ref
-                    .read(taxSettingsProvider.notifier)
-                    .updateTaxRate(rate / 100);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Tax settings updated')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Please enter a valid tax rate (0-100)')),
-                );
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
