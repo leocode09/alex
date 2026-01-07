@@ -50,7 +50,9 @@ class Product {
       id: map['id'] as String,
       name: map['name'] as String,
       price: (map['price'] as num).toDouble(),
-      costPrice: map['costPrice'] != null ? (map['costPrice'] as num).toDouble() : null,
+      costPrice: map['costPrice'] != null
+          ? (map['costPrice'] as num).toDouble()
+          : null,
       stock: map['stock'] as int,
       barcode: map['barcode'] as String?,
       sku: map['sku'] as String?,

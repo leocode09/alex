@@ -103,11 +103,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
   }
 
   double get _subtotal {
-    return _cart.fold(
-        0.0, (sum, item) {
-          final itemPrice = item['price'];
-          return sum + (itemPrice * item['quantity']);
-        });
+    return _cart.fold(0.0, (sum, item) {
+      final itemPrice = item['price'];
+      return sum + (itemPrice * item['quantity']);
+    });
   }
 
   double get _total {
@@ -185,7 +184,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
     final totalAmount = _total;
     final editingReceipt = ref.read(editingReceiptProvider);
     final isEditingMode = editingReceipt != null;
-    
+
     // Capture navigators before async gap
     // showDialog uses root navigator by default
     final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -211,7 +210,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
         final oldItems = editingReceipt.items;
         final Map<String, int> oldQuantities = {};
         for (var item in oldItems) {
-          oldQuantities[item.productId] = (oldQuantities[item.productId] ?? 0) + item.quantity;
+          oldQuantities[item.productId] =
+              (oldQuantities[item.productId] ?? 0) + item.quantity;
         }
 
         // 1. Validate and adjust stock for each item
@@ -220,10 +220,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
           if (product == null) {
             throw Exception('Product ${cartItem['name']} not found');
           }
-          
+
           final oldQuantity = oldQuantities[cartItem['id']] ?? 0;
           final quantityDiff = cartItem['quantity'] - oldQuantity;
-          
+
           if (quantityDiff > 0) {
             // Need more stock
             if (product.stock < quantityDiff) {
@@ -238,9 +238,11 @@ class _SalesPageState extends ConsumerState<SalesPage>
 
         // Check for removed items and restore their stock
         for (var oldItem in oldItems) {
-          final stillInCart = _cart.any((cartItem) => cartItem['id'] == oldItem.productId);
+          final stillInCart =
+              _cart.any((cartItem) => cartItem['id'] == oldItem.productId);
           if (!stillInCart) {
-            await productRepo.increaseStock(oldItem.productId, oldItem.quantity);
+            await productRepo.increaseStock(
+                oldItem.productId, oldItem.quantity);
           }
         }
 
@@ -271,7 +273,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
 
         // Clear editing state
         ref.read(editingReceiptProvider.notifier).state = null;
-
       } else {
         // NEW SALE MODE: Original logic
         // 1. Validate stock first
@@ -367,7 +368,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isEditingMode 
+                    isEditingMode
                         ? 'Receipt updated successfully! \$${totalAmount.toStringAsFixed(0)}'
                         : 'Payment successful! \$${totalAmount.toStringAsFixed(0)}${!isEditingMode && mounted ? "\n(Print failed: Check printer connection)" : ""}',
                     maxLines: 2,
@@ -569,7 +570,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
           style: TextStyle(
             fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
             fontSize: isBold ? 16 : 12,
-            color: value < 0 ? Colors.green[700] : (isBold ? Colors.black : Colors.grey[800]),
+            color: value < 0
+                ? Colors.green[700]
+                : (isBold ? Colors.black : Colors.grey[800]),
           ),
         ),
       ],
@@ -607,9 +610,13 @@ class _SalesPageState extends ConsumerState<SalesPage>
         backgroundColor: isEditingMode ? Colors.orange[700] : null,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: isEditingMode ? Colors.white : Theme.of(context).colorScheme.primary,
+          labelColor: isEditingMode
+              ? Colors.white
+              : Theme.of(context).colorScheme.primary,
           unselectedLabelColor: isEditingMode ? Colors.white70 : Colors.grey,
-          indicatorColor: isEditingMode ? Colors.white : Theme.of(context).colorScheme.primary,
+          indicatorColor: isEditingMode
+              ? Colors.white
+              : Theme.of(context).colorScheme.primary,
           indicatorSize: TabBarIndicatorSize.label,
           tabs: [
             const Tab(text: 'Products'),
@@ -692,15 +699,19 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey[300]),
+                            Icon(Icons.inventory_2_outlined,
+                                size: 48, color: Colors.grey[300]),
                             const SizedBox(height: 16),
-                            const Text('No products found', style: TextStyle(color: Colors.grey)),
+                            const Text('No products found',
+                                style: TextStyle(color: Colors.grey)),
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
                               onPressed: () {
-                                final searchQuery = _searchController.text.trim();
+                                final searchQuery =
+                                    _searchController.text.trim();
                                 if (searchQuery.isNotEmpty) {
-                                  context.push('/products/add?name=${Uri.encodeComponent(searchQuery)}');
+                                  context.push(
+                                      '/products/add?name=${Uri.encodeComponent(searchQuery)}');
                                 } else {
                                   context.push('/products/add');
                                 }
@@ -708,7 +719,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
                               icon: const Icon(Icons.add),
                               label: const Text('Create Product'),
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 12),
                               ),
                             ),
                           ],
@@ -859,26 +871,26 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final item = _cart[index];
-                          final finalPrice = item['price'];
-                          
+
                           return Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item['name'],
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.w500)),
-                                        Text(
-                                          '\$${item['price'].toInt()}',
-                                          style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 12),
-                                        ),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(item['name'],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w500)),
+                                      Text(
+                                        '\$${item['price'].toInt()}',
+                                        style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -915,8 +927,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                 ),
                               ],
                             ),
-                          ),
-                        );
+                          );
                         },
                       ),
               ),
@@ -943,7 +954,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
                           isDense: true,
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.person_outline, size: 18),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -971,11 +983,13 @@ class _SalesPageState extends ConsumerState<SalesPage>
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(6)),
-                            backgroundColor: isEditingMode ? Colors.orange[700] : null,
+                            backgroundColor:
+                                isEditingMode ? Colors.orange[700] : null,
                           ),
                           child: Text(
                             isEditingMode ? 'Update Receipt' : 'Checkout',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),

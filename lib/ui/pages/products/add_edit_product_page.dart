@@ -67,12 +67,11 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     }
 
     if (_barcodeController.text.isNotEmpty) {
-      final barcodeExists = await ref
-          .read(productNotifierProvider.notifier)
-          .barcodeExists(
-            _barcodeController.text,
-            excludeId: widget.productId,
-          );
+      final barcodeExists =
+          await ref.read(productNotifierProvider.notifier).barcodeExists(
+                _barcodeController.text,
+                excludeId: widget.productId,
+              );
 
       if (barcodeExists) {
         if (mounted) {
@@ -98,11 +97,13 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
         price: double.parse(_priceController.text),
         stock: int.parse(_stockController.text),
         category: _selectedCategory,
-        barcode: _barcodeController.text.isEmpty ? null : _barcodeController.text,
+        barcode:
+            _barcodeController.text.isEmpty ? null : _barcodeController.text,
         costPrice: _costPriceController.text.isEmpty
             ? null
             : double.parse(_costPriceController.text),
-        supplier: _supplierController.text.isEmpty ? null : _supplierController.text,
+        supplier:
+            _supplierController.text.isEmpty ? null : _supplierController.text,
         sku: '', // Assuming SKU is generated or optional
       );
 
@@ -142,13 +143,18 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Product' : 'Add Product', style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(isEditing ? 'Edit Product' : 'Add Product',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _saveProduct,
             child: _isLoading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Save',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -171,7 +177,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                     controller: _priceController,
                     label: 'Selling Price',
                     keyboardType: TextInputType.number,
-                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Required' : null,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -180,30 +187,33 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                     controller: _stockController,
                     label: 'Stock',
                     keyboardType: TextInputType.number,
-                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Required' : null,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            
             _buildSectionTitle('Category'),
             categoriesAsync.when(
               data: (categories) => DropdownButtonFormField<String>(
                 initialValue: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Category',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                 ),
-                items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                items: categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedCategory = v),
               ),
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const Text('Error loading categories'),
             ),
             const SizedBox(height: 24),
-
             _buildSectionTitle('Additional Details'),
             _buildTextField(
               controller: _barcodeController,
@@ -264,7 +274,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         suffixIcon: suffixIcon,
       ),
     );

@@ -213,7 +213,7 @@ class SettingsPage extends ConsumerWidget {
               try {
                 final storage = StorageHelper();
                 await storage.clearAll();
-                
+
                 if (context.mounted) {
                   Navigator.pop(context); // Close loading
                   ScaffoldMessenger.of(context).showSnackBar(
