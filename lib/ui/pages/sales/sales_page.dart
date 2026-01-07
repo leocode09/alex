@@ -568,7 +568,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                           setModalState, 'Mobile Money', Icons.phone_android)),
                 ],
               ),
-              if (_paymentMethod == 'Cash') ..[
+              if (_paymentMethod == 'Cash') ...[
                 const SizedBox(height: 16),
                 TextField(
                   controller: _cashReceivedController,
