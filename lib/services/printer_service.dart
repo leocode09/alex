@@ -183,11 +183,38 @@ class PrinterService {
       ),
     ]);
 
-    // Change due (Placeholder)
-    // bytes += generator.row([
-    //   PosColumn(text: 'Change due', width: 6),
-    //   PosColumn(text: '0.00', width: 6, styles: const PosStyles(align: PosAlign.right)),
-    // ]);
+    // Cash received and change for cash payments
+    if (sale.paymentMethod == 'Cash' && sale.cashReceived != null) {
+      bytes += generator.row([
+        PosColumn(text: 'Cash Received', width: 6),
+        PosColumn(
+          text: '\$${sale.cashReceived!.toStringAsFixed(2)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+      
+      if (sale.change != null && sale.change! > 0) {
+        bytes += generator.row([
+          PosColumn(text: 'Change Due', width: 6, styles: const PosStyles(bold: true)),
+          PosColumn(
+            text: '\$${sale.change!.toStringAsFixed(2)}',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right, bold: true),
+          ),
+        ]);
+      } else if (sale.cashReceived! < sale.total) {
+        final amountDue = sale.total - sale.cashReceived!;
+        bytes += generator.row([
+          PosColumn(text: 'Amount Due', width: 6, styles: const PosStyles(bold: true)),
+          PosColumn(
+            text: '\$${amountDue.toStringAsFixed(2)}',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right, bold: true),
+          ),
+        ]);
+      }
+    }
 
     bytes += generator.feed(1);
     bytes += generator.text('_' * 20, styles: const PosStyles(align: PosAlign.right)); // Signature line
