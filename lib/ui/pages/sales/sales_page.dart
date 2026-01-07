@@ -178,6 +178,58 @@ class _SalesPageState extends ConsumerState<SalesPage>
     HapticFeedback.lightImpact();
   }
 
+  void _showEditPriceDialog(BuildContext context, int index) {
+    final item = _cart[index];
+    final priceController = TextEditingController(
+      text: item['price'].toStringAsFixed(0),
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit Price - ${item['name']}'),
+        content: TextField(
+          controller: priceController,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Price',
+            prefixText: '\$',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newPrice = double.tryParse(priceController.text);
+              if (newPrice != null && newPrice > 0) {
+                setState(() {
+                  _cart[index]['price'] = newPrice;
+                });
+                _saveCart();
+                Navigator.pop(context);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a valid price'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _processPayment(String method) async {
     if (_cart.isEmpty) return;
 
@@ -885,11 +937,23 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                       Text(item['name'],
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w500)),
-                                      Text(
-                                        '\$${item['price'].toInt()}',
-                                        style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12),
+                                      InkWell(
+                                        onTap: () => _showEditPriceDialog(
+                                            context, index),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              '\$${item['price'].toInt()}',
+                                              style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 12),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Icon(Icons.edit,
+                                                size: 14,
+                                                color: Colors.blue[700]),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
