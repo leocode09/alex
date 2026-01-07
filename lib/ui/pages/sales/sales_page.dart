@@ -28,6 +28,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
   String _selectedCategory = 'All';
   String _paymentMethod = 'Cash';
   final TextEditingController _customerController = TextEditingController();
+  final TextEditingController _cashReceivedController = TextEditingController();
   late TabController _tabController;
   SharedPreferences? _prefs;
   bool _hasLoadedEditingReceipt = false;
@@ -402,6 +403,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
       setState(() {
         _cart.clear();
         _customerController.clear();
+        _cashReceivedController.clear();
         _paymentMethod = 'Cash';
       });
       _saveCart();
@@ -535,6 +537,97 @@ class _SalesPageState extends ConsumerState<SalesPage>
                           setModalState, 'Mobile Money', Icons.phone_android)),
                 ],
               ),
+              if (_paymentMethod == 'Cash') ..[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _cashReceivedController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Cash Received',
+                    prefixText: '\$',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 16),
+                  ),
+                  onChanged: (_) => setModalState(() {}),
+                ),
+                Builder(
+                  builder: (context) {
+                    final cashReceived = double.tryParse(_cashReceivedController.text) ?? 0.0;
+                    if (cashReceived > 0) {
+                      final difference = cashReceived - _total;
+                      if (difference >= 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green[200]!),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Change Due',
+                                  style: TextStyle(
+                                    color: Colors.green[900],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '\$${difference.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    color: Colors.green[900],
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      } else {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange[200]!),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Amount Due',
+                                  style: TextStyle(
+                                    color: Colors.orange[900],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '\$${(-difference).toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    color: Colors.orange[900],
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () => _processPayment(_paymentMethod),

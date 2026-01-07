@@ -5,6 +5,8 @@ class Sale {
   final String paymentMethod;
   final String? customerId;
   final String employeeId;
+  final double? cashReceived;
+  final double? change;
   final DateTime createdAt;
 
   Sale({
@@ -14,6 +16,8 @@ class Sale {
     required this.paymentMethod,
     this.customerId,
     required this.employeeId,
+    this.cashReceived,
+    this.change,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -25,6 +29,8 @@ class Sale {
       'paymentMethod': paymentMethod,
       'customerId': customerId,
       'employeeId': employeeId,
+      'cashReceived': cashReceived,
+      'change': change,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -39,6 +45,8 @@ class Sale {
       paymentMethod: map['paymentMethod'] as String,
       customerId: map['customerId'] as String?,
       employeeId: map['employeeId'] as String,
+      cashReceived: map['cashReceived'] != null ? (map['cashReceived'] as num).toDouble() : null,
+      change: map['change'] != null ? (map['change'] as num).toDouble() : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
     );
   }
