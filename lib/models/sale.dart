@@ -45,7 +45,9 @@ class Sale {
       paymentMethod: map['paymentMethod'] as String,
       customerId: map['customerId'] as String?,
       employeeId: map['employeeId'] as String,
-      cashReceived: map['cashReceived'] != null ? (map['cashReceived'] as num).toDouble() : null,
+      cashReceived: map['cashReceived'] != null
+          ? (map['cashReceived'] as num).toDouble()
+          : null,
       change: map['change'] != null ? (map['change'] as num).toDouble() : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
     );
@@ -85,7 +87,8 @@ class SaleItem {
       productName: map['productName'] as String,
       quantity: map['quantity'] as int,
       price: (map['price'] as num).toDouble(),
-      discount: map['discount'] != null ? (map['discount'] as num).toDouble() : null,
+      discount:
+          map['discount'] != null ? (map['discount'] as num).toDouble() : null,
     );
   }
 }
