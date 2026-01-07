@@ -367,6 +367,20 @@ class _SalesPageState extends ConsumerState<SalesPage>
           employeeId = prefs.getString('userEmail') ?? 'default-employee';
         }
 
+        // Calculate cash received and change for Cash payments
+        double? cashReceived;
+        double? change;
+        if (method == 'Cash') {
+          final cashReceivedValue = double.tryParse(_cashReceivedController.text);
+          if (cashReceivedValue != null && cashReceivedValue > 0) {
+            cashReceived = cashReceivedValue;
+            final difference = cashReceivedValue - totalAmount;
+            if (difference >= 0) {
+              change = difference;
+            }
+          }
+        }
+
         final sale = Sale(
           id: const Uuid().v4(),
           items: saleItems,
@@ -376,6 +390,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
           customerId: _customerController.text.isNotEmpty
               ? _customerController.text
               : null,
+          cashReceived: cashReceived,
+          change: change,
           createdAt: DateTime.now(),
         );
 
