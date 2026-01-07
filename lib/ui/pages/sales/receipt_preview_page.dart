@@ -32,7 +32,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Receipt', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Receipt',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -77,26 +78,30 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                       // Header
                       Text(
                         settings.shopName,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       if (settings.addressLine1.isNotEmpty)
                         Text(
                           settings.addressLine1,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                       if (settings.addressLine2.isNotEmpty)
                         Text(
                           settings.addressLine2,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                       if (settings.phone.isNotEmpty)
                         Text(
                           settings.phone,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                       const SizedBox(height: 24),
@@ -115,7 +120,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           ),
                         ],
                       ),
-                      const Divider(thickness: 1, height: 24, color: Colors.black),
+                      const Divider(
+                          thickness: 1, height: 24, color: Colors.black),
 
                       // Customer Info
                       if (_sale.customerId != null)
@@ -123,7 +129,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Text(
                             'Customer: ${_sale.customerId}',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold),
                           ),
                         ),
 
@@ -139,19 +146,24 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         item.productName,
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
                                       ),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text('${item.quantity}x ${item.price.toStringAsFixed(2)}'),
+                                          Text(
+                                              '${item.quantity}x ${item.price.toStringAsFixed(2)}'),
                                           Text(
                                             item.subtotal.toStringAsFixed(2),
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold),
                                           ),
                                         ],
                                       ),
@@ -159,7 +171,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 20),
+                                  icon: const Icon(Icons.delete_outline,
+                                      size: 20),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   onPressed: () => _removeItem(context, index),
@@ -168,14 +181,15 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                             ),
                           ),
                         );
-                      }),                      
+                      }),
                       // Add item button
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: OutlinedButton.icon(
                           onPressed: () {
                             // Set this receipt as the one being edited
-                            ref.read(editingReceiptProvider.notifier).state = _sale;
+                            ref.read(editingReceiptProvider.notifier).state =
+                                _sale;
                             // Pop the receipt preview page first
                             Navigator.of(context).pop();
                             // Then navigate to sales page
@@ -188,26 +202,33 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           ),
                         ),
                       ),
-                                            const Divider(thickness: 1, height: 24, color: Colors.black),
+                      const Divider(
+                          thickness: 1, height: 24, color: Colors.black),
 
                       // Delivery (Placeholder)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: const [
-                          Text('Delivery', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text('0', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Delivery',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('0',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      const Divider(thickness: 1, height: 24, color: Colors.black),
+                      const Divider(
+                          thickness: 1, height: 24, color: Colors.black),
 
                       // Totals
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Text('Total',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
                           Text(
                             _sale.total.toStringAsFixed(2),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -215,24 +236,39 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(_sale.paymentMethod, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(_sale.paymentMethod,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                           Text(
-                            _sale.total.toStringAsFixed(0),
+                            _sale.cashReceived?.toStringAsFixed(0) ??
+                                _sale.total.toStringAsFixed(0),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Change due', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(
-                            (0.0).toStringAsFixed(2), // Placeholder
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
+                      if (_sale.paymentMethod == 'Cash' &&
+                          _sale.cashReceived != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                                _sale.change != null && _sale.change! > 0
+                                    ? 'Change due'
+                                    : 'Amount due',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            Text(
+                              _sale.change != null && _sale.change! > 0
+                                  ? _sale.change!.toStringAsFixed(2)
+                                  : (_sale.total - _sale.cashReceived!)
+                                      .toStringAsFixed(2),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
 
                       const SizedBox(height: 40),
                       Align(
@@ -243,11 +279,12 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           color: Colors.black,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 24),
                       Text(
                         settings.footerMessage,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -277,7 +314,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                   label: 'WhatsApp',
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('WhatsApp sharing not implemented yet')),
+                      const SnackBar(
+                          content:
+                              Text('WhatsApp sharing not implemented yet')),
                     );
                   },
                 ),
@@ -289,7 +328,10 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
-  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildActionButton(
+      {required IconData icon,
+      required String label,
+      required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       child: Column(
@@ -310,8 +352,10 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
   }
 
   void _editItem(BuildContext context, int index, SaleItem item) {
-    final quantityController = TextEditingController(text: item.quantity.toString());
-    final priceController = TextEditingController(text: item.price.toStringAsFixed(2));
+    final quantityController =
+        TextEditingController(text: item.quantity.toString());
+    final priceController =
+        TextEditingController(text: item.price.toStringAsFixed(2));
     final nameController = TextEditingController(text: item.productName);
 
     showDialog(
@@ -335,7 +379,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
             TextField(
               controller: priceController,
               decoration: const InputDecoration(labelText: 'Price'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
           ],
         ),
@@ -346,9 +391,12 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final quantity = int.tryParse(quantityController.text) ?? item.quantity;
+              final quantity =
+                  int.tryParse(quantityController.text) ?? item.quantity;
               final price = double.tryParse(priceController.text) ?? item.price;
-              final name = nameController.text.isEmpty ? item.productName : nameController.text;
+              final name = nameController.text.isEmpty
+                  ? item.productName
+                  : nameController.text;
 
               final updatedItems = List<SaleItem>.from(_sale.items);
               updatedItems[index] = SaleItem(
@@ -380,7 +428,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Item'),
-        content: Text('Remove ${_sale.items[index].productName} from this receipt?'),
+        content:
+            Text('Remove ${_sale.items[index].productName} from this receipt?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -418,12 +467,12 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
 
     await ref.read(saleRepositoryProvider).updateSale(updatedSale);
-    
+
     // Refresh providers
     ref.invalidate(salesProvider);
     ref.invalidate(todaysRevenueProvider);
     ref.invalidate(totalRevenueProvider);
-    
+
     if (mounted) {
       setState(() {
         _sale = updatedSale;
@@ -435,7 +484,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
   }
 
   void _showEditSaleDialog(BuildContext context) {
-    final customerController = TextEditingController(text: _sale.customerId ?? '');
+    final customerController =
+        TextEditingController(text: _sale.customerId ?? '');
     String paymentMethod = _sale.paymentMethod;
     DateTime selectedDate = _sale.createdAt;
     TimeOfDay selectedTime = TimeOfDay.fromDateTime(_sale.createdAt);
@@ -456,7 +506,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: paymentMethod,
-                  decoration: const InputDecoration(labelText: 'Payment Method'),
+                  decoration:
+                      const InputDecoration(labelText: 'Payment Method'),
                   items: ['Cash', 'Card', 'Mobile Money', 'Other']
                       .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                       .toList(),
@@ -513,24 +564,26 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                   selectedTime.hour,
                   selectedTime.minute,
                 );
-                
+
                 final updatedSale = Sale(
                   id: _sale.id,
                   items: _sale.items,
                   total: _sale.total,
                   paymentMethod: paymentMethod,
-                  customerId: customerController.text.isEmpty ? null : customerController.text,
+                  customerId: customerController.text.isEmpty
+                      ? null
+                      : customerController.text,
                   employeeId: _sale.employeeId,
                   createdAt: newDateTime,
                 );
 
                 await ref.read(saleRepositoryProvider).updateSale(updatedSale);
-                
+
                 // Refresh providers
                 ref.invalidate(salesProvider);
                 ref.invalidate(todaysSalesCountProvider);
                 ref.invalidate(todaysRevenueProvider);
-                
+
                 if (mounted) {
                   this.setState(() {
                     _sale = updatedSale;
@@ -549,12 +602,17 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
-  void _showSettingsDialog(BuildContext context, ReceiptSettings currentSettings) {
-    final shopNameController = TextEditingController(text: currentSettings.shopName);
-    final address1Controller = TextEditingController(text: currentSettings.addressLine1);
-    final address2Controller = TextEditingController(text: currentSettings.addressLine2);
+  void _showSettingsDialog(
+      BuildContext context, ReceiptSettings currentSettings) {
+    final shopNameController =
+        TextEditingController(text: currentSettings.shopName);
+    final address1Controller =
+        TextEditingController(text: currentSettings.addressLine1);
+    final address2Controller =
+        TextEditingController(text: currentSettings.addressLine2);
     final phoneController = TextEditingController(text: currentSettings.phone);
-    final footerController = TextEditingController(text: currentSettings.footerMessage);
+    final footerController =
+        TextEditingController(text: currentSettings.footerMessage);
 
     showDialog(
       context: context,
@@ -595,14 +653,14 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
           ElevatedButton(
             onPressed: () {
               ref.read(receiptSettingsProvider.notifier).updateSettings(
-                currentSettings.copyWith(
-                  shopName: shopNameController.text,
-                  addressLine1: address1Controller.text,
-                  addressLine2: address2Controller.text,
-                  phone: phoneController.text,
-                  footerMessage: footerController.text,
-                ),
-              );
+                    currentSettings.copyWith(
+                      shopName: shopNameController.text,
+                      addressLine1: address1Controller.text,
+                      addressLine2: address2Controller.text,
+                      phone: phoneController.text,
+                      footerMessage: footerController.text,
+                    ),
+                  );
               Navigator.pop(context);
             },
             child: const Text('Save'),
