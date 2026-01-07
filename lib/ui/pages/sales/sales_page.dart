@@ -306,9 +306,22 @@ class _SalesPageState extends ConsumerState<SalesPage>
             productName: item['name'],
             quantity: item['quantity'],
             price: item['price'],
-            discount: item['discount'],
           );
         }).toList();
+
+        // Calculate cash received and change for Cash payments
+        double? cashReceived;
+        double? change;
+        if (method == 'Cash') {
+          final cashReceivedValue = double.tryParse(_cashReceivedController.text);
+          if (cashReceivedValue != null && cashReceivedValue > 0) {
+            cashReceived = cashReceivedValue;
+            final difference = cashReceivedValue - totalAmount;
+            if (difference >= 0) {
+              change = difference;
+            }
+          }
+        }
 
         final updatedSale = Sale(
           id: editingReceipt.id,
@@ -319,6 +332,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
           customerId: _customerController.text.isNotEmpty
               ? _customerController.text
               : null,
+          cashReceived: cashReceived,
+          change: change,
           createdAt: editingReceipt.createdAt,
         );
 
