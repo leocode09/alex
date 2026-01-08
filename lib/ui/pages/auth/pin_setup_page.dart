@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../services/pin_service.dart';
 
 class PinSetupPage extends StatefulWidget {
@@ -109,7 +110,7 @@ class _PinSetupPageState extends State<PinSetupPage> {
       requireOnReports: _requireOnReports,
     );
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/');
+      context.go('/');
     }
   }
 
