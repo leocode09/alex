@@ -292,3 +292,5 @@ class SettingsPage extends ConsumerWidget {
       ),
     );
   }
+}
+
