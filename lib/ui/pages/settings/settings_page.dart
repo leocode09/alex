@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/database_helper.dart';
+import '../../../helpers/pin_protection.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -60,7 +61,7 @@ class SettingsPage extends ConsumerWidget {
             'Security',
             'PIN, passwords, and access logs',
             Icons.lock_outline,
-            onTap: () {},
+            onTap: () => _showSecurityOptions(context),
           ),
           const SizedBox(height: 24),
           _buildSectionHeader('App Preferences'),
@@ -247,4 +248,38 @@ class SettingsPage extends ConsumerWidget {
       ),
     );
   }
-}
+
+  void _showSecurityOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.pin),
+              title: const Text('Change PIN'),
+              subtitle: const Text('Update your 4-digit PIN'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/pin-setup');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.vpn_key),
+              title: const Text('Reset PIN'),
+              subtitle: const Text('Set a new PIN if you forgot it'),
+              onTap: () async {
+                Navigator.pop(context);
+                final verified = await PinProtection.requirePin(context);
+                if (verified && context.mounted) {
+                  context.push('/pin-setup');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }

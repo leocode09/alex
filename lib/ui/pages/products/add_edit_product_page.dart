@@ -163,6 +163,15 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading while verifying PIN
+    if (!_pinVerified) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(

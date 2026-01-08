@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../helpers/pin_protection.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -25,13 +27,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
+
       try {
         await ref.read(authProvider.notifier).login(
-          _emailController.text,
-          _passwordController.text,
-        );
-        // Navigation is handled by the router redirect
+              _emailController.text,
+              _passwordController.text,
+            );
+
+        // After successful login, require PIN verification
+        if (mounted) {
+          final verified = await PinProtection.requirePin(context);
+          if (!verified && mounted) {
+            // If PIN verification fails, logout and show message
+            await ref.read(authProvider.notifier).logout();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('PIN verification required to continue'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          // If verified, navigation is handled by the router redirect
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -61,7 +78,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.store_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
+                  Icon(Icons.store_outlined,
+                      size: 64, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: 32),
                   const Text(
                     'POS System',
@@ -75,14 +93,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     style: TextStyle(color: Colors.grey[600], fontSize: 14),
                   ),
                   const SizedBox(height: 48),
-
                   TextFormField(
                     controller: _emailController,
                     decoration: const InputDecoration(
                       labelText: 'Email',
                       prefixIcon: Icon(Icons.email_outlined, size: 20),
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Required';
@@ -97,7 +115,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       labelText: 'Password',
                       prefixIcon: Icon(Icons.lock_outline, size: 20),
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Required';
@@ -105,28 +124,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     },
                   ),
                   const SizedBox(height: 24),
-
                   SizedBox(
                     height: 48,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleLogin,
                       style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                         elevation: 0,
                       ),
                       child: _isLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold)),
+                          : const Text('Sign In',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () {},
-                    style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                    style:
+                        TextButton.styleFrom(foregroundColor: Colors.grey[700]),
                     child: const Text('Forgot Password?'),
                   ),
                 ],
