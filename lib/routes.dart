@@ -7,7 +7,10 @@ import 'ui/widgets/main_scaffold.dart';
 
 // Auth
 import 'ui/pages/auth/login_page.dart';
+import 'ui/pages/auth/pin_setup_page.dart';
+import 'ui/pages/auth/pin_entry_page.dart';
 import 'providers/auth_provider.dart';
+import 'services/pin_service.dart';
 
 // Dashboard
 import 'ui/pages/dashboard/dashboard_page.dart';
@@ -88,25 +91,59 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
-    redirect: (context, state) {
+    redirect: (context, state) async {
+      final pinService = PinService();
+      final isPinSet = await pinService.isPinSet();
       final isLoggedIn = authState.value ?? false;
-      final isLoggingIn = state.uri.path == '/';
+      final isOnPinSetup = state.uri.path == '/pin-setup';
+      final isOnPinEntry = state.uri.path == '/pin-entry';
+      final isOnLogin = state.uri.path == '/';
 
       if (authState.isLoading) {
-        return null; // Or a loading screen
+        return null;
       }
 
-      if (!isLoggedIn && !isLoggingIn) {
+      // First time - need to setup PIN
+      if (!isPinSet && !isOnPinSetup) {
+        return '/pin-setup';
+      }
+
+      // PIN is set but not logged in (need PIN entry)
+      if (isPinSet && !isLoggedIn && !isOnLogin && !isOnPinEntry) {
+        return '/pin-entry';
+      }
+
+      // Not logged in and not on login page
+      if (!isLoggedIn && !isOnLogin && !isOnPinEntry && !isOnPinSetup) {
         return '/';
       }
 
-      if (isLoggedIn && isLoggingIn) {
+      // Logged in but on login/pin pages
+      if (isLoggedIn && (isOnLogin || isOnPinEntry)) {
         return '/dashboard';
       }
 
       return null;
     },
     routes: [
+      // PIN Setup (first time)
+      GoRoute(
+        path: '/pin-setup',
+        name: 'pin-setup',
+        builder: (context, state) => const PinSetupPage(),
+      ),
+
+      // PIN Entry
+      GoRoute(
+        path: '/pin-entry',
+        name: 'pin-entry',
+        builder: (context, state) => const PinEntryPage(
+          title: 'Welcome Back',
+          subtitle: 'Enter your PIN to continue',
+          canGoBack: false,
+        ),
+      ),
+
       // Auth (no bottom bar)
       GoRoute(
         path: '/',
