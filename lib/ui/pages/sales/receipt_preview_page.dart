@@ -182,26 +182,6 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           ),
                         );
                       }),
-                      // Add item button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            // Set this receipt as the one being edited
-                            ref.read(editingReceiptProvider.notifier).state =
-                                _sale;
-                            // Pop the receipt preview page first
-                            Navigator.of(context).pop();
-                            // Then navigate to sales page
-                            context.go('/sales');
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Item'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 36),
-                          ),
-                        ),
-                      ),
                       const Divider(
                           thickness: 1, height: 24, color: Colors.black),
 
