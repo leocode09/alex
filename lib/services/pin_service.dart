@@ -135,390 +135,309 @@ class PinService {
     return storedPin == pin;
   }
 
+  // Helper method to get preferences map
+  Future<Map<String, bool>> _getPreferencesMap() async {
+    final prefs = await SharedPreferences.getInstance();
+    final prefsString = prefs.getString(_pinPreferencesKey);
+    
+    if (prefsString == null) {
+      return _getDefaultPreferences();
+    }
+    
+    try {
+      final decoded = jsonDecode(prefsString) as Map<String, dynamic>;
+      return decoded.map((key, value) => MapEntry(key, value as bool));
+    } catch (e) {
+      return _getDefaultPreferences();
+    }
+  }
+  
+  Map<String, bool> _getDefaultPreferences() {
+    return {
+      'login': true,
+      'settings': false,
+      'dashboard': false,
+      'addProduct': false,
+      'editProduct': false,
+      'deleteProduct': false,
+      'viewProductDetails': false,
+      'scanBarcode': false,
+      'adjustStock': false,
+      'createSale': false,
+      'viewSalesHistory': false,
+      'editReceipt': false,
+      'deleteReceipt': false,
+      'applyDiscount': false,
+      'issueRefund': false,
+      'addCategory': false,
+      'editCategory': false,
+      'deleteCategory': false,
+      'viewCategories': false,
+      'viewCustomers': false,
+      'addCustomer': false,
+      'editCustomer': false,
+      'deleteCustomer': false,
+      'viewEmployees': false,
+      'addEmployee': false,
+      'editEmployee': false,
+      'deleteEmployee': false,
+      'viewStores': false,
+      'addStore': false,
+      'editStore': false,
+      'deleteStore': false,
+      'reports': false,
+      'viewFinancialReports': false,
+      'viewInventoryReports': false,
+      'exportReports': false,
+      'hardwareSetup': false,
+      'dataSync': false,
+      'clearAllData': true,
+      'managePromotions': false,
+      'viewNotifications': false,
+      'taxSettings': false,
+      'receiptSettings': false,
+      'changePin': true,
+    };
+  }
+
   // Auth & General
   Future<bool> isPinRequiredForLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnLoginKey) ?? true;
+    final prefs = await _getPreferencesMap();
+    return prefs['login'] ?? true;
   }
 
   Future<bool> isPinRequiredForSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnSettingsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['settings'] ?? false;
   }
 
   Future<bool> isPinRequiredForDashboard() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDashboardKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['dashboard'] ?? false;
   }
 
   // Products
   Future<bool> isPinRequiredForAddProduct() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnAddProductKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['addProduct'] ?? false;
   }
 
   Future<bool> isPinRequiredForEditProduct() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnEditProductKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['editProduct'] ?? false;
   }
 
   Future<bool> isPinRequiredForDeleteProduct() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDeleteProductKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['deleteProduct'] ?? false;
   }
 
   Future<bool> isPinRequiredForViewProductDetails() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewProductDetailsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewProductDetails'] ?? false;
   }
 
   Future<bool> isPinRequiredForScanBarcode() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnScanBarcodeKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['scanBarcode'] ?? false;
   }
 
   Future<bool> isPinRequiredForAdjustStock() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnAdjustStockKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['adjustStock'] ?? false;
   }
 
   // Sales
   Future<bool> isPinRequiredForCreateSale() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnCreateSaleKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['createSale'] ?? false;
   }
 
   Future<bool> isPinRequiredForViewSalesHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewSalesHistoryKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewSalesHistory'] ?? false;
   }
 
   Future<bool> isPinRequiredForEditReceipt() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnEditReceiptKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['editReceipt'] ?? false;
   }
 
   Future<bool> isPinRequiredForDeleteReceipt() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDeleteReceiptKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['deleteReceipt'] ?? false;
   }
 
   Future<bool> isPinRequiredForApplyDiscount() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnApplyDiscountKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['applyDiscount'] ?? false;
   }
 
   Future<bool> isPinRequiredForIssueRefund() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnIssueRefundKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['issueRefund'] ?? false;
   }
 
   // Categories
   Future<bool> isPinRequiredForAddCategory() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnAddCategoryKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['addCategory'] ?? false;
   }
 
   Future<bool> isPinRequiredForEditCategory() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnEditCategoryKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['editCategory'] ?? false;
   }
 
   Future<bool> isPinRequiredForDeleteCategory() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDeleteCategoryKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['deleteCategory'] ?? false;
   }
 
   Future<bool> isPinRequiredForViewCategories() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewCategoriesKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewCategories'] ?? false;
   }
 
   // Customers
   Future<bool> isPinRequiredForViewCustomers() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewCustomersKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewCustomers'] ?? false;
   }
 
   Future<bool> isPinRequiredForAddCustomer() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnAddCustomerKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['addCustomer'] ?? false;
   }
 
   Future<bool> isPinRequiredForEditCustomer() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnEditCustomerKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['editCustomer'] ?? false;
   }
 
   Future<bool> isPinRequiredForDeleteCustomer() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDeleteCustomerKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['deleteCustomer'] ?? false;
   }
 
   // Employees
   Future<bool> isPinRequiredForViewEmployees() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewEmployeesKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewEmployees'] ?? false;
   }
 
   Future<bool> isPinRequiredForAddEmployee() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnAddEmployeeKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['addEmployee'] ?? false;
   }
 
   Future<bool> isPinRequiredForEditEmployee() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnEditEmployeeKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['editEmployee'] ?? false;
   }
 
   Future<bool> isPinRequiredForDeleteEmployee() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDeleteEmployeeKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['deleteEmployee'] ?? false;
   }
 
   // Stores
   Future<bool> isPinRequiredForViewStores() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewStoresKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewStores'] ?? false;
   }
 
   Future<bool> isPinRequiredForAddStore() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnAddStoreKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['addStore'] ?? false;
   }
 
   Future<bool> isPinRequiredForEditStore() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnEditStoreKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['editStore'] ?? false;
   }
 
   Future<bool> isPinRequiredForDeleteStore() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDeleteStoreKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['deleteStore'] ?? false;
   }
 
   // Reports & Analytics
   Future<bool> isPinRequiredForReports() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnReportsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['reports'] ?? false;
   }
 
   Future<bool> isPinRequiredForViewFinancialReports() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewFinancialReportsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewFinancialReports'] ?? false;
   }
 
   Future<bool> isPinRequiredForViewInventoryReports() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewInventoryReportsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewInventoryReports'] ?? false;
   }
 
   Future<bool> isPinRequiredForExportReports() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnExportReportsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['exportReports'] ?? false;
   }
 
   // System & Data Management
   Future<bool> isPinRequiredForHardwareSetup() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnHardwareSetupKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['hardwareSetup'] ?? false;
   }
 
   Future<bool> isPinRequiredForDataSync() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnDataSyncKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['dataSync'] ?? false;
   }
 
   Future<bool> isPinRequiredForClearAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnClearAllDataKey) ?? true;
+    final prefs = await _getPreferencesMap();
+    return prefs['clearAllData'] ?? true;
   }
 
   Future<bool> isPinRequiredForManagePromotions() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnManagePromotionsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['managePromotions'] ?? false;
   }
 
   Future<bool> isPinRequiredForViewNotifications() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnViewNotificationsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['viewNotifications'] ?? false;
   }
 
   // Settings Subsections
   Future<bool> isPinRequiredForTaxSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnTaxSettingsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['taxSettings'] ?? false;
   }
 
   Future<bool> isPinRequiredForReceiptSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnReceiptSettingsKey) ?? false;
+    final prefs = await _getPreferencesMap();
+    return prefs['receiptSettings'] ?? false;
   }
 
   Future<bool> isPinRequiredForChangePin() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_pinOnChangePinKey) ?? true;
+    final prefs = await _getPreferencesMap();
+    return prefs['changePin'] ?? true;
   }
 
   Future<Map<String, bool>> getPinPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    return {
-      // Auth & General
-      'login': prefs.getBool(_pinOnLoginKey) ?? true,
-      'settings': prefs.getBool(_pinOnSettingsKey) ?? false,
-      'dashboard': prefs.getBool(_pinOnDashboardKey) ?? false,
-      
-      // Products
-      'addProduct': prefs.getBool(_pinOnAddProductKey) ?? false,
-      'editProduct': prefs.getBool(_pinOnEditProductKey) ?? false,
-      'deleteProduct': prefs.getBool(_pinOnDeleteProductKey) ?? false,
-      'viewProductDetails': prefs.getBool(_pinOnViewProductDetailsKey) ?? false,
-      'scanBarcode': prefs.getBool(_pinOnScanBarcodeKey) ?? false,
-      'adjustStock': prefs.getBool(_pinOnAdjustStockKey) ?? false,
-      
-      // Sales
-      'createSale': prefs.getBool(_pinOnCreateSaleKey) ?? false,
-      'viewSalesHistory': prefs.getBool(_pinOnViewSalesHistoryKey) ?? false,
-      'editReceipt': prefs.getBool(_pinOnEditReceiptKey) ?? false,
-      'deleteReceipt': prefs.getBool(_pinOnDeleteReceiptKey) ?? false,
-      'applyDiscount': prefs.getBool(_pinOnApplyDiscountKey) ?? false,
-      'issueRefund': prefs.getBool(_pinOnIssueRefundKey) ?? false,
-      
-      // Categories
-      'addCategory': prefs.getBool(_pinOnAddCategoryKey) ?? false,
-      'editCategory': prefs.getBool(_pinOnEditCategoryKey) ?? false,
-      'deleteCategory': prefs.getBool(_pinOnDeleteCategoryKey) ?? false,
-      'viewCategories': prefs.getBool(_pinOnViewCategoriesKey) ?? false,
-      
-      // Customers
-      'viewCustomers': prefs.getBool(_pinOnViewCustomersKey) ?? false,
-      'addCustomer': prefs.getBool(_pinOnAddCustomerKey) ?? false,
-      'editCustomer': prefs.getBool(_pinOnEditCustomerKey) ?? false,
-      'deleteCustomer': prefs.getBool(_pinOnDeleteCustomerKey) ?? false,
-      
-      // Employees
-      'viewEmployees': prefs.getBool(_pinOnViewEmployeesKey) ?? false,
-      'addEmployee': prefs.getBool(_pinOnAddEmployeeKey) ?? false,
-      'editEmployee': prefs.getBool(_pinOnEditEmployeeKey) ?? false,
-      'deleteEmployee': prefs.getBool(_pinOnDeleteEmployeeKey) ?? false,
-      
-      // Stores
-      'viewStores': prefs.getBool(_pinOnViewStoresKey) ?? false,
-      'addStore': prefs.getBool(_pinOnAddStoreKey) ?? false,
-      'editStore': prefs.getBool(_pinOnEditStoreKey) ?? false,
-      'deleteStore': prefs.getBool(_pinOnDeleteStoreKey) ?? false,
-      
-      // Reports
-      'reports': prefs.getBool(_pinOnReportsKey) ?? false,
-      'viewFinancialReports': prefs.getBool(_pinOnViewFinancialReportsKey) ?? false,
-      'viewInventoryReports': prefs.getBool(_pinOnViewInventoryReportsKey) ?? false,
-      'exportReports': prefs.getBool(_pinOnExportReportsKey) ?? false,
-      
-      // System
-      'hardwareSetup': prefs.getBool(_pinOnHardwareSetupKey) ?? false,
-      'dataSync': prefs.getBool(_pinOnDataSyncKey) ?? false,
-      'clearAllData': prefs.getBool(_pinOnClearAllDataKey) ?? true,
-      'managePromotions': prefs.getBool(_pinOnManagePromotionsKey) ?? false,
-      'viewNotifications': prefs.getBool(_pinOnViewNotificationsKey) ?? false,
-      
-      // Settings Subsections
-      'taxSettings': prefs.getBool(_pinOnTaxSettingsKey) ?? false,
-      'receiptSettings': prefs.getBool(_pinOnReceiptSettingsKey) ?? false,
-      'changePin': prefs.getBool(_pinOnChangePinKey) ?? true,
-    };
+    return await _getPreferencesMap();
   }
 
   Future<void> updatePinPreferences(Map<String, bool> preferences) async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // Auth & General
-    await prefs.setBool(_pinOnLoginKey, preferences['login'] ?? true);
-    await prefs.setBool(_pinOnSettingsKey, preferences['settings'] ?? false);
-    await prefs.setBool(_pinOnDashboardKey, preferences['dashboard'] ?? false);
-    
-    // Products
-    await prefs.setBool(_pinOnAddProductKey, preferences['addProduct'] ?? false);
-    await prefs.setBool(_pinOnEditProductKey, preferences['editProduct'] ?? false);
-    await prefs.setBool(_pinOnDeleteProductKey, preferences['deleteProduct'] ?? false);
-    await prefs.setBool(_pinOnViewProductDetailsKey, preferences['viewProductDetails'] ?? false);
-    await prefs.setBool(_pinOnScanBarcodeKey, preferences['scanBarcode'] ?? false);
-    await prefs.setBool(_pinOnAdjustStockKey, preferences['adjustStock'] ?? false);
-    
-    // Sales
-    await prefs.setBool(_pinOnCreateSaleKey, preferences['createSale'] ?? false);
-    await prefs.setBool(_pinOnViewSalesHistoryKey, preferences['viewSalesHistory'] ?? false);
-    await prefs.setBool(_pinOnEditReceiptKey, preferences['editReceipt'] ?? false);
-    await prefs.setBool(_pinOnDeleteReceiptKey, preferences['deleteReceipt'] ?? false);
-    await prefs.setBool(_pinOnApplyDiscountKey, preferences['applyDiscount'] ?? false);
-    await prefs.setBool(_pinOnIssueRefundKey, preferences['issueRefund'] ?? false);
-    
-    // Categories
-    await prefs.setBool(_pinOnAddCategoryKey, preferences['addCategory'] ?? false);
-    await prefs.setBool(_pinOnEditCategoryKey, preferences['editCategory'] ?? false);
-    await prefs.setBool(_pinOnDeleteCategoryKey, preferences['deleteCategory'] ?? false);
-    await prefs.setBool(_pinOnViewCategoriesKey, preferences['viewCategories'] ?? false);
-    
-    // Customers
-    await prefs.setBool(_pinOnViewCustomersKey, preferences['viewCustomers'] ?? false);
-    await prefs.setBool(_pinOnAddCustomerKey, preferences['addCustomer'] ?? false);
-    await prefs.setBool(_pinOnEditCustomerKey, preferences['editCustomer'] ?? false);
-    await prefs.setBool(_pinOnDeleteCustomerKey, preferences['deleteCustomer'] ?? false);
-    
-    // Employees
-    await prefs.setBool(_pinOnViewEmployeesKey, preferences['viewEmployees'] ?? false);
-    await prefs.setBool(_pinOnAddEmployeeKey, preferences['addEmployee'] ?? false);
-    await prefs.setBool(_pinOnEditEmployeeKey, preferences['editEmployee'] ?? false);
-    await prefs.setBool(_pinOnDeleteEmployeeKey, preferences['deleteEmployee'] ?? false);
-    
-    // Stores
-    await prefs.setBool(_pinOnViewStoresKey, preferences['viewStores'] ?? false);
-    await prefs.setBool(_pinOnAddStoreKey, preferences['addStore'] ?? false);
-    await prefs.setBool(_pinOnEditStoreKey, preferences['editStore'] ?? false);
-    await prefs.setBool(_pinOnDeleteStoreKey, preferences['deleteStore'] ?? false);
-    
-    // Reports
-    await prefs.setBool(_pinOnReportsKey, preferences['reports'] ?? false);
-    await prefs.setBool(_pinOnViewFinancialReportsKey, preferences['viewFinancialReports'] ?? false);
-    await prefs.setBool(_pinOnViewInventoryReportsKey, preferences['viewInventoryReports'] ?? false);
-    await prefs.setBool(_pinOnExportReportsKey, preferences['exportReports'] ?? false);
-    
-    // System
-    await prefs.setBool(_pinOnHardwareSetupKey, preferences['hardwareSetup'] ?? false);
-    await prefs.setBool(_pinOnDataSyncKey, preferences['dataSync'] ?? false);
-    await prefs.setBool(_pinOnClearAllDataKey, preferences['clearAllData'] ?? true);
-    await prefs.setBool(_pinOnManagePromotionsKey, preferences['managePromotions'] ?? false);
-    await prefs.setBool(_pinOnViewNotificationsKey, preferences['viewNotifications'] ?? false);
-    
-    // Settings Subsections
-    await prefs.setBool(_pinOnTaxSettingsKey, preferences['taxSettings'] ?? false);
-    await prefs.setBool(_pinOnReceiptSettingsKey, preferences['receiptSettings'] ?? false);
-    await prefs.setBool(_pinOnChangePinKey, preferences['changePin'] ?? true);
+    await prefs.setString(_pinPreferencesKey, jsonEncode(preferences));
   }
 
   Future<void> clearPin() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_pinKey);
     await prefs.setBool(_pinSetKey, false);
-    
-    // Clear all PIN preference keys
-    final keys = [
-      _pinOnLoginKey, _pinOnSettingsKey, _pinOnDashboardKey,
-      _pinOnAddProductKey, _pinOnEditProductKey, _pinOnDeleteProductKey,
-      _pinOnViewProductDetailsKey, _pinOnScanBarcodeKey, _pinOnAdjustStockKey,
-      _pinOnCreateSaleKey, _pinOnViewSalesHistoryKey, _pinOnEditReceiptKey,
-      _pinOnDeleteReceiptKey, _pinOnApplyDiscountKey, _pinOnIssueRefundKey,
-      _pinOnAddCategoryKey, _pinOnEditCategoryKey, _pinOnDeleteCategoryKey, _pinOnViewCategoriesKey,
-      _pinOnViewCustomersKey, _pinOnAddCustomerKey, _pinOnEditCustomerKey, _pinOnDeleteCustomerKey,
-      _pinOnViewEmployeesKey, _pinOnAddEmployeeKey, _pinOnEditEmployeeKey, _pinOnDeleteEmployeeKey,
-      _pinOnViewStoresKey, _pinOnAddStoreKey, _pinOnEditStoreKey, _pinOnDeleteStoreKey,
-      _pinOnReportsKey, _pinOnViewFinancialReportsKey, _pinOnViewInventoryReportsKey, _pinOnExportReportsKey,
-      _pinOnHardwareSetupKey, _pinOnDataSyncKey, _pinOnClearAllDataKey,
-      _pinOnManagePromotionsKey, _pinOnViewNotificationsKey,
-      _pinOnTaxSettingsKey, _pinOnReceiptSettingsKey, _pinOnChangePinKey,
-    ];
-    
-    for (final key in keys) {
-      await prefs.remove(key);
-    }
+    await prefs.remove(_pinPreferencesKey);
   }
 }
