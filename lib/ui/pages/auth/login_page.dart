@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -34,20 +35,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               _passwordController.text,
             );
 
-        // After successful login, require PIN verification
+        // Check if PIN is required for login
         if (mounted) {
-          final verified = await PinProtection.requirePin(context);
-          if (!verified && mounted) {
-            // If PIN verification fails, logout and show message
-            await ref.read(authProvider.notifier).logout();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('PIN verification required to continue'),
-                backgroundColor: Colors.red,
-              ),
-            );
+          final pinService = PinService();
+          final requirePin = await pinService.isPinRequiredForLogin();
+          
+          if (requirePin) {
+            final verified = await PinProtection.requirePin(context);
+            if (!verified && mounted) {
+              // If PIN verification fails, logout and show message
+              await ref.read(authProvider.notifier).logout();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('PIN verification required to continue'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
-          // If verified, navigation is handled by the router redirect
+          // If verified or not required, navigation is handled by the router redirect
         }
       } catch (e) {
         if (mounted) {

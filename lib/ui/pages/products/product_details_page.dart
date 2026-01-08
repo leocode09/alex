@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/product_provider.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class ProductDetailsPage extends ConsumerWidget {
   final String productId;
@@ -24,8 +25,15 @@ class ProductDetailsPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () async {
-              final verified = await PinProtection.requirePin(context);
-              if (verified && context.mounted) {
+              final pinService = PinService();
+              final requirePin = await pinService.isPinRequiredForEditProduct();
+              
+              if (requirePin) {
+                final verified = await PinProtection.requirePin(context);
+                if (verified && context.mounted) {
+                  context.push('/product/edit/$productId');
+                }
+              } else {
                 context.push('/product/edit/$productId');
               }
             },

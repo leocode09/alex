@@ -258,6 +258,15 @@ class SettingsPage extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.security),
+              title: const Text('PIN Preferences'),
+              subtitle: const Text('Choose where PIN is required'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/pin-preferences');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.pin),
               title: const Text('Change PIN'),
               subtitle: const Text('Update your 4-digit PIN'),

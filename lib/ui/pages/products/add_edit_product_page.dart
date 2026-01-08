@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../../models/product.dart';
 import '../../../providers/product_provider.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class AddEditProductPage extends ConsumerStatefulWidget {
   final String? productId;
@@ -42,18 +43,25 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   }
 
   Future<void> _checkPinAndLoadData() async {
-    // Require PIN before accessing this page
-    final pinValid = await PinProtection.requirePin(
-      context,
-      title: isEditing ? 'Edit Product' : 'Add Product',
-      subtitle: 'Enter PIN to ${isEditing ? 'edit' : 'add'} product',
-    );
+    // Check if PIN is required for this action
+    final pinService = PinService();
+    final requirePin = isEditing
+        ? await pinService.isPinRequiredForEditProduct()
+        : await pinService.isPinRequiredForAddProduct();
 
-    if (!pinValid) {
-      if (mounted) {
-        Navigator.of(context).pop();
+    if (requirePin) {
+      final pinValid = await PinProtection.requirePin(
+        context,
+        title: isEditing ? 'Edit Product' : 'Add Product',
+        subtitle: 'Enter PIN to ${isEditing ? 'edit' : 'add'} product',
+      );
+
+      if (!pinValid) {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
       }
-      return;
     }
 
     setState(() {

@@ -82,6 +82,23 @@ class PinService {
     };
   }
 
+  Future<void> updatePinPreferences({
+    required bool requireOnLogin,
+    required bool requireOnAddProduct,
+    required bool requireOnEditProduct,
+    required bool requireOnDeleteProduct,
+    required bool requireOnSettings,
+    required bool requireOnReports,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_pinOnLoginKey, requireOnLogin);
+    await prefs.setBool(_pinOnAddProductKey, requireOnAddProduct);
+    await prefs.setBool(_pinOnEditProductKey, requireOnEditProduct);
+    await prefs.setBool(_pinOnDeleteProductKey, requireOnDeleteProduct);
+    await prefs.setBool(_pinOnSettingsKey, requireOnSettings);
+    await prefs.setBool(_pinOnReportsKey, requireOnReports);
+  }
+
   Future<void> clearPin() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_pinKey);

@@ -9,6 +9,7 @@ import 'ui/widgets/main_scaffold.dart';
 import 'ui/pages/auth/login_page.dart';
 import 'ui/pages/auth/pin_setup_page.dart';
 import 'ui/pages/auth/pin_entry_page.dart';
+import 'ui/pages/auth/pin_preferences_page.dart';
 import 'providers/auth_provider.dart';
 import 'services/pin_service.dart';
 
@@ -131,6 +132,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/pin-setup',
         name: 'pin-setup',
         builder: (context, state) => const PinSetupPage(),
+      ),
+
+      // PIN Preferences
+      GoRoute(
+        path: '/pin-preferences',
+        name: 'pin-preferences',
+        builder: (context, state) => const PinPreferencesPage(),
       ),
 
       // PIN Entry
