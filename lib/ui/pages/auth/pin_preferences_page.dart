@@ -11,12 +11,69 @@ class PinPreferencesPage extends StatefulWidget {
 class _PinPreferencesPageState extends State<PinPreferencesPage> {
   final PinService _pinService = PinService();
   
+  // Auth & General
   bool _requireOnLogin = true;
+  bool _requireOnSettings = false;
+  bool _requireOnDashboard = false;
+  
+  // Products
   bool _requireOnAddProduct = false;
   bool _requireOnEditProduct = false;
   bool _requireOnDeleteProduct = false;
-  bool _requireOnSettings = false;
+  bool _requireOnViewProductDetails = false;
+  bool _requireOnScanBarcode = false;
+  bool _requireOnAdjustStock = false;
+  
+  // Sales
+  bool _requireOnCreateSale = false;
+  bool _requireOnViewSalesHistory = false;
+  bool _requireOnEditReceipt = false;
+  bool _requireOnDeleteReceipt = false;
+  bool _requireOnApplyDiscount = false;
+  bool _requireOnIssueRefund = false;
+  
+  // Categories
+  bool _requireOnAddCategory = false;
+  bool _requireOnEditCategory = false;
+  bool _requireOnDeleteCategory = false;
+  bool _requireOnViewCategories = false;
+  
+  // Customers
+  bool _requireOnViewCustomers = false;
+  bool _requireOnAddCustomer = false;
+  bool _requireOnEditCustomer = false;
+  bool _requireOnDeleteCustomer = false;
+  
+  // Employees
+  bool _requireOnViewEmployees = false;
+  bool _requireOnAddEmployee = false;
+  bool _requireOnEditEmployee = false;
+  bool _requireOnDeleteEmployee = false;
+  
+  // Stores
+  bool _requireOnViewStores = false;
+  bool _requireOnAddStore = false;
+  bool _requireOnEditStore = false;
+  bool _requireOnDeleteStore = false;
+  
+  // Reports & Analytics
   bool _requireOnReports = false;
+  bool _requireOnViewFinancialReports = false;
+  bool _requireOnViewInventoryReports = false;
+  bool _requireOnExportReports = false;
+  
+  // System & Data Management
+  bool _requireOnHardwareSetup = false;
+  bool _requireOnDataSync = false;
+  bool _requireOnClearAllData = true;
+  bool _requireOnManagePromotions = false;
+  bool _requireOnViewNotifications = false;
+  
+  // Settings Subsections
+  bool _requireOnTaxSettings = false;
+  bool _requireOnReceiptSettings = false;
+  bool _requireOnChangePin = true;
+  
   bool _isLoading = true;
 
   @override
