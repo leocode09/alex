@@ -205,19 +205,6 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                       const Divider(
                           thickness: 1, height: 24, color: Colors.black),
 
-                      // Delivery (Placeholder)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [
-                          Text('Delivery',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text('0',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const Divider(
-                          thickness: 1, height: 24, color: Colors.black),
-
                       // Totals
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
