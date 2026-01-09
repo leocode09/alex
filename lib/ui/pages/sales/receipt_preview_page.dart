@@ -694,3 +694,281 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     }
   }
 }
+
+class _AddItemDialog extends ConsumerStatefulWidget {
+  final Function(Product product, int quantity) onItemAdded;
+
+  const _AddItemDialog({required this.onItemAdded});
+
+  @override
+  ConsumerState<_AddItemDialog> createState() => _AddItemDialogState();
+}
+
+class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController(text: '1');
+  String _searchQuery = '';
+  Product? _selectedProduct;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final productsAsync = ref.watch(productsProvider);
+
+    return Dialog(
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.8,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Add Item to Receipt',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Search bar
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search products...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            
+            // Product list
+            Expanded(
+              child: productsAsync.when(
+                data: (products) {
+                  final filtered = _searchQuery.isEmpty
+                      ? products
+                      : products.where((p) =>
+                          p.name.toLowerCase().contains(_searchQuery) ||
+                          (p.barcode?.toLowerCase().contains(_searchQuery) ?? false) ||
+                          (p.sku?.toLowerCase().contains(_searchQuery) ?? false)
+                        ).toList();
+
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            _searchQuery.isEmpty
+                                ? 'No products available'
+                                : 'No products found for "$_searchQuery"',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                          if (_searchQuery.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                context.push('/products/add?name=${Uri.encodeComponent(_searchQuery)}');
+                              },
+                              icon: const Icon(Icons.add),
+                              label: const Text('Create Product'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final product = filtered[index];
+                      final isSelected = _selectedProduct?.id == product.id;
+
+                      return ListTile(
+                        selected: isSelected,
+                        selectedTileColor: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.1),
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.inventory_2_outlined,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        title: Text(
+                          product.name,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('\$${product.price.toStringAsFixed(2)}'),
+                            Text(
+                              'Stock: ${product.stock}',
+                              style: TextStyle(
+                                color: product.stock < 10
+                                    ? Colors.red[700]
+                                    : Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: isSelected
+                            ? Icon(
+                                Icons.check_circle,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedProduct = product;
+                          });
+                        },
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => Center(
+                  child: Text('Error loading products: $err'),
+                ),
+              ),
+            ),
+            
+            // Quantity and Add button
+            if (_selectedProduct != null) ...[
+              const Divider(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _quantityController,
+                      decoration: const InputDecoration(
+                        labelText: 'Quantity',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final quantity = int.tryParse(_quantityController.text) ?? 1;
+                        if (quantity <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a valid quantity'),
+                            ),
+                          );
+                          return;
+                        }
+                        
+                        if (_selectedProduct!.stock < quantity) {
+                          final proceed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Low Stock Warning'),
+                              content: Text(
+                                'Only ${_selectedProduct!.stock} units available. '
+                                'Do you want to continue?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Continue'),
+                                ),
+                              ],
+                            ),
+                          );
+                          
+                          if (proceed != true) return;
+                        }
+
+                        await widget.onItemAdded(_selectedProduct!, quantity);
+                        if (mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '${_selectedProduct!.name} added to receipt',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.add),
+                      label: Text(
+                        'Add to Receipt (\$${(_selectedProduct!.price * (int.tryParse(_quantityController.text) ?? 1)).toStringAsFixed(2)})',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
