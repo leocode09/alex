@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../models/sale.dart';
+import '../../../models/product.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
+import '../../../providers/product_provider.dart';
+import '../../../repositories/sale_repository.dart';
 import 'receipts_page.dart'; // For PrinterDialog
 
 class ReceiptPreviewPage extends ConsumerStatefulWidget {
@@ -181,6 +185,18 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           ),
                         );
                       }),
+                      // Add item button
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showAddItemDialog(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Item'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 36),
+                          ),
+                        ),
+                      ),
                       const Divider(
                           thickness: 1, height: 24, color: Colors.black),
 
@@ -412,6 +428,26 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
             child: const Text('Remove'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAddItemDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _AddItemDialog(
+        onItemAdded: (Product product, int quantity) async {
+          // Add the product to the receipt
+          final newItem = SaleItem(
+            productId: product.id,
+            productName: product.name,
+            quantity: quantity,
+            price: product.price,
+          );
+          
+          final updatedItems = List<SaleItem>.from(_sale.items)..add(newItem);
+          await _updateSaleItems(updatedItems);
+        },
       ),
     );
   }
