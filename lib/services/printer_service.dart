@@ -152,6 +152,13 @@ class PrinterService {
     ]);
     bytes += generator.hr();
 
+    // Customer Info
+    if (sale.customerId != null) {
+      bytes += generator.text('Customer: ${sale.customerId}',
+          styles: const PosStyles(bold: false));
+      bytes += generator.feed(1);
+    }
+
     // Items
     for (var item in sale.items) {
       bytes +=
