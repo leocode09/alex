@@ -165,7 +165,7 @@ class PrinterService {
           generator.text(item.productName, styles: const PosStyles(bold: true));
       bytes += generator.row([
         PosColumn(
-            text: '${item.quantity}x \$${item.price.toStringAsFixed(0)}',
+            text: '${item.quantity}x \$${item.price.toStringAsFixed(2)}',
             width: 8),
         PosColumn(
           text: '\$${item.subtotal.toStringAsFixed(2)}',
@@ -201,7 +201,7 @@ class PrinterService {
     bytes += generator.row([
       PosColumn(text: sale.paymentMethod, width: 6),
       PosColumn(
-        text: '\$${sale.total.toStringAsFixed(0)}',
+        text: '\$${sale.total.toStringAsFixed(2)}',
         width: 6,
         styles: const PosStyles(align: PosAlign.right),
       ),
