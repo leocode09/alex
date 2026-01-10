@@ -83,8 +83,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     if (product != null) {
       setState(() {
         _nameController.text = product.name;
-        _priceController.text = product.price.toStringAsFixed(0);
-        _costPriceController.text = product.costPrice?.toStringAsFixed(0) ?? '';
+        _priceController.text = product.price.toString();
+        _costPriceController.text = product.costPrice?.toString() ?? '';
         _stockController.text = product.stock.toString();
         _barcodeController.text = product.barcode ?? '';
         _selectedCategory = product.category;

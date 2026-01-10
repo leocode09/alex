@@ -182,7 +182,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
   void _showEditPriceDialog(BuildContext context, int index) {
     final item = _cart[index];
     final priceController = TextEditingController(
-      text: item['price'].toStringAsFixed(0),
+      text: item['price'].toString(),
     );
 
     showDialog(
@@ -454,8 +454,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 Expanded(
                   child: Text(
                     isEditingMode
-                        ? 'Receipt updated successfully! \$${totalAmount.toStringAsFixed(0)}'
-                        : 'Payment successful! \$${totalAmount.toStringAsFixed(0)}${!isEditingMode && mounted ? "\n(Print failed: Check printer connection)" : ""}',
+                        ? 'Receipt updated successfully! \$${totalAmount.toStringAsFixed(2)}'
+                        : 'Payment successful! \$${totalAmount.toStringAsFixed(2)}${!isEditingMode && mounted ? "\n(Print failed: Check printer connection)" : ""}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -540,7 +540,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         const Text('Total',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                         Text(
-                          '\$${_total.toStringAsFixed(0)}',
+                          '\$${_total.toStringAsFixed(2)}',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, color: Colors.green),
                         ),
@@ -669,7 +669,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
-                child: Text('Pay \$${_total.toStringAsFixed(0)}'),
+                child: Text('Pay \$${_total.toStringAsFixed(2)}'),
               ),
               const SizedBox(height: 16),
             ],
@@ -722,7 +722,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
       children: [
         Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
         Text(
-          '\$${value.toStringAsFixed(0)}',
+          '\$${value.toStringAsFixed(2)}',
           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         ),
       ],
@@ -982,7 +982,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '\$${product.price.toInt()}',
+                                            '\$${product.price.toStringAsFixed(2)}',
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 11),
@@ -1067,7 +1067,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                         child: Row(
                                           children: [
                                             Text(
-                                              '\$${item['price'].toInt()}',
+                                              '\$${item['price'].toStringAsFixed(2)}',
                                               style: TextStyle(
                                                   color: Colors.grey[600],
                                                   fontSize: 12),

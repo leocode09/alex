@@ -26,41 +26,22 @@ class LoginPage extends ConsumerWidget {
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 48),
-              FutureBuilder<bool>(
-                future: PinService().isPinSet(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const CircularProgressIndicator();
-                  }
-
-                  final bool isPinSet = snapshot.data ?? false;
-
-                  if (!isPinSet) {
-                    // Redirect to PIN setup
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      context.go('/pin-setup');
-                    });
-                    return const SizedBox.shrink();
-                  }
-
-                  return Column(
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          // Navigate to PIN entry
-                          context.go('/pin-entry');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 48,
-                            vertical: 16,
-                          ),
-                        ),
-                        child: const Text('Continue'),
+              Column(
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navigate to PIN entry
+                      context.go('/pin-entry');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 48,
+                        vertical: 16,
                       ),
-                    ],
-                  );
-                },
+                    ),
+                    child: const Text('Continue'),
+                  ),
+                ],
               ),
             ],
           ),
