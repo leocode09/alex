@@ -222,8 +222,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold)),
                           Text(
-                            _sale.cashReceived?.toStringAsFixed(0) ??
-                                _sale.total.toStringAsFixed(0),
+                            _sale.cashReceived?.toStringAsFixed(2) ??
+                                _sale.total.toStringAsFixed(2),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
