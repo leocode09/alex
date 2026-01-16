@@ -64,10 +64,17 @@ class PrinterService {
       await device.connect(autoConnect: false);
       _connectedDevice = device;
 
-      // Request MTU for faster transmission
+      // Request MTU for faster transmission (optional, may fail on some devices)
       if (Platform.isAndroid) {
-        await device.requestMtu(512);
+        try {
+          await device.requestMtu(512);
+        } catch (e) {
+          print('MTU request failed (non-critical): $e');
+        }
       }
+
+      // Small delay to ensure connection is stable before discovering services
+      await Future.delayed(const Duration(milliseconds: 500));
 
       await _findWriteCharacteristic(device);
 
@@ -96,10 +103,15 @@ class PrinterService {
     List<BluetoothService> services = await device.discoverServices();
     for (var service in services) {
       for (var characteristic in service.characteristics) {
-        if (characteristic.properties.write ||
-            characteristic.properties.writeWithoutResponse) {
-          _writeCharacteristic = characteristic;
-          return;
+        try {
+          final props = characteristic.properties;
+          if (props.write || props.writeWithoutResponse) {
+            _writeCharacteristic = characteristic;
+            return;
+          }
+        } catch (e) {
+          // Skip characteristics with unavailable properties
+          continue;
         }
       }
     }

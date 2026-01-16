@@ -375,7 +375,7 @@ class DashboardPage extends ConsumerWidget {
     } else if (number >= 1000) {
       return '${(number / 1000).toStringAsFixed(1)}K';
     } else {
-      return number.toStringAsFixed(0);
+      return number.toStringAsFixed(2);
     }
   }
 
