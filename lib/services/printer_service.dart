@@ -11,6 +11,7 @@ import '../providers/receipt_provider.dart';
 class PrinterService {
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _writeCharacteristic;
+  bool _useWriteWithoutResponse = false;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
@@ -83,6 +84,7 @@ class PrinterService {
         if (state == BluetoothConnectionState.disconnected) {
           _connectedDevice = null;
           _writeCharacteristic = null;
+          _useWriteWithoutResponse = false;
         }
       });
     } catch (e) {
@@ -96,6 +98,7 @@ class PrinterService {
       await _connectedDevice!.disconnect();
       _connectedDevice = null;
       _writeCharacteristic = null;
+      _useWriteWithoutResponse = false;
     }
   }
 
@@ -105,15 +108,26 @@ class PrinterService {
       for (var characteristic in service.characteristics) {
         try {
           final props = characteristic.properties;
-          if (props.write || props.writeWithoutResponse) {
+          // Prefer writeWithoutResponse for thermal printers (faster and more reliable)
+          if (props.writeWithoutResponse) {
             _writeCharacteristic = characteristic;
+            _useWriteWithoutResponse = true;
+            print('Found writeWithoutResponse characteristic: ${characteristic.uuid}');
             return;
+          } else if (props.write) {
+            _writeCharacteristic = characteristic;
+            _useWriteWithoutResponse = false;
+            print('Found write characteristic: ${characteristic.uuid}');
+            // Continue searching in case there's a writeWithoutResponse characteristic
           }
         } catch (e) {
           // Skip characteristics with unavailable properties
           continue;
         }
       }
+    }
+    if (_writeCharacteristic != null) {
+      return; // We found at least a write characteristic
     }
     throw Exception('No write characteristic found');
   }
@@ -269,21 +283,44 @@ class PrinterService {
     bytes += generator.feed(2);
     bytes += generator.cut();
 
-    // Send bytes to printer
-    // Split into chunks to avoid buffer overflow
-    // Use a safe chunk size (e.g., 20 bytes is standard BLE, but we requested MTU 512)
-    // We'll stick to a conservative 100 bytes or use the negotiated MTU if we could track it.
+    // Send bytes to printer using the appropriate write method
+    await _sendBytesToPrinter(bytes);
+  }
+
+  /// Sends bytes to the connected printer in chunks
+  Future<void> _sendBytesToPrinter(List<int> bytes) async {
+    if (_writeCharacteristic == null) {
+      throw Exception('Write characteristic not available');
+    }
+
+    // ESC/POS initialize command - reset printer to default state
+    final initCommand = [0x1B, 0x40]; // ESC @
+    
+    // Prepend initialization command
+    final dataToSend = [...initCommand, ...bytes];
+
+    // Use a conservative chunk size for BLE
+    // Most thermal printers work best with smaller chunks
     const int chunkSize = 100;
-    for (var i = 0; i < bytes.length; i += chunkSize) {
-      var end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+    
+    for (var i = 0; i < dataToSend.length; i += chunkSize) {
+      var end = (i + chunkSize < dataToSend.length) ? i + chunkSize : dataToSend.length;
       try {
-        await _writeCharacteristic!.write(bytes.sublist(i, end));
-        // Small delay to prevent buffer overflow on the printer side
-        await Future.delayed(const Duration(milliseconds: 10));
+        // Use writeWithoutResponse if supported (preferred for thermal printers)
+        await _writeCharacteristic!.write(
+          dataToSend.sublist(i, end),
+          withoutResponse: _useWriteWithoutResponse,
+        );
+        // Delay between chunks to prevent buffer overflow on the printer
+        // Slightly longer delay for more reliable printing
+        await Future.delayed(const Duration(milliseconds: 20));
       } catch (e) {
-        print('Error writing chunk: $e');
-        throw Exception('Failed to print chunk');
+        print('Error writing chunk at offset $i: $e');
+        throw Exception('Failed to print: $e');
       }
     }
+    
+    // Final delay to ensure all data is processed
+    await Future.delayed(const Duration(milliseconds: 100));
   }
 }
