@@ -102,33 +102,84 @@ class PrinterService {
     }
   }
 
+  // Known thermal printer service and characteristic UUIDs
+  static const List<String> _knownPrinterServiceUuids = [
+    '0000ff00-0000-1000-8000-00805f9b34fb', // Common Chinese printers
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC Serial Port Service
+    'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Some thermal printers
+    '000018f0-0000-1000-8000-00805f9b34fb', // Some ESC/POS printers
+  ];
+
+  static const List<String> _knownPrinterCharacteristicUuids = [
+    '0000ff02-0000-1000-8000-00805f9b34fb', // Common Chinese printers write characteristic
+    '49535343-8841-43f4-a8d4-ecbe34729bb3', // ISSC write characteristic
+    'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f', // Some thermal printers
+    '00002af1-0000-1000-8000-00805f9b34fb', // Some ESC/POS printers
+  ];
+
+  bool _isKnownPrinterService(String uuid) {
+    final lowerUuid = uuid.toLowerCase();
+    return _knownPrinterServiceUuids.any((known) => lowerUuid.contains(known.toLowerCase()));
+  }
+
+  bool _isKnownPrinterCharacteristic(String uuid) {
+    final lowerUuid = uuid.toLowerCase();
+    return _knownPrinterCharacteristicUuids.any((known) => lowerUuid.contains(known.toLowerCase()));
+  }
+
   Future<void> _findWriteCharacteristic(BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
+    
+    BluetoothCharacteristic? fallbackCharacteristic;
+    bool fallbackUseWithoutResponse = false;
+
+    // Log all services and characteristics for debugging
     for (var service in services) {
+      print('Service: ${service.uuid}');
+      for (var characteristic in service.characteristics) {
+        print('  Characteristic: ${characteristic.uuid}, props: ${characteristic.properties}');
+      }
+    }
+
+    // First pass: Look for known printer characteristics
+    for (var service in services) {
+      final isKnownService = _isKnownPrinterService(service.uuid.toString());
+      
       for (var characteristic in service.characteristics) {
         try {
           final props = characteristic.properties;
-          // Prefer writeWithoutResponse for thermal printers (faster and more reliable)
-          if (props.writeWithoutResponse) {
+          final isKnownChar = _isKnownPrinterCharacteristic(characteristic.uuid.toString());
+          final isWritable = props.write || props.writeWithoutResponse;
+          
+          if (!isWritable) continue;
+
+          // If this is a known printer characteristic, use it immediately
+          if (isKnownChar || isKnownService) {
             _writeCharacteristic = characteristic;
-            _useWriteWithoutResponse = true;
-            print('Found writeWithoutResponse characteristic: ${characteristic.uuid}');
+            _useWriteWithoutResponse = props.writeWithoutResponse;
+            print('Using known printer characteristic: ${characteristic.uuid} (writeWithoutResponse: $_useWriteWithoutResponse)');
             return;
-          } else if (props.write) {
-            _writeCharacteristic = characteristic;
-            _useWriteWithoutResponse = false;
-            print('Found write characteristic: ${characteristic.uuid}');
-            // Continue searching in case there's a writeWithoutResponse characteristic
+          }
+
+          // Store as fallback if it's writable
+          if (fallbackCharacteristic == null || props.writeWithoutResponse) {
+            fallbackCharacteristic = characteristic;
+            fallbackUseWithoutResponse = props.writeWithoutResponse;
           }
         } catch (e) {
-          // Skip characteristics with unavailable properties
           continue;
         }
       }
     }
-    if (_writeCharacteristic != null) {
-      return; // We found at least a write characteristic
+
+    // Use fallback if no known characteristic found
+    if (fallbackCharacteristic != null) {
+      _writeCharacteristic = fallbackCharacteristic;
+      _useWriteWithoutResponse = fallbackUseWithoutResponse;
+      print('Using fallback characteristic: ${fallbackCharacteristic.uuid} (writeWithoutResponse: $_useWriteWithoutResponse)');
+      return;
     }
+    
     throw Exception('No write characteristic found');
   }
 
@@ -287,6 +338,39 @@ class PrinterService {
     await _sendBytesToPrinter(bytes);
   }
 
+  /// Test print function to verify printer connectivity
+  Future<void> testPrint() async {
+    if (_connectedDevice == null) {
+      throw Exception('Printer not connected');
+    }
+
+    if (_writeCharacteristic == null) {
+      await _findWriteCharacteristic(_connectedDevice!);
+    }
+
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+    List<int> bytes = [];
+
+    bytes += generator.text('*** TEST PRINT ***',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+        ));
+    bytes += generator.feed(1);
+    bytes += generator.text('Printer is working!',
+        styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.feed(1);
+    bytes += generator.text(DateTime.now().toString(),
+        styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.feed(3);
+    bytes += generator.cut();
+
+    await _sendBytesToPrinter(bytes);
+  }
+
   /// Sends bytes to the connected printer in chunks
   Future<void> _sendBytesToPrinter(List<int> bytes) async {
     if (_writeCharacteristic == null) {
@@ -299,28 +383,44 @@ class PrinterService {
     // Prepend initialization command
     final dataToSend = [...initCommand, ...bytes];
 
-    // Use a conservative chunk size for BLE
-    // Most thermal printers work best with smaller chunks
-    const int chunkSize = 100;
+    print('Sending ${dataToSend.length} bytes to printer...');
+    print('Using characteristic: ${_writeCharacteristic!.uuid}');
+    print('Write without response: $_useWriteWithoutResponse');
+
+    // Use a smaller chunk size for better compatibility
+    // Many thermal printers work better with smaller chunks
+    const int chunkSize = 20;
     
     for (var i = 0; i < dataToSend.length; i += chunkSize) {
       var end = (i + chunkSize < dataToSend.length) ? i + chunkSize : dataToSend.length;
+      final chunk = dataToSend.sublist(i, end);
+      
       try {
-        // Use writeWithoutResponse if supported (preferred for thermal printers)
+        // Try writeWithoutResponse first if supported, as it's more reliable for printers
         await _writeCharacteristic!.write(
-          dataToSend.sublist(i, end),
+          chunk,
           withoutResponse: _useWriteWithoutResponse,
         );
-        // Delay between chunks to prevent buffer overflow on the printer
-        // Slightly longer delay for more reliable printing
-        await Future.delayed(const Duration(milliseconds: 20));
+        // Longer delay between chunks for reliability
+        await Future.delayed(const Duration(milliseconds: 50));
       } catch (e) {
         print('Error writing chunk at offset $i: $e');
-        throw Exception('Failed to print: $e');
+        // Try with the opposite write mode as fallback
+        try {
+          await _writeCharacteristic!.write(
+            chunk,
+            withoutResponse: !_useWriteWithoutResponse,
+          );
+          await Future.delayed(const Duration(milliseconds: 50));
+        } catch (e2) {
+          print('Fallback write also failed: $e2');
+          throw Exception('Failed to print: $e');
+        }
       }
     }
     
+    print('Print data sent successfully');
     // Final delay to ensure all data is processed
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 200));
   }
 }
