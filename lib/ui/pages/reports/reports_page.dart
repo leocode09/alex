@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../models/sale.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/product_provider.dart';
 
@@ -86,31 +87,17 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
   Widget _buildSalesTab() {
     final salesAsync = ref.watch(salesProvider);
-    final salesCountAsync = ref.watch(totalSalesCountProvider);
-    final revenueAsync = ref.watch(totalRevenueProvider);
-    final topProductsAsync = ref.watch(topSellingProductsProvider);
 
     return salesAsync.when(
       data: (allSales) {
-        final salesCount = salesCountAsync.value ?? 0;
-        final totalRevenue = revenueAsync.value ?? 0.0;
+        final range = _getPeriodRange(_selectedPeriod);
+        final filteredSales = _filterSalesByRange(allSales, range);
+        final salesCount = filteredSales.length;
+        final totalRevenue =
+            filteredSales.fold<double>(0.0, (sum, sale) => sum + sale.total);
         final avgOrder = salesCount > 0 ? totalRevenue / salesCount : 0.0;
 
-        // Calculate last 7 days revenue for chart
-        final now = DateTime.now();
-        final last7Days = List.generate(7, (i) {
-          final date = now.subtract(Duration(days: 6 - i));
-          final dayStart = DateTime(date.year, date.month, date.day);
-          final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
-
-          final dayRevenue = allSales.where((sale) {
-            return sale.createdAt.isAfter(dayStart) &&
-                sale.createdAt.isBefore(dayEnd);
-          }).fold<double>(0.0, (sum, sale) => sum + sale.total);
-
-          return FlSpot(
-              i.toDouble(), dayRevenue / 1000); // Convert to thousands
-        });
+        final chartSpots = _buildRevenueSeries(filteredSales, range);
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -125,8 +112,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     'Avg. Order', '\$${_formatNumber(avgOrder)}', ''),
               ]),
               const SizedBox(height: 32),
-              const Text('Revenue Trend (Last 7 Days)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(
+                  'Revenue Trend (${_periodLabel(_selectedPeriod)})',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               SizedBox(
                 height: 200,
@@ -137,7 +126,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     borderData: FlBorderData(show: false),
                     lineBarsData: [
                       LineChartBarData(
-                        spots: last7Days,
+                        spots: chartSpots,
                         isCurved: true,
                         color: Theme.of(context).colorScheme.primary,
                         barWidth: 2,
@@ -158,33 +147,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               const Text('Top Selling Products',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              topProductsAsync.when(
-                data: (topProducts) {
-                  if (topProducts.isEmpty) {
-                    return const Text('No sales data available');
-                  }
-                  // Calculate revenue per product
-                  final productRevenues = <String, double>{};
-                  for (var sale in allSales) {
-                    for (var item in sale.items) {
-                      productRevenues[item.productName] =
-                          (productRevenues[item.productName] ?? 0) +
-                              (item.price * item.quantity);
-                    }
-                  }
-                  return Column(
-                    children: topProducts.entries.take(4).map((entry) {
-                      final revenue = productRevenues[entry.key] ?? 0.0;
-                      return _buildListRow(
-                          entry.key,
-                          '\$${_formatNumber(revenue)}',
-                          '${entry.value} units');
-                    }).toList(),
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, __) => const Text('Error loading top products'),
-              ),
+              _buildTopProducts(filteredSales),
             ],
           ),
         );
@@ -290,9 +253,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
     return salesAsync.when(
       data: (allSales) {
+        final range = _getPeriodRange(_selectedPeriod);
+        final filteredSales = _filterSalesByRange(allSales, range);
         // Group sales by employee
         final employeeStats = <String, Map<String, dynamic>>{};
-        for (var sale in allSales) {
+        for (var sale in filteredSales) {
           if (!employeeStats.containsKey(sale.employeeId)) {
             employeeStats[sale.employeeId] = {
               'revenue': 0.0,
@@ -319,7 +284,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             children: [
               _buildSummaryCards([
                 _SummaryData('Active Staff', '$activeStaff', ''),
-                _SummaryData('Total Sales', '${allSales.length}', ''),
+                _SummaryData('Total Sales', '${filteredSales.length}', ''),
                 _SummaryData(
                     'Top Seller',
                     topSeller != null ? topSeller.key.split('@').first : 'N/A',
@@ -350,6 +315,129 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
+    );
+  }
+
+  DateTimeRange _getPeriodRange(String period) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+
+    switch (period) {
+      case 'Today':
+        return DateTimeRange(start: startOfToday, end: endOfToday);
+      case 'This Week':
+        final start = startOfToday.subtract(const Duration(days: 6));
+        return DateTimeRange(start: start, end: endOfToday);
+      case 'This Month':
+        final start = DateTime(now.year, now.month, 1);
+        final nextMonth = now.month == 12
+            ? DateTime(now.year + 1, 1, 1)
+            : DateTime(now.year, now.month + 1, 1);
+        final end = nextMonth.subtract(const Duration(milliseconds: 1));
+        return DateTimeRange(start: start, end: end);
+      case 'This Year':
+      default:
+        final start = DateTime(now.year, 1, 1);
+        final end = DateTime(now.year + 1, 1, 1)
+            .subtract(const Duration(milliseconds: 1));
+        return DateTimeRange(start: start, end: end);
+    }
+  }
+
+  List<Sale> _filterSalesByRange(List<Sale> sales, DateTimeRange range) {
+    return sales.where((sale) {
+      return !sale.createdAt.isBefore(range.start) &&
+          !sale.createdAt.isAfter(range.end);
+    }).toList();
+  }
+
+  List<FlSpot> _buildRevenueSeries(
+      List<Sale> sales, DateTimeRange range) {
+    if (range.start.year == range.end.year &&
+        range.start.month == range.end.month &&
+        range.start.day == range.end.day) {
+      return List.generate(24, (i) {
+        final hourStart = DateTime(
+            range.start.year, range.start.month, range.start.day, i);
+        final hourEnd = hourStart.add(const Duration(hours: 1));
+        final revenue = sales.where((sale) {
+          return !sale.createdAt.isBefore(hourStart) &&
+              sale.createdAt.isBefore(hourEnd);
+        }).fold<double>(0.0, (sum, sale) => sum + sale.total);
+        return FlSpot(i.toDouble(), revenue / 1000);
+      });
+    }
+
+    final dayCount = range.end.difference(range.start).inDays + 1;
+    if (dayCount <= 31) {
+      return List.generate(dayCount, (i) {
+        final day = range.start.add(Duration(days: i));
+        final dayStart = DateTime(day.year, day.month, day.day);
+        final dayEnd = DateTime(day.year, day.month, day.day, 23, 59, 59, 999);
+        final revenue = sales.where((sale) {
+          return !sale.createdAt.isBefore(dayStart) &&
+              !sale.createdAt.isAfter(dayEnd);
+        }).fold<double>(0.0, (sum, sale) => sum + sale.total);
+        return FlSpot(i.toDouble(), revenue / 1000);
+      });
+    }
+
+    return List.generate(12, (i) {
+      final monthStart = DateTime(range.start.year, i + 1, 1);
+      final monthEnd = i == 11
+          ? DateTime(range.start.year + 1, 1, 1)
+              .subtract(const Duration(milliseconds: 1))
+          : DateTime(range.start.year, i + 2, 1)
+              .subtract(const Duration(milliseconds: 1));
+      final revenue = sales.where((sale) {
+        return !sale.createdAt.isBefore(monthStart) &&
+            !sale.createdAt.isAfter(monthEnd);
+      }).fold<double>(0.0, (sum, sale) => sum + sale.total);
+      return FlSpot(i.toDouble(), revenue / 1000);
+    });
+  }
+
+  String _periodLabel(String period) {
+    switch (period) {
+      case 'Today':
+        return 'Today';
+      case 'This Week':
+        return 'Last 7 Days';
+      case 'This Month':
+        return 'This Month';
+      case 'This Year':
+      default:
+        return 'This Year';
+    }
+  }
+
+  Widget _buildTopProducts(List<Sale> sales) {
+    if (sales.isEmpty) {
+      return const Text('No sales data available');
+    }
+
+    final productCounts = <String, int>{};
+    final productRevenues = <String, double>{};
+    for (var sale in sales) {
+      for (var item in sale.items) {
+        productCounts[item.productName] =
+            (productCounts[item.productName] ?? 0) + item.quantity;
+        productRevenues[item.productName] =
+            (productRevenues[item.productName] ?? 0) +
+                (item.price * item.quantity);
+      }
+    }
+
+    final topProducts = productCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Column(
+      children: topProducts.take(4).map((entry) {
+        final revenue = productRevenues[entry.key] ?? 0.0;
+        return _buildListRow(
+            entry.key, '\$${_formatNumber(revenue)}', '${entry.value} units');
+      }).toList(),
     );
   }
 
