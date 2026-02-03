@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/printer_provider.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 import 'receipt_preview_page.dart';
 
 class ReceiptsTab extends ConsumerStatefulWidget {
@@ -46,7 +48,16 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: InkWell(
-                      onTap: () {
+                      onTap: () async {
+                        final allowed = await PinProtection.requirePinIfNeeded(
+                          context,
+                          isRequired: () => PinService().isPinRequiredForViewSalesHistory(),
+                          title: 'Sales History',
+                          subtitle: 'Enter PIN to view receipt',
+                        );
+                        if (!allowed) {
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(

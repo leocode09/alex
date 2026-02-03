@@ -32,6 +32,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _cashReceivedController = TextEditingController();
   late TabController _tabController;
+  int _lastTabIndex = 0;
   SharedPreferences? _prefs;
   bool _hasLoadedEditingReceipt = false;
 
@@ -39,6 +40,12 @@ class _SalesPageState extends ConsumerState<SalesPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _lastTabIndex = _tabController.index;
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        _lastTabIndex = _tabController.index;
+      }
+    });
     _initPrefs();
   }
 
@@ -181,7 +188,17 @@ class _SalesPageState extends ConsumerState<SalesPage>
     HapticFeedback.lightImpact();
   }
 
-  void _showEditPriceDialog(BuildContext context, int index) {
+  Future<void> _showEditPriceDialog(BuildContext context, int index) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForApplyDiscount(),
+      title: 'Adjust Price',
+      subtitle: 'Enter PIN to adjust item price',
+    );
+    if (!allowed) {
+      return;
+    }
+
     final item = _cart[index];
     final priceController = TextEditingController(
       text: item['price'].toString(),
@@ -239,6 +256,28 @@ class _SalesPageState extends ConsumerState<SalesPage>
     final totalAmount = _total;
     final editingReceipt = ref.read(editingReceiptProvider);
     final isEditingMode = editingReceipt != null;
+
+    if (isEditingMode) {
+      final allowed = await PinProtection.requirePinIfNeeded(
+        context,
+        isRequired: () => PinService().isPinRequiredForEditReceipt(),
+        title: 'Edit Receipt',
+        subtitle: 'Enter PIN to update receipt',
+      );
+      if (!allowed) {
+        return;
+      }
+    } else {
+      final allowed = await PinProtection.requirePinIfNeeded(
+        context,
+        isRequired: () => PinService().isPinRequiredForCreateSale(),
+        title: 'Create Sale',
+        subtitle: 'Enter PIN to create a sale',
+      );
+      if (!allowed) {
+        return;
+      }
+    }
 
     // Capture navigators before async gap
     // showDialog uses root navigator by default
@@ -788,6 +827,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
         backgroundColor: isEditingMode ? Colors.orange[700] : null,
         bottom: TabBar(
           controller: _tabController,
+          onTap: _handleTabTap,
           labelColor: isEditingMode
               ? Colors.white
               : Theme.of(context).colorScheme.primary,
@@ -1195,5 +1235,27 @@ class _SalesPageState extends ConsumerState<SalesPage>
         ],
       ),
     );
+  }
+
+  Future<void> _handleTabTap(int index) async {
+    if (index == _tabController.index) {
+      return;
+    }
+
+    if (index == 2) {
+      final allowed = await PinProtection.requirePinIfNeeded(
+        context,
+        isRequired: () => PinService().isPinRequiredForViewSalesHistory(),
+        title: 'Sales History',
+        subtitle: 'Enter PIN to view receipts',
+      );
+      if (!allowed && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _tabController.index = _lastTabIndex;
+          }
+        });
+      }
+    }
   }
 }

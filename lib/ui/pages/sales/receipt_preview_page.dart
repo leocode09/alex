@@ -9,6 +9,8 @@ import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../repositories/sale_repository.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 import 'receipts_page.dart'; // For PrinterDialog
 
 class ReceiptPreviewPage extends ConsumerStatefulWidget {
@@ -333,7 +335,17 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
-  void _editItem(BuildContext context, int index, SaleItem item) {
+  Future<void> _editItem(BuildContext context, int index, SaleItem item) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForEditReceipt(),
+      title: 'Edit Receipt',
+      subtitle: 'Enter PIN to edit receipt items',
+    );
+    if (!allowed) {
+      return;
+    }
+
     final quantityController =
         TextEditingController(text: item.quantity.toString());
     final priceController =
@@ -398,7 +410,17 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
-  void _removeItem(BuildContext context, int index) {
+  Future<void> _removeItem(BuildContext context, int index) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForEditReceipt(),
+      title: 'Edit Receipt',
+      subtitle: 'Enter PIN to remove items',
+    );
+    if (!allowed) {
+      return;
+    }
+
     if (_sale.items.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cannot remove the last item')),
@@ -432,7 +454,17 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
-  void _showAddItemDialog(BuildContext context) {
+  Future<void> _showAddItemDialog(BuildContext context) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForEditReceipt(),
+      title: 'Edit Receipt',
+      subtitle: 'Enter PIN to add items',
+    );
+    if (!allowed) {
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => _AddItemDialog(
@@ -485,7 +517,17 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     }
   }
 
-  void _showEditSaleDialog(BuildContext context) {
+  Future<void> _showEditSaleDialog(BuildContext context) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForEditReceipt(),
+      title: 'Edit Receipt',
+      subtitle: 'Enter PIN to edit receipt details',
+    );
+    if (!allowed) {
+      return;
+    }
+
     final customerController =
         TextEditingController(text: _sale.customerId ?? '');
     String paymentMethod = _sale.paymentMethod;
@@ -604,8 +646,18 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
-  void _showSettingsDialog(
-      BuildContext context, ReceiptSettings currentSettings) {
+  Future<void> _showSettingsDialog(
+      BuildContext context, ReceiptSettings currentSettings) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForReceiptSettings(),
+      title: 'Receipt Settings',
+      subtitle: 'Enter PIN to update receipt settings',
+    );
+    if (!allowed) {
+      return;
+    }
+
     final shopNameController =
         TextEditingController(text: currentSettings.shopName);
     final address1Controller =
@@ -802,7 +854,16 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                           if (_searchQuery.isNotEmpty) ...[
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
-                              onPressed: () {
+                              onPressed: () async {
+                                final allowed = await PinProtection.requirePinIfNeeded(
+                                  context,
+                                  isRequired: () => PinService().isPinRequiredForAddProduct(),
+                                  title: 'Add Product',
+                                  subtitle: 'Enter PIN to add a product',
+                                );
+                                if (!allowed) {
+                                  return;
+                                }
                                 Navigator.pop(context);
                                 context.push('/products/add?name=${Uri.encodeComponent(_searchQuery)}');
                               },
