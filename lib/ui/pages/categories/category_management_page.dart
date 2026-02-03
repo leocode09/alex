@@ -31,7 +31,9 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
             title: 'Add Category',
             subtitle: 'Enter PIN to add a category',
           )) {
-            _showAddEditDialog();
+            if (mounted) {
+              _showAddEditDialog();
+            }
           }
         },
         backgroundColor: Theme.of(context).colorScheme.primary,

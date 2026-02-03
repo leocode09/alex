@@ -35,6 +35,10 @@ class LoginPage extends ConsumerWidget {
                       final requireLoginPin =
                           await pinService.isPinRequiredForLogin();
 
+                      if (!context.mounted) {
+                        return;
+                      }
+
                       if (requireLoginPin) {
                         context.go('/pin-entry');
                         return;
@@ -51,6 +55,10 @@ class LoginPage extends ConsumerWidget {
                         if (!verified) {
                           return;
                         }
+                      }
+
+                      if (!context.mounted) {
+                        return;
                       }
 
                       context.go('/dashboard');

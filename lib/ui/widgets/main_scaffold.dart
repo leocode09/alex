@@ -71,6 +71,9 @@ class MainScaffold extends StatelessWidget {
           title: 'Dashboard Access',
           subtitle: 'Enter PIN to view dashboard',
         )) {
+          if (!context.mounted) {
+            return;
+          }
           context.go('/dashboard');
         }
         break;
@@ -87,6 +90,9 @@ class MainScaffold extends StatelessWidget {
           title: 'Reports Access',
           subtitle: 'Enter PIN to view reports',
         )) {
+          if (!context.mounted) {
+            return;
+          }
           context.go('/reports');
         }
         break;
@@ -97,6 +103,9 @@ class MainScaffold extends StatelessWidget {
           title: 'Settings Access',
           subtitle: 'Enter PIN to access settings',
         )) {
+          if (!context.mounted) {
+            return;
+          }
           context.go('/settings');
         }
         break;

@@ -34,6 +34,9 @@ class _CustomerListPageState extends State<CustomerListPage> {
             title: 'Add Customer',
             subtitle: 'Enter PIN to add a customer',
           )) {
+            if (!context.mounted) {
+              return;
+            }
             _showAddCustomerDialog(context);
           }
         },
@@ -78,6 +81,9 @@ class _CustomerListPageState extends State<CustomerListPage> {
                       title: 'Customer Details',
                       subtitle: 'Enter PIN to view customer details',
                     )) {
+                      if (!context.mounted) {
+                        return;
+                      }
                       context.push('/customer/${customer['id']}');
                     }
                   },

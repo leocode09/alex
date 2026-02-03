@@ -37,6 +37,9 @@ class DashboardPage extends ConsumerWidget {
                 title: 'Notifications',
                 subtitle: 'Enter PIN to view notifications',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/notifications');
               }
             },
@@ -235,6 +238,9 @@ class DashboardPage extends ConsumerWidget {
                           title: 'New Sale',
                           subtitle: 'Enter PIN to create a sale',
                         )) {
+                          if (!context.mounted) {
+                            return;
+                          }
                           context.push('/sales');
                         }
                       },
@@ -250,6 +256,9 @@ class DashboardPage extends ConsumerWidget {
                           title: 'Add Product',
                           subtitle: 'Enter PIN to add a product',
                         )) {
+                          if (!context.mounted) {
+                            return;
+                          }
                           context.push('/products/add');
                         }
                       },
@@ -261,10 +270,13 @@ class DashboardPage extends ConsumerWidget {
                       onTap: () async {
                         if (await PinProtection.requirePinIfNeeded(
                           context,
-                          isRequired: () => PinService().isPinRequiredForAddCustomer(),
-                          title: 'Add Customer',
-                          subtitle: 'Enter PIN to add a customer',
+                          isRequired: () => PinService().isPinRequiredForViewCustomers(),
+                          title: 'Customers',
+                          subtitle: 'Enter PIN to view customers',
                         )) {
+                          if (!context.mounted) {
+                            return;
+                          }
                           context.push('/customers');
                         }
                       },
@@ -280,6 +292,9 @@ class DashboardPage extends ConsumerWidget {
                           title: 'Reports Access',
                           subtitle: 'Enter PIN to view reports',
                         )) {
+                          if (!context.mounted) {
+                            return;
+                          }
                           context.push('/reports');
                         }
                       },

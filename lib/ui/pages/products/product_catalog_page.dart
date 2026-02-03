@@ -58,6 +58,9 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                 title: 'Categories Access',
                 subtitle: 'Enter PIN to access categories',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/categories');
               }
             },
@@ -82,6 +85,9 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
             title: 'Add Product',
             subtitle: 'Enter PIN to add a product',
           )) {
+            if (!context.mounted) {
+              return;
+            }
             context.push('/products/add');
           }
         },
@@ -190,6 +196,9 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                               title: 'Add Product',
                               subtitle: 'Enter PIN to add a product',
                             )) {
+                              if (!context.mounted) {
+                                return;
+                              }
                               if (searchQuery.isNotEmpty) {
                                 context.push('/products/add?name=${Uri.encodeComponent(searchQuery)}');
                               } else {
@@ -232,6 +241,9 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         if (!canDelete) {
                           return false;
                         }
+                        if (!context.mounted) {
+                          return false;
+                        }
                         return await showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
@@ -272,6 +284,9 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                             title: 'Product Details',
                             subtitle: 'Enter PIN to view product details',
                           )) {
+                            if (!context.mounted) {
+                              return;
+                            }
                             context.push('/products/${product.id}', extra: product);
                           }
                         },

@@ -32,6 +32,9 @@ class SettingsPage extends ConsumerWidget {
                 title: 'Stores Access',
                 subtitle: 'Enter PIN to view stores',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/stores');
               }
             },
@@ -48,6 +51,9 @@ class SettingsPage extends ConsumerWidget {
                 title: 'Hardware Setup',
                 subtitle: 'Enter PIN to configure hardware',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/hardware');
               }
             },
@@ -64,6 +70,9 @@ class SettingsPage extends ConsumerWidget {
                 title: 'Data Sync',
                 subtitle: 'Enter PIN to sync data',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/sync');
               }
             },
@@ -80,6 +89,9 @@ class SettingsPage extends ConsumerWidget {
                 title: 'Promotions',
                 subtitle: 'Enter PIN to manage promotions',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/promotions');
               }
             },
@@ -98,6 +110,9 @@ class SettingsPage extends ConsumerWidget {
                 title: 'Employees',
                 subtitle: 'Enter PIN to view employees',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/employees');
               }
             },
@@ -137,6 +152,9 @@ class SettingsPage extends ConsumerWidget {
                 title: 'Notifications',
                 subtitle: 'Enter PIN to view notifications',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/notifications');
               }
             },
@@ -237,6 +255,9 @@ class SettingsPage extends ConsumerWidget {
       subtitle: 'Enter PIN to clear all data',
     ).then((verified) {
       if (!verified) {
+        return;
+      }
+      if (!context.mounted) {
         return;
       }
 
