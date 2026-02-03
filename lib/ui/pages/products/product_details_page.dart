@@ -72,9 +72,17 @@ class ProductDetailsPage extends ConsumerWidget {
                 ),
               ),
             ],
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'delete') {
-                _confirmDelete(context, ref);
+                final verified = await PinProtection.requirePinIfNeeded(
+                  context,
+                  isRequired: () => PinService().isPinRequiredForDeleteProduct(),
+                  title: 'Delete Product',
+                  subtitle: 'Enter PIN to delete a product',
+                );
+                if (verified && context.mounted) {
+                  _confirmDelete(context, ref);
+                }
               }
             },
           ),

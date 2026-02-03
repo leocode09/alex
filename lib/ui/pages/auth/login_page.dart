@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 
 class LoginPage extends ConsumerWidget {
@@ -29,9 +30,30 @@ class LoginPage extends ConsumerWidget {
               Column(
                 children: [
                   ElevatedButton(
-                    onPressed: () {
-                      // Navigate to PIN entry
-                      context.go('/pin-entry');
+                    onPressed: () async {
+                      final pinService = PinService();
+                      final requireLoginPin =
+                          await pinService.isPinRequiredForLogin();
+
+                      if (requireLoginPin) {
+                        context.go('/pin-entry');
+                        return;
+                      }
+
+                      final requireDashboardPin =
+                          await pinService.isPinRequiredForDashboard();
+                      if (requireDashboardPin) {
+                        final verified = await PinProtection.requirePin(
+                          context,
+                          title: 'Dashboard Access',
+                          subtitle: 'Enter PIN to view dashboard',
+                        );
+                        if (!verified) {
+                          return;
+                        }
+                      }
+
+                      context.go('/dashboard');
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(

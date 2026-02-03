@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../helpers/pin_protection.dart';
+import '../../services/pin_service.dart';
 
 class MainScaffold extends StatelessWidget {
   final Widget child;
@@ -60,10 +62,17 @@ class MainScaffold extends StatelessWidget {
     );
   }
 
-  void _onTap(BuildContext context, int index) {
+  Future<void> _onTap(BuildContext context, int index) async {
     switch (index) {
       case 0:
-        context.go('/dashboard');
+        if (await PinProtection.requirePinIfNeeded(
+          context,
+          isRequired: () => PinService().isPinRequiredForDashboard(),
+          title: 'Dashboard Access',
+          subtitle: 'Enter PIN to view dashboard',
+        )) {
+          context.go('/dashboard');
+        }
         break;
       case 1:
         context.go('/sales');
@@ -72,10 +81,24 @@ class MainScaffold extends StatelessWidget {
         context.go('/products');
         break;
       case 3:
-        context.go('/reports');
+        if (await PinProtection.requirePinIfNeeded(
+          context,
+          isRequired: () => PinService().isPinRequiredForReports(),
+          title: 'Reports Access',
+          subtitle: 'Enter PIN to view reports',
+        )) {
+          context.go('/reports');
+        }
         break;
       case 4:
-        context.go('/settings');
+        if (await PinProtection.requirePinIfNeeded(
+          context,
+          isRequired: () => PinService().isPinRequiredForSettings(),
+          title: 'Settings Access',
+          subtitle: 'Enter PIN to access settings',
+        )) {
+          context.go('/settings');
+        }
         break;
     }
   }

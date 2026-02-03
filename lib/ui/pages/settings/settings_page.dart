@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../providers/pin_unlock_provider.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -24,28 +25,64 @@ class SettingsPage extends ConsumerWidget {
             'Store Profile',
             'Manage store details and branding',
             Icons.store_outlined,
-            onTap: () => context.push('/stores'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForViewStores(),
+                title: 'Stores Access',
+                subtitle: 'Enter PIN to view stores',
+              )) {
+                context.push('/stores');
+              }
+            },
           ),
           _buildSettingTile(
             context,
             'Hardware Setup',
             'Printers, scanners, and terminals',
             Icons.devices_outlined,
-            onTap: () => context.push('/hardware'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForHardwareSetup(),
+                title: 'Hardware Setup',
+                subtitle: 'Enter PIN to configure hardware',
+              )) {
+                context.push('/hardware');
+              }
+            },
           ),
           _buildSettingTile(
             context,
             'Data Sync',
             'Sync data between devices via QR code',
             Icons.sync,
-            onTap: () => context.push('/sync'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForDataSync(),
+                title: 'Data Sync',
+                subtitle: 'Enter PIN to sync data',
+              )) {
+                context.push('/sync');
+              }
+            },
           ),
           _buildSettingTile(
             context,
             'Promotions',
             'Discounts and loyalty programs',
             Icons.local_offer_outlined,
-            onTap: () => context.push('/promotions'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForManagePromotions(),
+                title: 'Promotions',
+                subtitle: 'Enter PIN to manage promotions',
+              )) {
+                context.push('/promotions');
+              }
+            },
           ),
           const SizedBox(height: 24),
           _buildSectionHeader('Account & Security'),
@@ -54,7 +91,16 @@ class SettingsPage extends ConsumerWidget {
             'Employees',
             'Manage staff and permissions',
             Icons.people_outline,
-            onTap: () => context.push('/employees'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForViewEmployees(),
+                title: 'Employees',
+                subtitle: 'Enter PIN to view employees',
+              )) {
+                context.push('/employees');
+              }
+            },
           ),
           _buildSettingTile(
             context,
@@ -84,7 +130,16 @@ class SettingsPage extends ConsumerWidget {
             'Notifications',
             'Manage alerts and sounds',
             Icons.notifications_outlined,
-            onTap: () => context.push('/notifications'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForViewNotifications(),
+                title: 'Notifications',
+                subtitle: 'Enter PIN to view notifications',
+              )) {
+                context.push('/notifications');
+              }
+            },
           ),
           const SizedBox(height: 24),
           _buildSectionHeader('Support'),
@@ -175,9 +230,19 @@ class SettingsPage extends ConsumerWidget {
   }
 
   void _showClearDataDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+    PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForClearAllData(),
+      title: 'Clear All Data',
+      subtitle: 'Enter PIN to clear all data',
+    ).then((verified) {
+      if (!verified) {
+        return;
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
         title: const Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.red),
@@ -248,6 +313,7 @@ class SettingsPage extends ConsumerWidget {
         ],
       ),
     );
+    });
   }
 
   void _showSecurityOptions(BuildContext context) {
@@ -271,9 +337,17 @@ class SettingsPage extends ConsumerWidget {
               leading: const Icon(Icons.pin),
               title: const Text('Change PIN'),
               subtitle: const Text('Update your 4-digit PIN'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                context.push('/pin-setup');
+                final verified = await PinProtection.requirePinIfNeeded(
+                  context,
+                  isRequired: () => PinService().isPinRequiredForChangePin(),
+                  title: 'Change PIN',
+                  subtitle: 'Enter current PIN to change PIN',
+                );
+                if (verified && context.mounted) {
+                  context.push('/pin-setup');
+                }
               },
             ),
             ListTile(
@@ -282,7 +356,12 @@ class SettingsPage extends ConsumerWidget {
               subtitle: const Text('Set a new PIN if you forgot it'),
               onTap: () async {
                 Navigator.pop(context);
-                final verified = await PinProtection.requirePin(context);
+                final verified = await PinProtection.requirePinIfNeeded(
+                  context,
+                  isRequired: () => PinService().isPinRequiredForChangePin(),
+                  title: 'Reset PIN',
+                  subtitle: 'Enter PIN to reset your PIN',
+                );
                 if (verified && context.mounted) {
                   context.push('/pin-setup');
                 }

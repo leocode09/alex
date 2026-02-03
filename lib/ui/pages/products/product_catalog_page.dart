@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../models/product.dart';
 import '../../../providers/product_provider.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class ProductCatalogPage extends ConsumerStatefulWidget {
   const ProductCatalogPage({super.key});
@@ -49,7 +51,16 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
           IconButton(
             icon: const Icon(Icons.category_outlined),
             tooltip: 'Manage Categories',
-            onPressed: () => context.push('/categories'),
+            onPressed: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForViewCategories(),
+                title: 'Categories Access',
+                subtitle: 'Enter PIN to access categories',
+              )) {
+                context.push('/categories');
+              }
+            },
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
@@ -64,7 +75,16 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/products/add'),
+        onPressed: () async {
+          if (await PinProtection.requirePinIfNeeded(
+            context,
+            isRequired: () => PinService().isPinRequiredForAddProduct(),
+            title: 'Add Product',
+            subtitle: 'Enter PIN to add a product',
+          )) {
+            context.push('/products/add');
+          }
+        },
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Column(
@@ -162,12 +182,19 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         Text('No products found', style: TextStyle(color: Colors.grey[500])),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(
-                          onPressed: () {
+                          onPressed: () async {
                             final searchQuery = _searchController.text.trim();
-                            if (searchQuery.isNotEmpty) {
-                              context.push('/products/add?name=${Uri.encodeComponent(searchQuery)}');
-                            } else {
-                              context.push('/products/add');
+                            if (await PinProtection.requirePinIfNeeded(
+                              context,
+                              isRequired: () => PinService().isPinRequiredForAddProduct(),
+                              title: 'Add Product',
+                              subtitle: 'Enter PIN to add a product',
+                            )) {
+                              if (searchQuery.isNotEmpty) {
+                                context.push('/products/add?name=${Uri.encodeComponent(searchQuery)}');
+                              } else {
+                                context.push('/products/add');
+                              }
                             }
                           },
                           icon: const Icon(Icons.add),
@@ -196,6 +223,15 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
                       confirmDismiss: (direction) async {
+                        final canDelete = await PinProtection.requirePinIfNeeded(
+                          context,
+                          isRequired: () => PinService().isPinRequiredForDeleteProduct(),
+                          title: 'Delete Product',
+                          subtitle: 'Enter PIN to delete a product',
+                        );
+                        if (!canDelete) {
+                          return false;
+                        }
                         return await showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
@@ -229,7 +265,16 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         }
                       },
                       child: ListTile(
-                        onTap: () => context.push('/products/${product.id}', extra: product),
+                        onTap: () async {
+                          if (await PinProtection.requirePinIfNeeded(
+                            context,
+                            isRequired: () => PinService().isPinRequiredForViewProductDetails(),
+                            title: 'Product Details',
+                            subtitle: 'Enter PIN to view product details',
+                          )) {
+                            context.push('/products/${product.id}', extra: product);
+                          }
+                        },
                         leading: Container(
                           width: 40,
                           height: 40,

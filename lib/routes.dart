@@ -98,14 +98,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnPinSetup = state.uri.path == '/pin-setup';
       final isOnPinEntry = state.uri.path == '/pin-entry';
       final isOnLogin = state.uri.path == '/';
+      final requireLoginPin = await pinService.isPinRequiredForLogin();
 
       // First time - need to setup PIN
       if (!isPinSet && !isOnPinSetup) {
         return '/pin-setup';
       }
 
-      // PIN is set but not unlocked (need PIN entry)
-      if (isPinSet && !pinUnlocked && !isOnPinEntry) {
+      // PIN is set and required for login but not unlocked (need PIN entry)
+      if (isPinSet && requireLoginPin && !pinUnlocked && !isOnPinEntry) {
         return '/pin-entry';
       }
 

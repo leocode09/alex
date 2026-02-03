@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../providers/sale_provider.dart';
+import '../../../helpers/pin_protection.dart';
 import '../../../providers/product_provider.dart';
+import '../../../providers/sale_provider.dart';
+import '../../../services/pin_service.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -28,7 +30,16 @@ class DashboardPage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => context.push('/notifications'),
+            onPressed: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForViewNotifications(),
+                title: 'Notifications',
+                subtitle: 'Enter PIN to view notifications',
+              )) {
+                context.push('/notifications');
+              }
+            },
           ),
           const SizedBox(width: 8),
         ],
@@ -217,25 +228,61 @@ class DashboardPage extends ConsumerWidget {
                       context,
                       icon: Icons.point_of_sale,
                       label: 'New Sale',
-                      onTap: () => context.push('/sales'),
+                      onTap: () async {
+                        if (await PinProtection.requirePinIfNeeded(
+                          context,
+                          isRequired: () => PinService().isPinRequiredForCreateSale(),
+                          title: 'New Sale',
+                          subtitle: 'Enter PIN to create a sale',
+                        )) {
+                          context.push('/sales');
+                        }
+                      },
                     ),
                     _buildQuickAction(
                       context,
                       icon: Icons.add_box_outlined,
                       label: 'Add Product',
-                      onTap: () => context.push('/products/add'),
+                      onTap: () async {
+                        if (await PinProtection.requirePinIfNeeded(
+                          context,
+                          isRequired: () => PinService().isPinRequiredForAddProduct(),
+                          title: 'Add Product',
+                          subtitle: 'Enter PIN to add a product',
+                        )) {
+                          context.push('/products/add');
+                        }
+                      },
                     ),
                     _buildQuickAction(
                       context,
                       icon: Icons.person_add_outlined,
                       label: 'Add Customer',
-                      onTap: () => context.push('/customers'),
+                      onTap: () async {
+                        if (await PinProtection.requirePinIfNeeded(
+                          context,
+                          isRequired: () => PinService().isPinRequiredForAddCustomer(),
+                          title: 'Add Customer',
+                          subtitle: 'Enter PIN to add a customer',
+                        )) {
+                          context.push('/customers');
+                        }
+                      },
                     ),
                     _buildQuickAction(
                       context,
                       icon: Icons.receipt_long,
                       label: 'Reports',
-                      onTap: () => context.push('/reports'),
+                      onTap: () async {
+                        if (await PinProtection.requirePinIfNeeded(
+                          context,
+                          isRequired: () => PinService().isPinRequiredForReports(),
+                          title: 'Reports Access',
+                          subtitle: 'Enter PIN to view reports',
+                        )) {
+                          context.push('/reports');
+                        }
+                      },
                     ),
                   ],
                 ),
