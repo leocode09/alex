@@ -129,8 +129,8 @@ flutter run
 
 ### Camera Permission Issues
 If camera permission is denied:
-- **Android**: Go to Settings → Apps → POS System → Permissions → Enable Camera
-- **iOS**: Go to Settings → POS System → Enable Camera
+- **Android**: Go to Settings → Apps → ALEX → Permissions → Enable Camera
+- **iOS**: Go to Settings → ALEX → Enable Camera
 
 ### QR Code Won't Scan
 - Ensure good lighting

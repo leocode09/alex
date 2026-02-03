@@ -1,4 +1,4 @@
-# pos_system
+# ALEX
 
 [![Build Android APK](https://github.com/leocode09/alex/actions/workflows/build-apk.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/build-apk.yml)
 
