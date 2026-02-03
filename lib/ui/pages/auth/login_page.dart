@@ -23,7 +23,7 @@ class LoginPage extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
               Text(
-                'POS System',
+                'ALEX',
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 48),
