@@ -32,6 +32,9 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
             title: 'Add Employee',
             subtitle: 'Enter PIN to add an employee',
           )) {
+            if (!context.mounted) {
+              return;
+            }
             _showAddEmployeeDialog(context);
           }
         },
@@ -52,6 +55,9 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
                 title: 'Employee Details',
                 subtitle: 'Enter PIN to view employee details',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/employee/${employee['id']}');
               }
             },

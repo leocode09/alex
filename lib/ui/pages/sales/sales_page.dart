@@ -32,7 +32,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _cashReceivedController = TextEditingController();
   late TabController _tabController;
-  int _lastTabIndex = 0;
   SharedPreferences? _prefs;
   bool _hasLoadedEditingReceipt = false;
 
@@ -40,12 +39,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _lastTabIndex = _tabController.index;
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        _lastTabIndex = _tabController.index;
-      }
-    });
     _initPrefs();
   }
 
@@ -198,6 +191,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
     if (!allowed) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
 
     final item = _cart[index];
     final priceController = TextEditingController(
@@ -277,6 +273,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
       if (!allowed) {
         return;
       }
+    }
+
+    if (!mounted) {
+      return;
     }
 
     // Capture navigators before async gap
@@ -1238,7 +1238,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
   }
 
   Future<void> _handleTabTap(int index) async {
-    if (index == _tabController.index) {
+    final previousIndex = _tabController.index;
+    if (index == previousIndex) {
       return;
     }
 
@@ -1252,7 +1253,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
       if (!allowed && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _tabController.index = _lastTabIndex;
+            _tabController.index = previousIndex;
           }
         });
       }

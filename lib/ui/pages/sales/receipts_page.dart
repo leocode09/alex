@@ -58,6 +58,9 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                         if (!allowed) {
                           return;
                         }
+                        if (!context.mounted) {
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(

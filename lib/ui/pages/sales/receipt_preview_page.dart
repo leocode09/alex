@@ -345,6 +345,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     if (!allowed) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
 
     final quantityController =
         TextEditingController(text: item.quantity.toString());
@@ -420,6 +423,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     if (!allowed) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
 
     if (_sale.items.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -462,6 +468,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       subtitle: 'Enter PIN to add items',
     );
     if (!allowed) {
+      return;
+    }
+    if (!mounted) {
       return;
     }
 
@@ -525,6 +534,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       subtitle: 'Enter PIN to edit receipt details',
     );
     if (!allowed) {
+      return;
+    }
+    if (!mounted) {
       return;
     }
 
@@ -655,6 +667,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       subtitle: 'Enter PIN to update receipt settings',
     );
     if (!allowed) {
+      return;
+    }
+    if (!mounted) {
       return;
     }
 
@@ -862,6 +877,9 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                                   subtitle: 'Enter PIN to add a product',
                                 );
                                 if (!allowed) {
+                                  return;
+                                }
+                                if (!mounted) {
                                   return;
                                 }
                                 Navigator.pop(context);

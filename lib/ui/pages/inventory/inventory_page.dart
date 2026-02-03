@@ -68,6 +68,9 @@ class InventoryPage extends StatelessWidget {
                         if (!allowed) {
                           return;
                         }
+                        if (!context.mounted) {
+                          return;
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Adding stock for ${item['name']}')),
                         );
@@ -104,6 +107,9 @@ class InventoryPage extends StatelessWidget {
                 subtitle: 'Enter PIN to adjust stock levels',
               );
               if (!allowed) {
+                return;
+              }
+              if (!context.mounted) {
                 return;
               }
               ScaffoldMessenger.of(context).showSnackBar(

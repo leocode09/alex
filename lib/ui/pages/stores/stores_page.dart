@@ -26,6 +26,9 @@ class StoresPage extends StatelessWidget {
             title: 'Add Store',
             subtitle: 'Enter PIN to add a store',
           )) {
+            if (!context.mounted) {
+              return;
+            }
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Add store feature')),
             );
@@ -48,6 +51,9 @@ class StoresPage extends StatelessWidget {
                 title: 'Store Details',
                 subtitle: 'Enter PIN to view store details',
               )) {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/store/${store['id']}');
               }
             },
