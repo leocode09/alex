@@ -18,18 +18,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedPeriod = 'This Week';
-  int _lastTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _lastTabIndex = _tabController.index;
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        _lastTabIndex = _tabController.index;
-      }
-    });
   }
 
   @override
@@ -86,6 +79,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           _buildSalesTab(),
           _buildInventoryTab(),
@@ -329,7 +323,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   }
 
   Future<void> _handleTabTap(int index) async {
-    if (index == _tabController.index) {
+    final previousIndex = _tabController.index;
+    if (index == previousIndex) {
       return;
     }
 
@@ -353,7 +348,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     if (!allowed && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _tabController.index = _lastTabIndex;
+          _tabController.index = previousIndex;
         }
       });
     }

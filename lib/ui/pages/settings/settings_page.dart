@@ -338,9 +338,10 @@ class SettingsPage extends ConsumerWidget {
   }
 
   void _showSecurityOptions(BuildContext context) {
+    final parentContext = context;
     showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
+      context: parentContext,
+      builder: (sheetContext) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -350,8 +351,8 @@ class SettingsPage extends ConsumerWidget {
               title: const Text('PIN Preferences'),
               subtitle: const Text('Choose where PIN is required'),
               onTap: () {
-                Navigator.pop(context);
-                context.push('/pin-preferences');
+                Navigator.pop(sheetContext);
+                parentContext.push('/pin-preferences');
               },
             ),
             ListTile(
@@ -359,15 +360,15 @@ class SettingsPage extends ConsumerWidget {
               title: const Text('Change PIN'),
               subtitle: const Text('Update your 4-digit PIN'),
               onTap: () async {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 final verified = await PinProtection.requirePinIfNeeded(
-                  context,
+                  parentContext,
                   isRequired: () => PinService().isPinRequiredForChangePin(),
                   title: 'Change PIN',
                   subtitle: 'Enter current PIN to change PIN',
                 );
-                if (verified && context.mounted) {
-                  context.push('/pin-setup');
+                if (verified && parentContext.mounted) {
+                  parentContext.push('/pin-setup');
                 }
               },
             ),
@@ -376,15 +377,15 @@ class SettingsPage extends ConsumerWidget {
               title: const Text('Reset PIN'),
               subtitle: const Text('Set a new PIN if you forgot it'),
               onTap: () async {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 final verified = await PinProtection.requirePinIfNeeded(
-                  context,
+                  parentContext,
                   isRequired: () => PinService().isPinRequiredForChangePin(),
                   title: 'Reset PIN',
                   subtitle: 'Enter PIN to reset your PIN',
                 );
-                if (verified && context.mounted) {
-                  context.push('/pin-setup');
+                if (verified && parentContext.mounted) {
+                  parentContext.push('/pin-setup');
                 }
               },
             ),

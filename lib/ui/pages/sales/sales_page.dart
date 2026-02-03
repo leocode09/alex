@@ -845,6 +845,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           // Products Tab
           Column(
@@ -924,7 +925,19 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                 style: TextStyle(color: Colors.grey)),
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
-                              onPressed: () {
+                              onPressed: () async {
+                                final allowed = await PinProtection.requirePinIfNeeded(
+                                  context,
+                                  isRequired: () => PinService().isPinRequiredForAddProduct(),
+                                  title: 'Add Product',
+                                  subtitle: 'Enter PIN to add a product',
+                                );
+                                if (!allowed) {
+                                  return;
+                                }
+                                if (!mounted) {
+                                  return;
+                                }
                                 final searchQuery =
                                     _searchController.text.trim();
                                 if (searchQuery.isNotEmpty) {

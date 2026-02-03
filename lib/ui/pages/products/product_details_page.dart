@@ -34,6 +34,9 @@ class ProductDetailsPage extends ConsumerWidget {
                   context.push('/product/edit/$productId');
                 }
               } else {
+                if (!context.mounted) {
+                  return;
+                }
                 context.push('/product/edit/$productId');
               }
             },
