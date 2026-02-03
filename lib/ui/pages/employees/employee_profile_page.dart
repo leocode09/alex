@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class EmployeeProfilePage extends StatelessWidget {
   final String employeeId;
@@ -28,7 +30,16 @@ class EmployeeProfilePage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () {
+            onPressed: () async {
+              final allowed = await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForEditEmployee(),
+                title: 'Edit Employee',
+                subtitle: 'Enter PIN to edit employee',
+              );
+              if (!allowed) {
+                return;
+              }
               // TODO: Implement edit employee
             },
           ),

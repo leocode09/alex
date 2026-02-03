@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/sale.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/product_provider.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
@@ -16,11 +18,18 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedPeriod = 'This Week';
+  int _lastTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _lastTabIndex = _tabController.index;
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        _lastTabIndex = _tabController.index;
+      }
+    });
   }
 
   @override
@@ -37,6 +46,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             style: TextStyle(fontWeight: FontWeight.w600)),
         bottom: TabBar(
           controller: _tabController,
+          onTap: _handleTabTap,
           labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
           indicatorColor: Theme.of(context).colorScheme.primary,
@@ -316,6 +326,37 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(child: Text('Error: $err')),
     );
+  }
+
+  Future<void> _handleTabTap(int index) async {
+    if (index == _tabController.index) {
+      return;
+    }
+
+    bool allowed = true;
+    if (index == 0) {
+      allowed = await PinProtection.requirePinIfNeeded(
+        context,
+        isRequired: () => PinService().isPinRequiredForViewFinancialReports(),
+        title: 'Financial Reports',
+        subtitle: 'Enter PIN to view financial reports',
+      );
+    } else if (index == 1) {
+      allowed = await PinProtection.requirePinIfNeeded(
+        context,
+        isRequired: () => PinService().isPinRequiredForViewInventoryReports(),
+        title: 'Inventory Reports',
+        subtitle: 'Enter PIN to view inventory reports',
+      );
+    }
+
+    if (!allowed && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _tabController.index = _lastTabIndex;
+        }
+      });
+    }
   }
 
   DateTimeRange _getPeriodRange(String period) {

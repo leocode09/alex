@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class InventoryPage extends StatelessWidget {
   const InventoryPage({super.key});
@@ -56,7 +58,16 @@ class InventoryPage extends StatelessWidget {
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                     trailing: TextButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        final allowed = await PinProtection.requirePinIfNeeded(
+                          context,
+                          isRequired: () => PinService().isPinRequiredForAdjustStock(),
+                          title: 'Adjust Stock',
+                          subtitle: 'Enter PIN to adjust stock levels',
+                        );
+                        if (!allowed) {
+                          return;
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Adding stock for ${item['name']}')),
                         );
@@ -85,7 +96,16 @@ class InventoryPage extends StatelessWidget {
             context,
             'Bulk Update',
             Icons.edit_outlined,
-            () {
+            () async {
+              final allowed = await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForAdjustStock(),
+                title: 'Bulk Update',
+                subtitle: 'Enter PIN to adjust stock levels',
+              );
+              if (!allowed) {
+                return;
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Bulk update feature')),
               );

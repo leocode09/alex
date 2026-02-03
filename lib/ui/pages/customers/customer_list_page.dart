@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class CustomerListPage extends StatefulWidget {
   const CustomerListPage({super.key});
@@ -25,7 +27,16 @@ class _CustomerListPageState extends State<CustomerListPage> {
         centerTitle: false,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddCustomerDialog(context),
+        onPressed: () async {
+          if (await PinProtection.requirePinIfNeeded(
+            context,
+            isRequired: () => PinService().isPinRequiredForAddCustomer(),
+            title: 'Add Customer',
+            subtitle: 'Enter PIN to add a customer',
+          )) {
+            _showAddCustomerDialog(context);
+          }
+        },
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -60,7 +71,16 @@ class _CustomerListPageState extends State<CustomerListPage> {
               itemBuilder: (context, index) {
                 final customer = _customers[index];
                 return ListTile(
-                  onTap: () => context.push('/customer/${customer['id']}'),
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () => PinService().isPinRequiredForViewCustomers(),
+                      title: 'Customer Details',
+                      subtitle: 'Enter PIN to view customer details',
+                    )) {
+                      context.push('/customer/${customer['id']}');
+                    }
+                  },
                   leading: CircleAvatar(
                     backgroundColor: Colors.grey[200],
                     child: Text(

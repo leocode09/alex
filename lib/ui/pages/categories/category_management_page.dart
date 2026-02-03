@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../models/category.dart';
 import '../../../providers/category_provider.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class CategoryManagementPage extends ConsumerStatefulWidget {
   const CategoryManagementPage({super.key});
@@ -22,7 +24,16 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
         centerTitle: false,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditDialog(),
+        onPressed: () async {
+          if (await PinProtection.requirePinIfNeeded(
+            context,
+            isRequired: () => PinService().isPinRequiredForAddCategory(),
+            title: 'Add Category',
+            subtitle: 'Enter PIN to add a category',
+          )) {
+            _showAddEditDialog();
+          }
+        },
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -59,11 +70,27 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                     const PopupMenuItem(value: 'edit', child: Text('Edit')),
                     const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
                   ],
-                  onSelected: (value) {
+                  onSelected: (value) async {
                     if (value == 'edit') {
-                      _showAddEditDialog(category: category);
+                      final allowed = await PinProtection.requirePinIfNeeded(
+                        context,
+                        isRequired: () => PinService().isPinRequiredForEditCategory(),
+                        title: 'Edit Category',
+                        subtitle: 'Enter PIN to edit a category',
+                      );
+                      if (allowed && mounted) {
+                        _showAddEditDialog(category: category);
+                      }
                     } else if (value == 'delete') {
-                      _confirmDelete(category);
+                      final allowed = await PinProtection.requirePinIfNeeded(
+                        context,
+                        isRequired: () => PinService().isPinRequiredForDeleteCategory(),
+                        title: 'Delete Category',
+                        subtitle: 'Enter PIN to delete a category',
+                      );
+                      if (allowed && mounted) {
+                        _confirmDelete(category);
+                      }
                     }
                   },
                 ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class EmployeeListPage extends StatefulWidget {
   const EmployeeListPage({super.key});
@@ -23,7 +25,16 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
         centerTitle: false,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEmployeeDialog(context),
+        onPressed: () async {
+          if (await PinProtection.requirePinIfNeeded(
+            context,
+            isRequired: () => PinService().isPinRequiredForAddEmployee(),
+            title: 'Add Employee',
+            subtitle: 'Enter PIN to add an employee',
+          )) {
+            _showAddEmployeeDialog(context);
+          }
+        },
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -34,7 +45,16 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
         itemBuilder: (context, index) {
           final employee = _employees[index];
           return ListTile(
-            onTap: () => context.push('/employee/${employee['id']}'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForViewEmployees(),
+                title: 'Employee Details',
+                subtitle: 'Enter PIN to view employee details',
+              )) {
+                context.push('/employee/${employee['id']}');
+              }
+            },
             leading: CircleAvatar(
               backgroundColor: Colors.grey[200],
               child: Text(

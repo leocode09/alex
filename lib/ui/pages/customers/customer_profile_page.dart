@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class CustomerProfilePage extends StatelessWidget {
   final String customerId;
@@ -32,7 +34,16 @@ class CustomerProfilePage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () {
+            onPressed: () async {
+              final allowed = await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForEditCustomer(),
+                title: 'Edit Customer',
+                subtitle: 'Enter PIN to edit customer',
+              );
+              if (!allowed) {
+                return;
+              }
               // TODO: Implement edit customer
             },
           ),

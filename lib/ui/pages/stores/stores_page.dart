@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class StoresPage extends StatelessWidget {
   const StoresPage({super.key});
@@ -17,10 +19,17 @@ class StoresPage extends StatelessWidget {
         centerTitle: false,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Add store feature')),
-          );
+        onPressed: () async {
+          if (await PinProtection.requirePinIfNeeded(
+            context,
+            isRequired: () => PinService().isPinRequiredForAddStore(),
+            title: 'Add Store',
+            subtitle: 'Enter PIN to add a store',
+          )) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Add store feature')),
+            );
+          }
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
@@ -32,7 +41,16 @@ class StoresPage extends StatelessWidget {
         itemBuilder: (context, index) {
           final store = stores[index];
           return ListTile(
-            onTap: () => context.push('/store/${store['id']}'),
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForViewStores(),
+                title: 'Store Details',
+                subtitle: 'Enter PIN to view store details',
+              )) {
+                context.push('/store/${store['id']}');
+              }
+            },
             leading: Container(
               width: 40,
               height: 40,

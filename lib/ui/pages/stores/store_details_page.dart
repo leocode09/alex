@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 
 class StoreDetailsPage extends StatelessWidget {
   final String storeId;
@@ -28,7 +30,16 @@ class StoreDetailsPage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () {
+            onPressed: () async {
+              final allowed = await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForEditStore(),
+                title: 'Edit Store',
+                subtitle: 'Enter PIN to edit store',
+              );
+              if (!allowed) {
+                return;
+              }
               // TODO: Implement edit store
             },
           ),

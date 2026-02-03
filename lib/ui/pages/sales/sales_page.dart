@@ -12,6 +12,8 @@ import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/receipt_provider.dart';
+import '../../../helpers/pin_protection.dart';
+import '../../../services/pin_service.dart';
 import 'receipts_page.dart';
 
 class SalesPage extends ConsumerStatefulWidget {

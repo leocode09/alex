@@ -261,7 +261,16 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               label: 'Barcode (Optional)',
               suffixIcon: IconButton(
                 icon: const Icon(Icons.qr_code_scanner),
-                onPressed: () {
+                onPressed: () async {
+                  final allowed = await PinProtection.requirePinIfNeeded(
+                    context,
+                    isRequired: () => PinService().isPinRequiredForScanBarcode(),
+                    title: 'Scan Barcode',
+                    subtitle: 'Enter PIN to scan barcode',
+                  );
+                  if (!allowed) {
+                    return;
+                  }
                   // TODO: Implement scanner
                 },
               ),
