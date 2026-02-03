@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../providers/auth_provider.dart';
+import '../../../providers/pin_unlock_provider.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
 
@@ -114,7 +114,8 @@ class SettingsPage extends ConsumerWidget {
           const SizedBox(height: 32),
           OutlinedButton(
             onPressed: () {
-              ref.read(authProvider.notifier).logout();
+              ref.read(pinUnlockedProvider.notifier).state = false;
+              context.go('/pin-entry');
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,

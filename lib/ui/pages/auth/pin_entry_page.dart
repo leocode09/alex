@@ -6,12 +6,16 @@ class PinEntryPage extends StatefulWidget {
   final String title;
   final String subtitle;
   final bool canGoBack;
+  final Future<void> Function()? onSuccess;
+  final bool popOnSuccess;
 
   const PinEntryPage({
     super.key,
     this.title = 'Enter PIN',
     this.subtitle = 'Enter your 4-digit PIN',
     this.canGoBack = true,
+    this.onSuccess,
+    this.popOnSuccess = true,
   });
 
   @override
@@ -59,8 +63,13 @@ class _PinEntryPageState extends State<PinEntryPage> {
   Future<void> _verifyPin() async {
     final isValid = await _pinService.verifyPin(_pin);
     if (isValid) {
+      if (widget.onSuccess != null) {
+        await widget.onSuccess!();
+      }
       if (mounted) {
-        Navigator.of(context).pop(true);
+        if (widget.popOnSuccess) {
+          Navigator.of(context).pop(true);
+        }
       }
     } else {
       setState(() {

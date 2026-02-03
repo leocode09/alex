@@ -10,7 +10,7 @@ import 'ui/pages/auth/login_page.dart';
 import 'ui/pages/auth/pin_setup_page.dart';
 import 'ui/pages/auth/pin_entry_page.dart';
 import 'ui/pages/auth/pin_preferences_page.dart';
-import 'providers/auth_provider.dart';
+import 'providers/pin_unlock_provider.dart';
 import 'services/pin_service.dart';
 
 // Dashboard
@@ -87,7 +87,7 @@ int _getCurrentIndex(String location) {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final pinUnlocked = ref.watch(pinUnlockedProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -95,32 +95,22 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) async {
       final pinService = PinService();
       final isPinSet = await pinService.isPinSet();
-      final isLoggedIn = authState.value ?? false;
       final isOnPinSetup = state.uri.path == '/pin-setup';
       final isOnPinEntry = state.uri.path == '/pin-entry';
       final isOnLogin = state.uri.path == '/';
-
-      if (authState.isLoading) {
-        return null;
-      }
 
       // First time - need to setup PIN
       if (!isPinSet && !isOnPinSetup) {
         return '/pin-setup';
       }
 
-      // PIN is set but not logged in (need PIN entry)
-      if (isPinSet && !isLoggedIn && !isOnLogin && !isOnPinEntry) {
+      // PIN is set but not unlocked (need PIN entry)
+      if (isPinSet && !pinUnlocked && !isOnPinEntry) {
         return '/pin-entry';
       }
 
-      // Not logged in and not on login page
-      if (!isLoggedIn && !isOnLogin && !isOnPinEntry && !isOnPinSetup) {
-        return '/';
-      }
-
-      // Logged in but on login/pin pages
-      if (isLoggedIn && (isOnLogin || isOnPinEntry)) {
+      // Unlocked but on login/pin pages
+      if (pinUnlocked && (isOnLogin || isOnPinEntry || isOnPinSetup)) {
         return '/dashboard';
       }
 
@@ -145,10 +135,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/pin-entry',
         name: 'pin-entry',
-        builder: (context, state) => const PinEntryPage(
+        builder: (context, state) => PinEntryPage(
           title: 'Welcome Back',
           subtitle: 'Enter your PIN to continue',
           canGoBack: false,
+          popOnSuccess: false,
+          onSuccess: () async {
+            ref.read(pinUnlockedProvider.notifier).state = true;
+            if (context.mounted) {
+              context.go('/dashboard');
+            }
+          },
         ),
       ),
 
