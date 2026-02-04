@@ -100,174 +100,195 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
     return salesAsync.when(
       data: (allSales) {
-        return productsAsync.when(
-          data: (products) {
-            final range = _getPeriodRange(_selectedPeriod);
-            final filteredSales = _filterSalesByRange(allSales, range);
-            final metrics = _calculateSalesMetrics(filteredSales, products);
-            final chartSpots = _buildRevenueSeries(filteredSales, range);
-            final productStats = _buildProductStats(filteredSales);
-            final topByRevenue = productStats.entries.toList()
-              ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
-            final topByUnits = productStats.entries.toList()
-              ..sort((a, b) => b.value.units.compareTo(a.value.units));
-            final paymentEntries = metrics.paymentBreakdown.entries.toList()
-              ..sort((a, b) => b.value.total.compareTo(a.value.total));
+        final products = productsAsync.maybeWhen(
+          data: (items) => items,
+          orElse: () => const <Product>[],
+        );
+        final range = _getPeriodRange(_selectedPeriod);
+        final filteredSales = _filterSalesByRange(allSales, range);
+        final metrics = _calculateSalesMetrics(filteredSales, products);
+        final chartSpots = _buildRevenueSeries(filteredSales, range);
+        final productStats = _buildProductStats(filteredSales);
+        final topByRevenue = productStats.entries.toList()
+          ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
+        final topByUnits = productStats.entries.toList()
+          ..sort((a, b) => b.value.units.compareTo(a.value.units));
+        final paymentEntries = metrics.paymentBreakdown.entries.toList()
+          ..sort((a, b) => b.value.total.compareTo(a.value.total));
 
-            final hasSales = filteredSales.isNotEmpty;
-            final hasCostData = metrics.costedItems > 0;
-            final hasMissingCost = metrics.missingCostItems > 0;
+        final hasSales = filteredSales.isNotEmpty;
+        final hasCostData = metrics.costedItems > 0;
+        final hasMissingCost = metrics.missingCostItems > 0;
+        final isCostLoading = productsAsync.isLoading;
+        final hasCostError = productsAsync.hasError;
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSummaryCards([
-                    _SummaryData(
-                        'Recorded Sales',
-                        _formatCurrency(metrics.recordedSales),
-                        ''),
-                    _SummaryData('Orders', _formatCount(metrics.orders), ''),
-                    _SummaryData(
-                        'Items Sold', _formatCount(metrics.itemsSold), ''),
-                  ]),
-                  const SizedBox(height: 12),
-                  _buildSummaryCards([
-                    _SummaryData(
-                      'Net Sales',
-                      _formatCurrency(metrics.netSales),
-                      metrics.adjustments.abs() > 0.01
-                          ? 'Adj: ${_formatSignedCurrency(metrics.adjustments)}'
-                          : '',
-                    ),
-                    _SummaryData(
-                        'Discounts', _formatCurrency(metrics.discounts), ''),
-                    _SummaryData(
-                      'Avg. Order',
-                      metrics.orders > 0
-                          ? _formatCurrency(metrics.avgOrder)
-                          : 'N/A',
-                      '',
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
-                  _buildSummaryCards([
-                    _SummaryData(
-                      'COGS',
-                      hasCostData ? _formatCurrency(metrics.cogs) : 'N/A',
-                      hasMissingCost
-                          ? 'Missing cost: ${_formatCount(metrics.missingCostItems)} items'
-                          : '',
-                      subtitleColor:
-                          hasMissingCost ? Colors.orange[700] : null,
-                    ),
-                    _SummaryData(
-                      'Gross Profit',
-                      hasCostData ? _formatCurrency(metrics.grossProfit) : 'N/A',
-                      hasMissingCost ? 'Partial cost' : '',
-                      subtitleColor:
-                          hasMissingCost ? Colors.orange[700] : null,
-                    ),
-                    _SummaryData(
-                      'Margin',
-                      hasCostData && metrics.netSales > 0
-                          ? _formatPercent(metrics.grossMargin)
-                          : 'N/A',
-                      '',
-                    ),
-                  ]),
-                  const SizedBox(height: 28),
-                  if (!hasSales)
-                    const Text('No sales data for this period')
-                  else ...[
-                    Text(
-                      'Revenue Trend (${_periodLabel(_selectedPeriod)})',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 200,
-                      child: LineChart(
-                        LineChartData(
-                          gridData: const FlGridData(show: false),
-                          titlesData: const FlTitlesData(show: false),
-                          borderData: FlBorderData(show: false),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: chartSpots,
-                              isCurved: true,
-                              color: Theme.of(context).colorScheme.primary,
-                              barWidth: 2,
-                              dotData: const FlDotData(show: false),
-                              belowBarData: BarAreaData(
-                                show: true,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withOpacity(0.05),
-                              ),
-                            ),
-                          ],
+        String costSubtitle = '';
+        Color? costSubtitleColor;
+        if (hasCostError) {
+          costSubtitle = 'Cost data unavailable';
+          costSubtitleColor = Colors.red;
+        } else if (isCostLoading && !hasCostData) {
+          costSubtitle = 'Cost data loading';
+          costSubtitleColor = Colors.orange[700];
+        } else if (hasMissingCost) {
+          costSubtitle =
+              'Missing cost: ${_formatCount(metrics.missingCostItems)} items';
+          costSubtitleColor = Colors.orange[700];
+        }
+
+        String profitSubtitle = '';
+        Color? profitSubtitleColor;
+        if (hasCostError) {
+          profitSubtitle = 'Cost data unavailable';
+          profitSubtitleColor = Colors.red;
+        } else if (isCostLoading && !hasCostData) {
+          profitSubtitle = 'Cost data loading';
+          profitSubtitleColor = Colors.orange[700];
+        } else if (hasMissingCost) {
+          profitSubtitle = 'Partial cost';
+          profitSubtitleColor = Colors.orange[700];
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSummaryCards([
+                _SummaryData(
+                    'Recorded Sales',
+                    _formatCurrency(metrics.recordedSales),
+                    ''),
+                _SummaryData('Orders', _formatCount(metrics.orders), ''),
+                _SummaryData(
+                    'Items Sold', _formatCount(metrics.itemsSold), ''),
+              ]),
+              const SizedBox(height: 12),
+              _buildSummaryCards([
+                _SummaryData(
+                  'Net Sales',
+                  _formatCurrency(metrics.netSales),
+                  metrics.adjustments.abs() > 0.01
+                      ? 'Adj: ${_formatSignedCurrency(metrics.adjustments)}'
+                      : '',
+                ),
+                _SummaryData(
+                    'Discounts', _formatCurrency(metrics.discounts), ''),
+                _SummaryData(
+                  'Avg. Order',
+                  metrics.orders > 0 ? _formatCurrency(metrics.avgOrder) : 'N/A',
+                  '',
+                ),
+              ]),
+              const SizedBox(height: 12),
+              _buildSummaryCards([
+                _SummaryData(
+                  'COGS',
+                  hasCostData ? _formatCurrency(metrics.cogs) : 'N/A',
+                  costSubtitle,
+                  subtitleColor: costSubtitleColor,
+                ),
+                _SummaryData(
+                  'Gross Profit',
+                  hasCostData ? _formatCurrency(metrics.grossProfit) : 'N/A',
+                  profitSubtitle,
+                  subtitleColor: profitSubtitleColor,
+                ),
+                _SummaryData(
+                  'Margin',
+                  hasCostData && metrics.netSales > 0
+                      ? _formatPercent(metrics.grossMargin)
+                      : 'N/A',
+                  '',
+                ),
+              ]),
+              const SizedBox(height: 28),
+              if (!hasSales)
+                const Text('No sales data for this period')
+              else ...[
+                Text(
+                  'Revenue Trend (${_periodLabel(_selectedPeriod)})',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 200,
+                  child: LineChart(
+                    LineChartData(
+                      gridData: const FlGridData(show: false),
+                      titlesData: const FlTitlesData(show: false),
+                      borderData: FlBorderData(show: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: chartSpots,
+                          isCurved: true,
+                          color: Theme.of(context).colorScheme.primary,
+                          barWidth: 2,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.05),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 28),
-                    const Text('Payment Methods',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    if (paymentEntries.isEmpty)
-                      const Text('No payment data available')
-                    else
-                      ...paymentEntries.map((entry) {
-                        final share = metrics.recordedSales > 0
-                            ? entry.value.total / metrics.recordedSales
-                            : 0.0;
-                        return _buildListRow(
-                          entry.key,
-                          _formatCurrency(entry.value.total),
-                          '${_formatCount(entry.value.count)} sales | ${_formatPercent(share)}',
-                        );
-                      }).toList(),
-                    const SizedBox(height: 28),
-                    const Text('Top Products by Revenue',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    if (topByRevenue.isEmpty)
-                      const Text('No sales data available')
-                    else
-                      ...topByRevenue.take(4).map((entry) {
-                        return _buildListRow(
-                          entry.key,
-                          _formatCurrency(entry.value.revenue),
-                          '${_formatCount(entry.value.units)} units',
-                        );
-                      }).toList(),
-                    const SizedBox(height: 20),
-                    const Text('Top Products by Units',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    if (topByUnits.isEmpty)
-                      const Text('No sales data available')
-                    else
-                      ...topByUnits.take(4).map((entry) {
-                        return _buildListRow(
-                          entry.key,
-                          _formatCount(entry.value.units),
-                          'Revenue: ${_formatCurrency(entry.value.revenue)}',
-                        );
-                      }).toList(),
-                  ],
-                ],
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text('Error: $err')),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                const Text('Payment Methods',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                if (paymentEntries.isEmpty)
+                  const Text('No payment data available')
+                else
+                  ...paymentEntries.map((entry) {
+                    final share = metrics.recordedSales > 0
+                        ? entry.value.total / metrics.recordedSales
+                        : 0.0;
+                    return _buildListRow(
+                      entry.key,
+                      _formatCurrency(entry.value.total),
+                      '${_formatCount(entry.value.count)} sales | ${_formatPercent(share)}',
+                    );
+                  }).toList(),
+                const SizedBox(height: 28),
+                const Text('Top Products by Revenue',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                if (topByRevenue.isEmpty)
+                  const Text('No sales data available')
+                else
+                  ...topByRevenue.take(4).map((entry) {
+                    return _buildListRow(
+                      entry.key,
+                      _formatCurrency(entry.value.revenue),
+                      '${_formatCount(entry.value.units)} units',
+                    );
+                  }).toList(),
+                const SizedBox(height: 20),
+                const Text('Top Products by Units',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                if (topByUnits.isEmpty)
+                  const Text('No sales data available')
+                else
+                  ...topByUnits.take(4).map((entry) {
+                    return _buildListRow(
+                      entry.key,
+                      _formatCount(entry.value.units),
+                      'Revenue: ${_formatCurrency(entry.value.revenue)}',
+                    );
+                  }).toList(),
+              ],
+            ],
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -690,7 +711,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       }
 
       for (final item in sale.items) {
-        final itemGross = item.price * item.quantity;
         final itemDiscount = (item.discount ?? 0) * item.quantity;
         discounts += itemDiscount;
         itemsSold += item.quantity;
