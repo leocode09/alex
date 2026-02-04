@@ -30,7 +30,6 @@ class _TimeTamperWatcherState extends ConsumerState<TimeTamperWatcher>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _service.recordBaseline();
     _scheduleTimer();
     _checkForTamper();
   }

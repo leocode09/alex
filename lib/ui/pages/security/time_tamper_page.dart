@@ -72,6 +72,7 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
     if (!verified || !mounted) {
       return;
     }
+    await _service.clearTamper();
     ref.read(timeTamperProvider.notifier).state = null;
     ref.read(pinUnlockedProvider.notifier).state = true;
     context.go('/dashboard');

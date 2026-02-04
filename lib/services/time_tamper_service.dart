@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,9 +9,15 @@ class TimeTamperService {
   static const String _wallKey = 'time_guard_wall_ms';
   static const String _elapsedKey = 'time_guard_elapsed_ms';
   static const String _tzKey = 'time_guard_tz_offset_min';
+  static const String _tamperKey = 'time_guard_tampered';
+  static const String _tamperReasonKey = 'time_guard_reason';
+  static const String _tamperDetectedKey = 'time_guard_detected_at_ms';
+
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   Future<int?> _getElapsedRealtimeMs() async {
-    if (!Platform.isAndroid) {
+    if (!_isAndroid) {
       return null;
     }
     try {
@@ -33,9 +38,40 @@ class TimeTamperService {
     }
   }
 
+  Future<TimeTamperStatus?> getPendingTamper() async {
+    final prefs = await SharedPreferences.getInstance();
+    final flagged = prefs.getBool(_tamperKey) ?? false;
+    if (!flagged) {
+      return null;
+    }
+    final reason =
+        prefs.getString(_tamperReasonKey) ?? 'Device time was modified.';
+    final detectedAtMs = prefs.getInt(_tamperDetectedKey);
+    final detectedAt = detectedAtMs != null
+        ? DateTime.fromMillisecondsSinceEpoch(detectedAtMs)
+        : DateTime.now();
+    return TimeTamperStatus(reason: reason, detectedAt: detectedAt);
+  }
+
+  Future<void> clearTamper() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tamperKey);
+    await prefs.remove(_tamperReasonKey);
+    await prefs.remove(_tamperDetectedKey);
+    await recordBaseline();
+  }
+
   Future<TimeTamperStatus?> checkForTamper({
     Duration threshold = const Duration(minutes: 2),
   }) async {
+    if (!_isAndroid) {
+      await recordBaseline();
+      return null;
+    }
+    final pending = await getPendingTamper();
+    if (pending != null) {
+      return pending;
+    }
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
     final wallNow = now.millisecondsSinceEpoch;
@@ -70,12 +106,27 @@ class TimeTamperService {
       );
     }
 
+    if (tamper != null) {
+      await _storeTamper(tamper);
+      return tamper;
+    }
+
     await recordBaseline();
     return tamper;
   }
 
+  Future<void> _storeTamper(TimeTamperStatus tamper) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_tamperKey, true);
+    await prefs.setString(_tamperReasonKey, tamper.reason);
+    await prefs.setInt(
+      _tamperDetectedKey,
+      tamper.detectedAt.millisecondsSinceEpoch,
+    );
+  }
+
   Future<void> openDateTimeSettings() async {
-    if (!Platform.isAndroid) {
+    if (!_isAndroid) {
       return;
     }
     try {

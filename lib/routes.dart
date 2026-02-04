@@ -104,7 +104,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnTimeLock = state.uri.path == '/time-lock';
       final requireLoginPin = await pinService.isPinRequiredForLogin();
 
-      if (timeTamper != null && !isOnTimeLock) {
+      if (timeTamper != null && isPinSet && !isOnTimeLock) {
         return '/time-lock';
       }
 
