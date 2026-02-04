@@ -228,7 +228,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                         return _buildListRow(
                           entry.key,
                           _formatCurrency(entry.value.total),
-                          '${_formatCount(entry.value.count)} sales • ${_formatPercent(share)}',
+                          '${_formatCount(entry.value.count)} sales | ${_formatPercent(share)}',
                         );
                       }).toList(),
                     const SizedBox(height: 28),
@@ -258,7 +258,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                         return _buildListRow(
                           entry.key,
                           _formatCount(entry.value.units),
-                          _formatCurrency(entry.value.revenue),
+                          'Revenue: ${_formatCurrency(entry.value.revenue)}',
                         );
                       }).toList(),
                   ],
@@ -282,7 +282,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       data: (products) {
         final totalProducts = products.length;
         final totalUnits = products.fold<int>(0, (sum, p) => sum + p.stock);
-        final lowStockItems = products.where((p) => p.stock < 20).toList();
+        final lowStockItems =
+            products.where((p) => p.stock > 0 && p.stock < 20).toList();
         final outOfStockItems = products.where((p) => p.stock == 0).toList();
         final retailValue =
             products.fold<double>(0.0, (sum, p) => sum + (p.price * p.stock));
@@ -313,29 +314,32 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           ..sort((a, b) => b.value.compareTo(a.value));
         final palette = [
           Theme.of(context).colorScheme.primary,
-          Colors.blue[300],
-          Colors.orange[300],
-          Colors.green[300],
-          Colors.purple[300],
-          Colors.teal[300],
-          Colors.grey[400],
+          Colors.blue.shade300,
+          Colors.orange.shade300,
+          Colors.green.shade300,
+          Colors.purple.shade300,
+          Colors.teal.shade300,
+          Colors.grey.shade400,
         ];
-        final sections = categoryEntries.map((entry) {
+        final sections = <PieChartSectionData>[];
+        for (var i = 0; i < categoryEntries.length; i++) {
+          final entry = categoryEntries[i];
           final percentage =
               totalStock > 0 ? (entry.value / totalStock * 100) : 0.0;
-          final index = categoryEntries.indexOf(entry);
-          final color = palette[index % palette.length] ?? Colors.grey[400];
-          return PieChartSectionData(
-            color: color,
-            value: percentage,
-            title: '${percentage.toStringAsFixed(0)}%',
-            radius: 50,
-            titleStyle: TextStyle(
-              color: index == 0 ? Colors.white : Colors.black,
-              fontSize: 12,
+          final color = palette[i % palette.length];
+          sections.add(
+            PieChartSectionData(
+              color: color,
+              value: percentage,
+              title: '${percentage.toStringAsFixed(0)}%',
+              radius: 50,
+              titleStyle: TextStyle(
+                color: i == 0 ? Colors.white : Colors.black,
+                fontSize: 12,
+              ),
             ),
           );
-        }).toList();
+        }
 
         final topValueProducts = [...products]
           ..sort((a, b) =>
@@ -447,14 +451,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         double totalRevenue = 0.0;
         for (var sale in filteredSales) {
           final saleTotal = _saleCalculatedTotal(sale);
-          final itemsInSale = sale.items.fold<int>(
-              0, (sum, item) => sum + item.quantity);
           totalRevenue += saleTotal;
           final stats = employeeStats.putIfAbsent(
               sale.employeeId, () => _EmployeePerformance());
           stats.revenue += saleTotal;
           stats.orders += 1;
-          stats.items += itemsInSale;
         }
 
         final sortedByRevenue = employeeStats.entries.toList()
@@ -655,33 +656,90 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     }
   }
 
-  Widget _buildTopProducts(List<Sale> sales) {
-    if (sales.isEmpty) {
-      return const Text('No sales data available');
-    }
+  double _saleCalculatedTotal(Sale sale) {
+    return sale.items.fold<double>(0.0, (sum, item) => sum + item.subtotal);
+  }
 
-    final productCounts = <String, int>{};
-    final productRevenues = <String, double>{};
-    for (var sale in sales) {
-      for (var item in sale.items) {
-        productCounts[item.productName] =
-            (productCounts[item.productName] ?? 0) + item.quantity;
-        productRevenues[item.productName] =
-            (productRevenues[item.productName] ?? 0) +
-                (item.price * item.quantity);
+  _SalesMetrics _calculateSalesMetrics(
+      List<Sale> sales, List<Product> products) {
+    final productById = {for (final product in products) product.id: product};
+    double recordedSales = 0.0;
+    double discounts = 0.0;
+    double netSales = 0.0;
+    double cogs = 0.0;
+    int itemsSold = 0;
+    int missingCostItems = 0;
+    int costedItems = 0;
+    final paymentBreakdown = <String, _PaymentMetrics>{};
+
+    for (final sale in sales) {
+      recordedSales += sale.total;
+      final saleNet = _saleCalculatedTotal(sale);
+      netSales += saleNet;
+
+      final method =
+          sale.paymentMethod.isNotEmpty ? sale.paymentMethod : 'Unknown';
+      final existing = paymentBreakdown[method];
+      if (existing == null) {
+        paymentBreakdown[method] = _PaymentMetrics(total: sale.total, count: 1);
+      } else {
+        paymentBreakdown[method] = _PaymentMetrics(
+          total: existing.total + sale.total,
+          count: existing.count + 1,
+        );
+      }
+
+      for (final item in sale.items) {
+        final itemGross = item.price * item.quantity;
+        final itemDiscount = (item.discount ?? 0) * item.quantity;
+        discounts += itemDiscount;
+        itemsSold += item.quantity;
+
+        final product = productById[item.productId];
+        final costPrice = product?.costPrice;
+        if (costPrice != null) {
+          cogs += costPrice * item.quantity;
+          costedItems += item.quantity;
+        } else {
+          missingCostItems += item.quantity;
+        }
       }
     }
 
-    final topProducts = productCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final orders = sales.length;
+    final avgOrder = orders > 0 ? netSales / orders : 0.0;
+    final adjustments = recordedSales - netSales;
+    final grossProfit = netSales - cogs;
+    final grossMargin = netSales > 0 ? grossProfit / netSales : 0.0;
 
-    return Column(
-      children: topProducts.take(4).map((entry) {
-        final revenue = productRevenues[entry.key] ?? 0.0;
-        return _buildListRow(
-            entry.key, '\$${_formatNumber(revenue)}', '${entry.value} units');
-      }).toList(),
+    return _SalesMetrics(
+      recordedSales: recordedSales,
+      discounts: discounts,
+      netSales: netSales,
+      adjustments: adjustments,
+      orders: orders,
+      itemsSold: itemsSold,
+      avgOrder: avgOrder,
+      cogs: cogs,
+      grossProfit: grossProfit,
+      grossMargin: grossMargin,
+      missingCostItems: missingCostItems,
+      costedItems: costedItems,
+      paymentBreakdown: paymentBreakdown,
     );
+  }
+
+  Map<String, _ProductPerformance> _buildProductStats(List<Sale> sales) {
+    final stats = <String, _ProductPerformance>{};
+    for (final sale in sales) {
+      for (final item in sale.items) {
+        final entry =
+            stats.putIfAbsent(item.productName, () => _ProductPerformance());
+        entry.units += item.quantity;
+        entry.revenue += item.subtotal;
+      }
+    }
+    return stats;
   }
 
   Widget _buildSummaryCards(List<_SummaryData> data) {
@@ -703,16 +761,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 const SizedBox(height: 8),
                 Text(item.value,
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 if (item.subtitle.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     item.subtitle,
                     style: TextStyle(
-                      color: item.subtitle.contains('-') ||
-                              item.subtitle == 'Alert'
-                          ? Colors.red
-                          : Colors.green,
+                      color: item.subtitleColor ??
+                          (item.subtitle.contains('-') ||
+                                  item.subtitle == 'Alert'
+                              ? Colors.red
+                              : Colors.green),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -737,27 +798,40 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-              Text(subtitle,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w500)),
+                if (subtitle.isNotEmpty)
+                  Text(subtitle,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+              ],
+            ),
           ),
+          const SizedBox(width: 12),
           Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
-  String _formatNumber(double number) {
-    if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M';
-    } else if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}K';
-    }
-    return number.toStringAsFixed(0);
+  String _formatCurrency(double value) {
+    return _currencyFormat.format(value);
+  }
+
+  String _formatSignedCurrency(double value) {
+    final sign = value >= 0 ? '+' : '-';
+    return '$sign${_formatCurrency(value.abs())}';
+  }
+
+  String _formatCount(num value) {
+    return _countFormat.format(value);
+  }
+
+  String _formatPercent(double value) {
+    return '${(value * 100).toStringAsFixed(1)}%';
   }
 }
 
@@ -765,6 +839,56 @@ class _SummaryData {
   final String title;
   final String value;
   final String subtitle;
+  final Color? subtitleColor;
 
-  _SummaryData(this.title, this.value, this.subtitle);
+  _SummaryData(this.title, this.value, this.subtitle, {this.subtitleColor});
+}
+
+class _SalesMetrics {
+  final double recordedSales;
+  final double discounts;
+  final double netSales;
+  final double adjustments;
+  final int orders;
+  final int itemsSold;
+  final double avgOrder;
+  final double cogs;
+  final double grossProfit;
+  final double grossMargin;
+  final int missingCostItems;
+  final int costedItems;
+  final Map<String, _PaymentMetrics> paymentBreakdown;
+
+  _SalesMetrics({
+    required this.recordedSales,
+    required this.discounts,
+    required this.netSales,
+    required this.adjustments,
+    required this.orders,
+    required this.itemsSold,
+    required this.avgOrder,
+    required this.cogs,
+    required this.grossProfit,
+    required this.grossMargin,
+    required this.missingCostItems,
+    required this.costedItems,
+    required this.paymentBreakdown,
+  });
+}
+
+class _PaymentMetrics {
+  final double total;
+  final int count;
+
+  _PaymentMetrics({required this.total, required this.count});
+}
+
+class _ProductPerformance {
+  int units = 0;
+  double revenue = 0.0;
+}
+
+class _EmployeePerformance {
+  int orders = 0;
+  double revenue = 0.0;
 }
