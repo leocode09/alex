@@ -12,6 +12,8 @@ import 'ui/pages/auth/pin_entry_page.dart';
 import 'ui/pages/auth/pin_preferences_page.dart';
 import 'providers/pin_unlock_provider.dart';
 import 'services/pin_service.dart';
+import 'providers/time_tamper_provider.dart';
+import 'ui/pages/security/time_tamper_page.dart';
 
 // Dashboard
 import 'ui/pages/dashboard/dashboard_page.dart';
@@ -88,6 +90,7 @@ int _getCurrentIndex(String location) {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final pinUnlocked = ref.watch(pinUnlockedProvider);
+  final timeTamper = ref.watch(timeTamperProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -98,7 +101,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnPinSetup = state.uri.path == '/pin-setup';
       final isOnPinEntry = state.uri.path == '/pin-entry';
       final isOnLogin = state.uri.path == '/';
+      final isOnTimeLock = state.uri.path == '/time-lock';
       final requireLoginPin = await pinService.isPinRequiredForLogin();
+
+      if (timeTamper != null && !isOnTimeLock) {
+        return '/time-lock';
+      }
+
+      if (timeTamper == null && isOnTimeLock) {
+        return '/dashboard';
+      }
 
       // First time - need to setup PIN
       if (!isPinSet && !isOnPinSetup) {
@@ -118,6 +130,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // Time tamper lock
+      GoRoute(
+        path: '/time-lock',
+        name: 'time-lock',
+        builder: (context, state) => const TimeTamperPage(),
+      ),
+
       // PIN Setup (first time)
       GoRoute(
         path: '/pin-setup',
