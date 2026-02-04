@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/product_provider.dart';
@@ -18,6 +20,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedPeriod = 'This Week';
+  final NumberFormat _currencyFormat =
+      NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+  final NumberFormat _countFormat = NumberFormat.decimalPattern();
 
   @override
   void initState() {
@@ -91,69 +96,178 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
   Widget _buildSalesTab() {
     final salesAsync = ref.watch(salesProvider);
+    final productsAsync = ref.watch(productsProvider);
 
     return salesAsync.when(
       data: (allSales) {
-        final range = _getPeriodRange(_selectedPeriod);
-        final filteredSales = _filterSalesByRange(allSales, range);
-        final salesCount = filteredSales.length;
-        final totalRevenue =
-            filteredSales.fold<double>(0.0, (sum, sale) => sum + sale.total);
-        final avgOrder = salesCount > 0 ? totalRevenue / salesCount : 0.0;
+        return productsAsync.when(
+          data: (products) {
+            final range = _getPeriodRange(_selectedPeriod);
+            final filteredSales = _filterSalesByRange(allSales, range);
+            final metrics = _calculateSalesMetrics(filteredSales, products);
+            final chartSpots = _buildRevenueSeries(filteredSales, range);
+            final productStats = _buildProductStats(filteredSales);
+            final topByRevenue = productStats.entries.toList()
+              ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
+            final topByUnits = productStats.entries.toList()
+              ..sort((a, b) => b.value.units.compareTo(a.value.units));
+            final paymentEntries = metrics.paymentBreakdown.entries.toList()
+              ..sort((a, b) => b.value.total.compareTo(a.value.total));
 
-        final chartSpots = _buildRevenueSeries(filteredSales, range);
+            final hasSales = filteredSales.isNotEmpty;
+            final hasCostData = metrics.costedItems > 0;
+            final hasMissingCost = metrics.missingCostItems > 0;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSummaryCards([
-                _SummaryData(
-                    'Total Sales', '\$${_formatNumber(totalRevenue)}', ''),
-                _SummaryData('Orders', '$salesCount', ''),
-                _SummaryData(
-                    'Avg. Order', '\$${_formatNumber(avgOrder)}', ''),
-              ]),
-              const SizedBox(height: 32),
-              Text(
-                  'Revenue Trend (${_periodLabel(_selectedPeriod)})',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 200,
-                child: LineChart(
-                  LineChartData(
-                    gridData: const FlGridData(show: false),
-                    titlesData: const FlTitlesData(show: false),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: chartSpots,
-                        isCurved: true,
-                        color: Theme.of(context).colorScheme.primary,
-                        barWidth: 2,
-                        dotData: const FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.05),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSummaryCards([
+                    _SummaryData(
+                        'Recorded Sales',
+                        _formatCurrency(metrics.recordedSales),
+                        ''),
+                    _SummaryData('Orders', _formatCount(metrics.orders), ''),
+                    _SummaryData(
+                        'Items Sold', _formatCount(metrics.itemsSold), ''),
+                  ]),
+                  const SizedBox(height: 12),
+                  _buildSummaryCards([
+                    _SummaryData(
+                      'Net Sales',
+                      _formatCurrency(metrics.netSales),
+                      metrics.adjustments.abs() > 0.01
+                          ? 'Adj: ${_formatSignedCurrency(metrics.adjustments)}'
+                          : '',
+                    ),
+                    _SummaryData(
+                        'Discounts', _formatCurrency(metrics.discounts), ''),
+                    _SummaryData(
+                      'Avg. Order',
+                      metrics.orders > 0
+                          ? _formatCurrency(metrics.avgOrder)
+                          : 'N/A',
+                      '',
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  _buildSummaryCards([
+                    _SummaryData(
+                      'COGS',
+                      hasCostData ? _formatCurrency(metrics.cogs) : 'N/A',
+                      hasMissingCost
+                          ? 'Missing cost: ${_formatCount(metrics.missingCostItems)} items'
+                          : '',
+                      subtitleColor:
+                          hasMissingCost ? Colors.orange[700] : null,
+                    ),
+                    _SummaryData(
+                      'Gross Profit',
+                      hasCostData ? _formatCurrency(metrics.grossProfit) : 'N/A',
+                      hasMissingCost ? 'Partial cost' : '',
+                      subtitleColor:
+                          hasMissingCost ? Colors.orange[700] : null,
+                    ),
+                    _SummaryData(
+                      'Margin',
+                      hasCostData && metrics.netSales > 0
+                          ? _formatPercent(metrics.grossMargin)
+                          : 'N/A',
+                      '',
+                    ),
+                  ]),
+                  const SizedBox(height: 28),
+                  if (!hasSales)
+                    const Text('No sales data for this period')
+                  else ...[
+                    Text(
+                      'Revenue Trend (${_periodLabel(_selectedPeriod)})',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: LineChart(
+                        LineChartData(
+                          gridData: const FlGridData(show: false),
+                          titlesData: const FlTitlesData(show: false),
+                          borderData: FlBorderData(show: false),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: chartSpots,
+                              isCurved: true,
+                              color: Theme.of(context).colorScheme.primary,
+                              barWidth: 2,
+                              dotData: const FlDotData(show: false),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.05),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text('Payment Methods',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    if (paymentEntries.isEmpty)
+                      const Text('No payment data available')
+                    else
+                      ...paymentEntries.map((entry) {
+                        final share = metrics.recordedSales > 0
+                            ? entry.value.total / metrics.recordedSales
+                            : 0.0;
+                        return _buildListRow(
+                          entry.key,
+                          _formatCurrency(entry.value.total),
+                          '${_formatCount(entry.value.count)} sales • ${_formatPercent(share)}',
+                        );
+                      }).toList(),
+                    const SizedBox(height: 28),
+                    const Text('Top Products by Revenue',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    if (topByRevenue.isEmpty)
+                      const Text('No sales data available')
+                    else
+                      ...topByRevenue.take(4).map((entry) {
+                        return _buildListRow(
+                          entry.key,
+                          _formatCurrency(entry.value.revenue),
+                          '${_formatCount(entry.value.units)} units',
+                        );
+                      }).toList(),
+                    const SizedBox(height: 20),
+                    const Text('Top Products by Units',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    if (topByUnits.isEmpty)
+                      const Text('No sales data available')
+                    else
+                      ...topByUnits.take(4).map((entry) {
+                        return _buildListRow(
+                          entry.key,
+                          _formatCount(entry.value.units),
+                          _formatCurrency(entry.value.revenue),
+                        );
+                      }).toList(),
+                  ],
+                ],
               ),
-              const SizedBox(height: 32),
-              const Text('Top Selling Products',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              _buildTopProducts(filteredSales),
-            ],
-          ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Error: $err')),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -166,10 +280,24 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
     return productsAsync.when(
       data: (products) {
-        final totalItems = products.fold<int>(0, (sum, p) => sum + p.stock);
+        final totalProducts = products.length;
+        final totalUnits = products.fold<int>(0, (sum, p) => sum + p.stock);
         final lowStockItems = products.where((p) => p.stock < 20).toList();
-        final totalValue =
+        final outOfStockItems = products.where((p) => p.stock == 0).toList();
+        final retailValue =
             products.fold<double>(0.0, (sum, p) => sum + (p.price * p.stock));
+        double costValue = 0.0;
+        int costedUnits = 0;
+        int missingCostUnits = 0;
+        for (var product in products) {
+          if (product.costPrice != null) {
+            costValue += product.costPrice! * product.stock;
+            costedUnits += product.stock;
+          } else if (product.stock > 0) {
+            missingCostUnits += product.stock;
+          }
+        }
+        final hasCostData = costedUnits > 0;
 
         // Calculate stock distribution by category
         final categoryStock = <String, int>{};
@@ -181,26 +309,37 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
         final totalStock =
             categoryStock.values.fold<int>(0, (sum, val) => sum + val);
-        final sections = categoryStock.entries.map((entry) {
+        final categoryEntries = categoryStock.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        final palette = [
+          Theme.of(context).colorScheme.primary,
+          Colors.blue[300],
+          Colors.orange[300],
+          Colors.green[300],
+          Colors.purple[300],
+          Colors.teal[300],
+          Colors.grey[400],
+        ];
+        final sections = categoryEntries.map((entry) {
           final percentage =
               totalStock > 0 ? (entry.value / totalStock * 100) : 0.0;
-          final color = categoryStock.keys.toList().indexOf(entry.key) == 0
-              ? Theme.of(context).colorScheme.primary
-              : Colors.grey[
-                  (4 - categoryStock.keys.toList().indexOf(entry.key)) * 200];
+          final index = categoryEntries.indexOf(entry);
+          final color = palette[index % palette.length] ?? Colors.grey[400];
           return PieChartSectionData(
             color: color,
             value: percentage,
             title: '${percentage.toStringAsFixed(0)}%',
             radius: 50,
             titleStyle: TextStyle(
-              color: categoryStock.keys.toList().indexOf(entry.key) == 0
-                  ? Colors.white
-                  : Colors.black,
+              color: index == 0 ? Colors.white : Colors.black,
               fontSize: 12,
             ),
           );
         }).toList();
+
+        final topValueProducts = [...products]
+          ..sort((a, b) =>
+              (b.price * b.stock).compareTo(a.price * a.stock));
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -208,10 +347,26 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSummaryCards([
-                _SummaryData('Total Items', '$totalItems', ''),
-                _SummaryData('Low Stock', '${lowStockItems.length}',
+                _SummaryData('Products', _formatCount(totalProducts), ''),
+                _SummaryData('Total Units', _formatCount(totalUnits), ''),
+                _SummaryData('Low Stock', _formatCount(lowStockItems.length),
                     lowStockItems.isNotEmpty ? 'Alert' : ''),
-                _SummaryData('Value', '\$${_formatNumber(totalValue)}', ''),
+              ]),
+              const SizedBox(height: 12),
+              _buildSummaryCards([
+                _SummaryData('Out of Stock', _formatCount(outOfStockItems.length),
+                    outOfStockItems.isNotEmpty ? 'Alert' : ''),
+                _SummaryData(
+                    'Retail Value', _formatCurrency(retailValue), ''),
+                _SummaryData(
+                  'Cost Value',
+                  hasCostData ? _formatCurrency(costValue) : 'N/A',
+                  missingCostUnits > 0
+                      ? 'Missing cost: ${_formatCount(missingCostUnits)} units'
+                      : '',
+                  subtitleColor:
+                      missingCostUnits > 0 ? Colors.orange[700] : null,
+                ),
               ]),
               const SizedBox(height: 32),
               const Text('Stock Distribution by Category',
@@ -230,6 +385,21 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       ),
               ),
               const SizedBox(height: 32),
+              const Text('Top Stock Value',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              if (topValueProducts.isEmpty)
+                const Text('No inventory data')
+              else
+                ...topValueProducts.take(5).map((product) {
+                  final value = product.price * product.stock;
+                  return _buildListRow(
+                    product.name,
+                    _formatCurrency(value),
+                    '${_formatCount(product.stock)} units',
+                  );
+                }).toList(),
+              const SizedBox(height: 32),
               const Text('Low Stock Alerts',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
@@ -239,10 +409,24 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 ...lowStockItems.take(5).map((product) {
                   return _buildListRow(
                     product.name,
-                    '${product.stock} left',
+                    '${_formatCount(product.stock)} left',
                     product.stock < 10 ? 'Reorder' : 'Low',
                   );
                 }).toList(),
+              if (outOfStockItems.isNotEmpty) ...[
+                const SizedBox(height: 32),
+                const Text('Out of Stock',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                ...outOfStockItems.take(5).map((product) {
+                  return _buildListRow(
+                    product.name,
+                    '0 units',
+                    'Restock',
+                  );
+                }).toList(),
+              ],
             ],
           ),
         );
@@ -259,27 +443,33 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       data: (allSales) {
         final range = _getPeriodRange(_selectedPeriod);
         final filteredSales = _filterSalesByRange(allSales, range);
-        // Group sales by employee
-        final employeeStats = <String, Map<String, dynamic>>{};
+        final employeeStats = <String, _EmployeePerformance>{};
+        double totalRevenue = 0.0;
         for (var sale in filteredSales) {
-          if (!employeeStats.containsKey(sale.employeeId)) {
-            employeeStats[sale.employeeId] = {
-              'revenue': 0.0,
-              'count': 0,
-            };
-          }
-          employeeStats[sale.employeeId]!['revenue'] += sale.total;
-          employeeStats[sale.employeeId]!['count']++;
+          final saleTotal = _saleCalculatedTotal(sale);
+          final itemsInSale = sale.items.fold<int>(
+              0, (sum, item) => sum + item.quantity);
+          totalRevenue += saleTotal;
+          final stats = employeeStats.putIfAbsent(
+              sale.employeeId, () => _EmployeePerformance());
+          stats.revenue += saleTotal;
+          stats.orders += 1;
+          stats.items += itemsInSale;
         }
 
-        // Sort by revenue
-        final sortedEmployees = employeeStats.entries.toList()
-          ..sort((a, b) => (b.value['revenue'] as double)
-              .compareTo(a.value['revenue'] as double));
+        final sortedByRevenue = employeeStats.entries.toList()
+          ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
+        final sortedByOrders = employeeStats.entries.toList()
+          ..sort((a, b) => b.value.orders.compareTo(a.value.orders));
 
         final topSeller =
-            sortedEmployees.isNotEmpty ? sortedEmployees.first : null;
+            sortedByRevenue.isNotEmpty ? sortedByRevenue.first : null;
+        final mostOrders =
+            sortedByOrders.isNotEmpty ? sortedByOrders.first : null;
         final activeStaff = employeeStats.length;
+        final totalSales = filteredSales.length;
+        final avgOrder =
+            totalSales > 0 ? totalRevenue / totalSales : 0.0;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -287,30 +477,44 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSummaryCards([
-                _SummaryData('Active Staff', '$activeStaff', ''),
-                _SummaryData('Total Sales', '${filteredSales.length}', ''),
+                _SummaryData('Active Staff', _formatCount(activeStaff), ''),
+                _SummaryData('Total Sales', _formatCount(totalSales), ''),
+                _SummaryData(
+                    'Revenue', _formatCurrency(totalRevenue), ''),
+              ]),
+              const SizedBox(height: 12),
+              _buildSummaryCards([
+                _SummaryData('Avg. Order',
+                    totalSales > 0 ? _formatCurrency(avgOrder) : 'N/A', ''),
                 _SummaryData(
                     'Top Seller',
                     topSeller != null ? topSeller.key.split('@').first : 'N/A',
                     topSeller != null
-                        ? '\$${_formatNumber(topSeller.value['revenue'] as double)}'
+                        ? _formatCurrency(topSeller.value.revenue)
+                        : ''),
+                _SummaryData(
+                    'Most Orders',
+                    mostOrders != null ? mostOrders.key.split('@').first : 'N/A',
+                    mostOrders != null
+                        ? '${_formatCount(mostOrders.value.orders)} orders'
                         : ''),
               ]),
               const SizedBox(height: 32),
               const Text('Performance',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              if (sortedEmployees.isEmpty)
+              if (sortedByRevenue.isEmpty)
                 const Text('No sales data available')
               else
-                ...sortedEmployees.take(5).map((entry) {
+                ...sortedByRevenue.take(5).map((entry) {
                   final employeeName = entry.key.split('@').first;
-                  final revenue = entry.value['revenue'] as double;
-                  final count = entry.value['count'] as int;
+                  final revenue = entry.value.revenue;
+                  final count = entry.value.orders;
+                  final share = totalRevenue > 0 ? revenue / totalRevenue : 0.0;
                   return _buildListRow(
                     employeeName,
-                    '\$${_formatNumber(revenue)}',
-                    '$count Sales',
+                    _formatCurrency(revenue),
+                    '${_formatCount(count)} orders | ${_formatPercent(share)}',
                   );
                 }).toList(),
             ],
@@ -400,8 +604,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final revenue = sales.where((sale) {
           return !sale.createdAt.isBefore(hourStart) &&
               sale.createdAt.isBefore(hourEnd);
-        }).fold<double>(0.0, (sum, sale) => sum + sale.total);
-        return FlSpot(i.toDouble(), revenue / 1000);
+        }).fold<double>(
+            0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
+        return FlSpot(i.toDouble(), revenue);
       });
     }
 
@@ -414,8 +619,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final revenue = sales.where((sale) {
           return !sale.createdAt.isBefore(dayStart) &&
               !sale.createdAt.isAfter(dayEnd);
-        }).fold<double>(0.0, (sum, sale) => sum + sale.total);
-        return FlSpot(i.toDouble(), revenue / 1000);
+        }).fold<double>(
+            0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
+        return FlSpot(i.toDouble(), revenue);
       });
     }
 
@@ -429,8 +635,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       final revenue = sales.where((sale) {
         return !sale.createdAt.isBefore(monthStart) &&
             !sale.createdAt.isAfter(monthEnd);
-      }).fold<double>(0.0, (sum, sale) => sum + sale.total);
-      return FlSpot(i.toDouble(), revenue / 1000);
+      }).fold<double>(
+          0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
+      return FlSpot(i.toDouble(), revenue);
     });
   }
 
