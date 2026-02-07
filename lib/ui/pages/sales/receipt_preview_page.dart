@@ -11,7 +11,7 @@ import '../../../providers/product_provider.dart';
 import '../../../repositories/sale_repository.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
-import '../../../services/wifi_direct_sync_service.dart';
+import '../../../services/data_sync_triggers.dart';
 import 'receipts_page.dart'; // For PrinterDialog
 
 class ReceiptPreviewPage extends ConsumerStatefulWidget {
@@ -511,7 +511,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
 
     await ref.read(saleRepositoryProvider).updateSale(updatedSale);
-    await WifiDirectSyncService().triggerSync(reason: 'receipt_items_updated');
+    await DataSyncTriggers.trigger(reason: 'receipt_items_updated');
 
     // Refresh providers
     ref.invalidate(salesProvider);
@@ -636,8 +636,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                 );
 
                 await ref.read(saleRepositoryProvider).updateSale(updatedSale);
-                await WifiDirectSyncService()
-                    .triggerSync(reason: 'receipt_details_updated');
+                await DataSyncTriggers.trigger(
+                  reason: 'receipt_details_updated',
+                );
 
                 // Refresh providers
                 ref.invalidate(salesProvider);

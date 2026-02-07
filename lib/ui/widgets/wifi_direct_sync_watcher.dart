@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/wifi_direct_sync_service.dart';
+import '../../services/data_sync_triggers.dart';
 
 class WifiDirectSyncWatcher extends StatefulWidget {
   final Widget child;
@@ -52,7 +53,7 @@ class _WifiDirectSyncWatcherState extends State<WifiDirectSyncWatcher>
       await _service.start(hostPreferred: widget.hostPreferred);
       if (!_didTriggerInitialSync) {
         _didTriggerInitialSync = true;
-        await _service.triggerSync(reason: 'app_start');
+        await DataSyncTriggers.trigger(reason: 'app_start');
       }
     } finally {
       _starting = false;
