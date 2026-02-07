@@ -68,6 +68,7 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 **Hotspot / LAN (TCP) Sync**
 - Works when devices are on the same Wi-Fi network or when one device is hosting a mobile hotspot.
 - LAN uses UDP broadcast discovery (port `42111`) and auto-connects over TCP (port `42112`).
+- Connections are de-duplicated using a device-id tie-breaker (only one socket per peer).
 - Open **LAN Manager** to see discovered peers, connected peers, and logs.
 - Sync uses the same payload as Wi-Fi Direct and merges automatically.
 
