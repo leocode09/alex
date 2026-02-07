@@ -79,6 +79,25 @@ class SettingsPage extends ConsumerWidget {
           ),
           _buildSettingTile(
             context,
+            'LAN Manager',
+            'Manage Wi-Fi Direct peers and sync',
+            Icons.wifi_tethering,
+            onTap: () async {
+              if (await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForDataSync(),
+                title: 'LAN Manager',
+                subtitle: 'Enter PIN to manage LAN',
+              )) {
+                if (!context.mounted) {
+                  return;
+                }
+                context.push('/lan');
+              }
+            },
+          ),
+          _buildSettingTile(
+            context,
             'Promotions',
             'Discounts and loyalty programs',
             Icons.local_offer_outlined,

@@ -5,6 +5,7 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 **Where to look**
 - Flutter integration and lifecycle: `lib/ui/widgets/wifi_direct_sync_watcher.dart`
 - Flutter Wi-Fi Direct sync logic: `lib/services/wifi_direct_sync_service.dart`
+- LAN manager UI: `lib/ui/pages/lan/lan_manager_page.dart`
 - Android Wi-Fi Direct implementation: `android/app/src/main/kotlin/com/example/alex/MainActivity.kt`
 - Android permissions/feature declarations: `android/app/src/main/AndroidManifest.xml`
 
@@ -22,6 +23,7 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 - `start()` sends `deviceId`, `deviceName`, and `host` (host preference toggle).
 - Incoming `message` events trigger automatic import via `SyncService`.
 - On `peer_connected`, the full sync payload is exported and sent over Wi-Fi Direct automatically.
+- The LAN Manager UI (`/lan`) uses the same service to expose start/stop, discovery, connect, and disconnect actions.
 
 **Android-side automatic behavior**
 - `startWifiDirect(host, id, name)` initializes `WifiP2pManager` and registers the receiver.

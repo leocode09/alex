@@ -49,6 +49,7 @@ import 'ui/pages/stores/store_details_page.dart';
 
 // Settings
 import 'ui/pages/settings/settings_page.dart';
+import 'ui/pages/lan/lan_manager_page.dart';
 
 // Hardware
 import 'ui/pages/hardware/hardware_setup_page.dart';
@@ -73,6 +74,7 @@ int _getCurrentIndex(String location) {
   if (location.startsWith('/products') || location.startsWith('/product')) return 2;
   if (location.startsWith('/reports')) return 3;
   if (location.startsWith('/settings') || 
+      location.startsWith('/lan') ||
       location.startsWith('/inventory') ||
       location.startsWith('/customers') ||
       location.startsWith('/customer') ||
@@ -282,6 +284,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           pageBuilder: (context, state) => const NoTransitionPage(
             child: SettingsPage(),
           ),
+        ),
+
+        // LAN Manager
+        GoRoute(
+          path: '/lan',
+          name: 'lan',
+          builder: (context, state) => const LanManagerPage(),
         ),
 
         // Inventory

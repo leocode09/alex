@@ -47,6 +47,7 @@ class MainActivity : FlutterActivity() {
     private var serverRunning = false
     private var clientConnection: PeerConnection? = null
     private val peerConnections = Collections.synchronizedList(mutableListOf<PeerConnection>())
+    private var lastPeers: List<WifiP2pDevice> = emptyList()
 
     private var hostPreferred = false
     private var deviceId = "unknown"
@@ -93,6 +94,29 @@ class MainActivity : FlutterActivity() {
                     }
                     "stopWifiDirect" -> {
                         stopWifiDirect()
+                        result.success(null)
+                    }
+                    "discoverPeers" -> {
+                        discoverPeers()
+                        result.success(null)
+                    }
+                    "connectToPeer" -> {
+                        val args = call.arguments as? Map<*, *>
+                        val address = args?.get("deviceAddress") as? String
+                        if (address.isNullOrBlank()) {
+                            result.error("missing_address", "Device address is required", null)
+                        } else {
+                            val device = lastPeers.firstOrNull { it.deviceAddress == address }
+                            if (device == null) {
+                                result.error("peer_not_found", "Peer not found", null)
+                            } else {
+                                connectToPeer(device)
+                                result.success(null)
+                            }
+                        }
+                    }
+                    "disconnect" -> {
+                        disconnectFromGroup()
                         result.success(null)
                     }
                     else -> result.notImplemented()
@@ -163,6 +187,7 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {
         }
         closeAllConnections()
+        lastPeers = emptyList()
         sendStatus("stopped")
     }
 
@@ -464,10 +489,49 @@ class MainActivity : FlutterActivity() {
     private fun requestPeers() {
         wifiManager?.requestPeers(wifiChannel) { peers: WifiP2pDeviceList? ->
             val list = peers?.deviceList?.toList() ?: emptyList()
+            lastPeers = list
             sendStatus("peers", mapOf("count" to list.size))
+            sendPeers(list)
             if (!hostPreferred && !isConnected && !connecting && list.isNotEmpty()) {
                 connectToPeer(list.first())
             }
+        }
+    }
+
+    private fun disconnectFromGroup() {
+        try {
+            wifiManager?.removeGroup(wifiChannel, null)
+        } catch (_: Exception) {
+        }
+        isConnected = false
+        isGroupOwner = false
+        connecting = false
+        closeAllConnections()
+        sendStatus("disconnected")
+        if (!hostPreferred) {
+            discoverPeers()
+        }
+    }
+
+    private fun sendPeers(peers: List<WifiP2pDevice>) {
+        val mapped = peers.map { peer ->
+            mapOf(
+                "name" to peer.deviceName,
+                "address" to peer.deviceAddress,
+                "status" to deviceStatusToString(peer.status)
+            )
+        }
+        sendEvent("peers", mapOf("peers" to mapped))
+    }
+
+    private fun deviceStatusToString(status: Int): String {
+        return when (status) {
+            WifiP2pDevice.AVAILABLE -> "available"
+            WifiP2pDevice.INVITED -> "invited"
+            WifiP2pDevice.CONNECTED -> "connected"
+            WifiP2pDevice.FAILED -> "failed"
+            WifiP2pDevice.UNAVAILABLE -> "unavailable"
+            else -> "unknown"
         }
     }
 
