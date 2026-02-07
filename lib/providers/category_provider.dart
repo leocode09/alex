@@ -18,7 +18,7 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<List<Category>>> {
   final Ref _ref;
 
   CategoriesNotifier(this._ref) : super(const AsyncValue.loading()) {
-    _ref.listen<AsyncValue<SyncEvent>>(syncEventsProvider, (previous, next) {
+    _ref.listen(syncEventsProvider, (previous, next) {
       if (next.hasValue) {
         loadCategories();
       }
