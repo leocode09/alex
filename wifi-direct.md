@@ -1,25 +1,27 @@
 # Wi-Fi Direct (Automatic) Implementation
 
-This project implements an automatic Wi-Fi Direct transport on Android and wires it into Flutter via a MethodChannel/EventChannel pair. The behavior is entirely in-app and is started alongside the other transports when the session starts.
+This project implements an automatic Wi-Fi Direct transport on Android and wires it into Flutter via a MethodChannel/EventChannel pair. The behavior is entirely in-app and starts automatically at app launch to sync all data in the background.
 
 **Where to look**
-- Flutter integration and lifecycle: `lib/main.dart`
-- Android Wi-Fi Direct implementation: `android/app/src/main/kotlin/com/example/network/MainActivity.kt`
+- Flutter integration and lifecycle: `lib/ui/widgets/wifi_direct_sync_watcher.dart`
+- Flutter Wi-Fi Direct sync logic: `lib/services/wifi_direct_sync_service.dart`
+- Android Wi-Fi Direct implementation: `android/app/src/main/kotlin/com/example/alex/MainActivity.kt`
 - Android permissions/feature declarations: `android/app/src/main/AndroidManifest.xml`
 
 **High-level flow**
-1. Flutter starts the session in `_start()` and calls `_startWifiDirect()`.
+1. Flutter starts `WifiDirectSyncWatcher`, which kicks off `WifiDirectSyncService.start()`.
 2. Android sets up `WifiP2pManager`, registers a broadcast receiver, optionally creates a group, and starts peer discovery.
 3. As peers are discovered, Android auto-connects to the first discovered peer when not in host-preferred mode.
 4. Once a group is formed, the group owner runs a TCP server and clients connect to the owner over a fixed port.
 5. Every connection exchanges a hello message and then relays payloads to Flutter. If the device is the group owner, it forwards payloads to all other peers.
+6. On `peer_connected`, Flutter exports all sync data and broadcasts it. On `message`, Flutter imports data using the merge strategy.
 
 **Flutter-side wiring**
-- Control channel: `MethodChannel('wifi_direct')` in `lib/main.dart`.
+- Control channel: `MethodChannel('wifi_direct')` in `lib/services/wifi_direct_sync_service.dart`.
 - Events channel: `EventChannel('wifi_direct_events')` streams status, peer, log, and message events to Flutter.
-- `_startWifiDirect()` sends `deviceId`, `deviceName`, and `host` (host preference toggle).
-- `_onWifiDirectEvent()` handles `status`, `peer_connected`, `message`, and `log` events.
-- `_sendJsonToWifiDirect()` forwards JSON payloads to Android for broadcasting.
+- `start()` sends `deviceId`, `deviceName`, and `host` (host preference toggle).
+- Incoming `message` events trigger automatic import via `SyncService`.
+- On `peer_connected`, the full sync payload is exported and sent over Wi-Fi Direct automatically.
 
 **Android-side automatic behavior**
 - `startWifiDirect(host, id, name)` initializes `WifiP2pManager` and registers the receiver.
@@ -44,8 +46,10 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 - `android.permission.CHANGE_WIFI_STATE`
 - `android.permission.NEARBY_WIFI_DEVICES` (with `neverForLocation`)
 - `android.permission.ACCESS_FINE_LOCATION`
+- `android.permission.INTERNET`
+- `android.permission.ACCESS_NETWORK_STATE`
 - `android.hardware.wifi.direct` (optional, `required="false"`)
-- Runtime request logic in `lib/main.dart` uses `Permission.nearbyWifiDevices` on SDK 33+ and `Permission.location` on older Android versions.
+- Runtime request logic in `lib/services/wifi_direct_sync_service.dart` uses `Permission.nearbyWifiDevices` on SDK 33+ and `Permission.location` on older Android versions.
 
 **Automatic reconnection notes**
 - The auto-join logic triggers inside `requestPeers()` after a peer list change.
@@ -54,7 +58,7 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 
 **Testing and operational tips**
 - Wi-Fi Direct requires physical Android devices; emulators do not support it.
-- To force a group owner, enable the "Wi-Fi Direct host" toggle before starting the session.
+- To force a group owner, pass `hostPreferred: true` to `WifiDirectSyncWatcher`.
 
 **Key constants**
 - Wi-Fi Direct port: `42113` (`WIFI_DIRECT_PORT` in `MainActivity.kt`).

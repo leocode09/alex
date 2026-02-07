@@ -3,6 +3,16 @@
     <!-- Camera permission for QR code scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Wi-Fi Direct permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-feature android:name="android.hardware.wifi.direct" android:required="false" />
     
     <!-- Bluetooth permissions for Android 12+ (API 31+) -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
