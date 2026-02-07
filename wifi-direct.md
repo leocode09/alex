@@ -67,12 +67,13 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 
 **Hotspot / LAN (TCP) Sync**
 - Works when devices are on the same Wi-Fi network or when one device is hosting a mobile hotspot.
-- Start **Start Host** on the host device and share its IP (shown in LAN Manager).
-- On the client device, enter the host IP and tap **Connect**.
+- LAN uses UDP broadcast discovery (port `42111`) and auto-connects over TCP (port `42112`).
+- Open **LAN Manager** to see discovered peers, connected peers, and logs.
 - Sync uses the same payload as Wi-Fi Direct and merges automatically.
 
 **Key constants**
 - Wi-Fi Direct port: `42113` (`WIFI_DIRECT_PORT` in `MainActivity.kt`).
-- Hotspot/LAN TCP port: `42114` (`LanSyncService.defaultPort`).
+- Hotspot/LAN UDP discovery port: `42111` (`LanSyncService.discoveryPort`).
+- Hotspot/LAN TCP port: `42112` (`LanSyncService.tcpPort`).
 - Connect timeout: `3500ms` (`CONNECT_TIMEOUT_MS` in `MainActivity.kt`).
 - Channels: `wifi_direct` (Method), `wifi_direct_events` (Events).

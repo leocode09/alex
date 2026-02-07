@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-
 import '../../../services/wifi_direct_sync_service.dart';
 import '../../../services/lan_sync_service.dart';
 
@@ -20,6 +18,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
   void initState() {
     super.initState();
     _wifiService.start();
+    _lanService.start();
     _lanService.refreshLocalAddresses();
   }
 
@@ -54,6 +53,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
               _buildLanStatusCard(context),
               _buildLanAddressesCard(context),
               _buildLanControlsCard(context),
+              _buildLanPeersCard(context),
               _buildLanClientsCard(context),
               _buildLanLogsCard(context),
             ],
@@ -252,11 +252,8 @@ class _LanManagerPageState extends State<LanManagerPage> {
 
   Widget _buildLanStatusCard(BuildContext context) {
     final status = _formatStatus(_lanService.status);
-    final server = _lanService.isServerRunning ? 'Running' : 'Stopped';
-    final client = _lanService.isClientConnected
-        ? 'Connected'
-        : (_lanService.isClientConnecting ? 'Connecting' : 'Disconnected');
-    final connections = _lanService.connectedClients.length;
+    final running = _lanService.isRunning ? 'Running' : 'Stopped';
+    final connections = _lanService.connectedPeers.length;
 
     return _card(
       child: Column(
@@ -265,9 +262,8 @@ class _LanManagerPageState extends State<LanManagerPage> {
           _sectionTitle('LAN Status'),
           const SizedBox(height: 8),
           Text('State: $status'),
-          Text('Server: $server'),
-          Text('Client: $client'),
-          Text('Clients connected: $connections'),
+          Text('LAN: $running'),
+          Text('Peers connected: $connections'),
           if (_lanService.lastError != null) ...[
             const SizedBox(height: 8),
             Text(
@@ -291,7 +287,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
           if (addresses.isEmpty)
             const Text('No IPs detected yet. Tap refresh.')
           else
-            ...addresses.map((ip) => Text('$ip:${LanSyncService.defaultPort}')),
+            ...addresses.map((ip) => Text('$ip:${LanSyncService.tcpPort}')),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _lanService.refreshLocalAddresses,
@@ -315,18 +311,15 @@ class _LanManagerPageState extends State<LanManagerPage> {
             runSpacing: 8,
             children: [
               ElevatedButton.icon(
-                onPressed: _lanService.isServerRunning
-                    ? null
-                    : () => _lanService.startServer(),
+                onPressed:
+                    _lanService.isRunning ? null : () => _lanService.start(),
                 icon: const Icon(Icons.wifi_tethering),
-                label: const Text('Start Host'),
+                label: const Text('Start LAN'),
               ),
               OutlinedButton.icon(
-                onPressed: _lanService.isServerRunning
-                    ? _lanService.stopServer
-                    : null,
+                onPressed: _lanService.isRunning ? _lanService.stop : null,
                 icon: const Icon(Icons.stop),
-                label: const Text('Stop Host'),
+                label: const Text('Stop LAN'),
               ),
               OutlinedButton.icon(
                 onPressed: _lanService.isConnected
@@ -341,7 +334,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
           TextField(
             controller: _hostController,
             decoration: const InputDecoration(
-              labelText: 'Host IP (e.g. 192.168.43.1)',
+              labelText: 'Host IP (optional)',
               border: OutlineInputBorder(),
             ),
           ),
@@ -351,18 +344,10 @@ class _LanManagerPageState extends State<LanManagerPage> {
             runSpacing: 8,
             children: [
               ElevatedButton.icon(
-                onPressed: _lanService.isClientConnecting
-                    ? null
-                    : () => _lanService.connectToHost(_hostController.text),
+                onPressed: () =>
+                    _lanService.connectToHost(_hostController.text),
                 icon: const Icon(Icons.link),
                 label: const Text('Connect'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _lanService.isClientConnected
-                    ? _lanService.disconnectClient
-                    : null,
-                icon: const Icon(Icons.link_off),
-                label: const Text('Disconnect'),
               ),
             ],
           ),
@@ -377,17 +362,44 @@ class _LanManagerPageState extends State<LanManagerPage> {
   }
 
   Widget _buildLanClientsCard(BuildContext context) {
-    final clients = _lanService.connectedClients;
+    final clients = _lanService.connectedPeers;
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Connected Clients'),
+          _sectionTitle('Connected Peers'),
           const SizedBox(height: 8),
           if (clients.isEmpty)
-            const Text('No LAN clients connected.')
+            const Text('No LAN peers connected.')
           else
             ...clients.map((client) => Text(client)).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanPeersCard(BuildContext context) {
+    final peers = _lanService.peers;
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('Discovered Peers'),
+          const SizedBox(height: 8),
+          if (peers.isEmpty)
+            const Text('No LAN peers discovered yet.')
+          else
+            ...peers.map((peer) {
+              final isConnected =
+                  _lanService.connectedPeerIds.contains(peer.id);
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(peer.name),
+                subtitle: Text('${peer.address.address}:${peer.port}'),
+                trailing:
+                    isConnected ? const Text('Connected') : const Text('Seen'),
+              );
+            }).toList(),
         ],
       ),
     );
