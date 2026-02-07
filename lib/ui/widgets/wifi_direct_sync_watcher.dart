@@ -20,6 +20,7 @@ class _WifiDirectSyncWatcherState extends State<WifiDirectSyncWatcher>
     with WidgetsBindingObserver {
   final WifiDirectSyncService _service = WifiDirectSyncService();
   bool _starting = false;
+  bool _didTriggerInitialSync = false;
 
   @override
   void initState() {
@@ -49,6 +50,10 @@ class _WifiDirectSyncWatcherState extends State<WifiDirectSyncWatcher>
     _starting = true;
     try {
       await _service.start(hostPreferred: widget.hostPreferred);
+      if (!_didTriggerInitialSync) {
+        _didTriggerInitialSync = true;
+        await _service.triggerSync(reason: 'app_start');
+      }
     } finally {
       _starting = false;
     }

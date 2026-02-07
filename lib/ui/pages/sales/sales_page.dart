@@ -14,6 +14,7 @@ import '../../../providers/printer_provider.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
+import '../../../services/wifi_direct_sync_service.dart';
 import 'receipts_page.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
@@ -379,6 +380,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
         );
 
         await saleRepo.updateSale(updatedSale);
+        await WifiDirectSyncService()
+            .triggerSync(reason: 'receipt_updated');
 
         // Clear editing state
         ref.read(editingReceiptProvider.notifier).state = null;
@@ -452,6 +455,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
         );
 
         await saleRepo.insertSale(sale);
+        await WifiDirectSyncService().triggerSync(reason: 'sale_created');
 
         // Attempt to print receipt
         try {

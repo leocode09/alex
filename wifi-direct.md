@@ -11,18 +11,19 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 
 **High-level flow**
 1. Flutter starts `WifiDirectSyncWatcher`, which kicks off `WifiDirectSyncService.start()`.
-2. Android sets up `WifiP2pManager`, registers a broadcast receiver, optionally creates a group, and starts peer discovery.
-3. As peers are discovered, Android auto-connects to the first discovered peer when not in host-preferred mode.
-4. Once a group is formed, the group owner runs a TCP server and clients connect to the owner over a fixed port.
-5. Every connection exchanges a hello message and then relays payloads to Flutter. If the device is the group owner, it forwards payloads to all other peers.
-6. On `peer_connected`, Flutter exports all sync data and broadcasts it. On `message`, Flutter imports data using the merge strategy.
+2. The watcher also queues an initial sync request; once a peer is connected, the full dataset is sent automatically.
+3. Android sets up `WifiP2pManager`, registers a broadcast receiver, optionally creates a group, and starts peer discovery.
+4. As peers are discovered, Android auto-connects to the first discovered peer when not in host-preferred mode.
+5. Once a group is formed, the group owner runs a TCP server and clients connect to the owner over a fixed port.
+6. Every connection exchanges a hello message and then relays payloads to Flutter. If the device is the group owner, it forwards payloads to all other peers.
+7. On `peer_connected` or a local data change trigger, Flutter exports all sync data and broadcasts it. On `message`, Flutter imports data using the merge strategy.
 
 **Flutter-side wiring**
 - Control channel: `MethodChannel('wifi_direct')` in `lib/services/wifi_direct_sync_service.dart`.
 - Events channel: `EventChannel('wifi_direct_events')` streams status, peer, log, and message events to Flutter.
 - `start()` sends `deviceId`, `deviceName`, and `host` (host preference toggle).
 - Incoming `message` events trigger automatic import via `SyncService`.
-- On `peer_connected`, the full sync payload is exported and sent over Wi-Fi Direct automatically.
+- On `peer_connected` or `triggerSync()`, the full sync payload is exported and sent over Wi-Fi Direct automatically (debounced and rate-limited).
 - The LAN Manager UI (`/lan`) uses the same service to expose start/stop, discovery, connect, and disconnect actions.
 
 **Android-side automatic behavior**

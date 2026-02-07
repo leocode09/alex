@@ -264,11 +264,21 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         );
                       },
                       onDismissed: (direction) async {
-                        await ref.read(productRepositoryProvider).deleteProduct(product.id);
-                        ref.invalidate(productsProvider);
-                        ref.invalidate(filteredProductsProvider);
-                        ref.invalidate(totalProductsCountProvider);
-                        ref.invalidate(totalInventoryValueProvider);
+                        final deleted = await ref
+                            .read(productNotifierProvider.notifier)
+                            .deleteProduct(product.id);
+                        if (!deleted) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                    Text('Failed to delete ${product.name}'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return;
+                        }
                         
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

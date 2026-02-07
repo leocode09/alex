@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product.dart';
 import '../repositories/product_repository.dart';
+import '../services/wifi_direct_sync_service.dart';
 
 // Repository provider
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
@@ -119,6 +120,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       ref.invalidate(totalProductsCountProvider);
       ref.invalidate(totalInventoryValueProvider);
       ref.invalidate(categoriesProvider);
+      await WifiDirectSyncService().triggerSync(reason: 'product_added');
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -136,6 +138,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       ref.invalidate(filteredProductsProvider);
       ref.invalidate(productProvider(product.id));
       ref.invalidate(totalInventoryValueProvider);
+      await WifiDirectSyncService().triggerSync(reason: 'product_updated');
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -153,6 +156,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       ref.invalidate(filteredProductsProvider);
       ref.invalidate(totalProductsCountProvider);
       ref.invalidate(totalInventoryValueProvider);
+      await WifiDirectSyncService().triggerSync(reason: 'product_deleted');
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -171,6 +175,8 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       ref.invalidate(productProvider(id));
       ref.invalidate(totalInventoryValueProvider);
       ref.invalidate(lowStockProductsProvider);
+      await WifiDirectSyncService()
+          .triggerSync(reason: 'product_stock_updated');
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

@@ -44,6 +44,11 @@ class WifiDirectSyncService extends ChangeNotifier {
 
   final Map<String, DateTime> _peerSyncTimes = {};
   final Duration _peerSyncCooldown = const Duration(seconds: 20);
+  final Duration _syncDebounce = const Duration(milliseconds: 800);
+  final Duration _minSyncInterval = const Duration(seconds: 3);
+  Timer? _syncDebounceTimer;
+  bool _pendingSync = false;
+  DateTime? _lastSyncAt;
 
   bool get isRunning => _started;
   bool get isConnecting => _connecting;
@@ -126,6 +131,10 @@ class WifiDirectSyncService extends ChangeNotifier {
       _status = 'stopped';
       _peers = [];
       _connectedPeers = [];
+      _pendingSync = false;
+      _lastSyncAt = null;
+      _syncDebounceTimer?.cancel();
+      _syncDebounceTimer = null;
       notifyListeners();
     }
   }
@@ -253,6 +262,7 @@ class WifiDirectSyncService extends ChangeNotifier {
       _connecting = false;
       _isConnected = true;
       _isGroupOwner = data['groupOwner'] == true;
+      _flushPendingSync();
     } else if (status == 'disconnected') {
       _connecting = false;
       _isConnected = false;
@@ -260,6 +270,21 @@ class WifiDirectSyncService extends ChangeNotifier {
       _connectedPeers = [];
     }
     notifyListeners();
+  }
+
+  Future<void> triggerSync({String reason = 'update'}) async {
+    if (kIsWeb || !Platform.isAndroid) {
+      return;
+    }
+    if (kDebugMode) {
+      debugPrint('WifiDirect: trigger sync ($reason)');
+    }
+    _pendingSync = true;
+    if (!_started && !_starting) {
+      await start(hostPreferred: _hostPreferred);
+    }
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = Timer(_syncDebounce, _flushPendingSync);
   }
 
   void _handlePeers(Map<String, dynamic> data) {
@@ -303,7 +328,7 @@ class WifiDirectSyncService extends ChangeNotifier {
         return;
       }
     }
-    await _sendSyncData();
+    await triggerSync(reason: 'peer_connected');
     if (peerId != null) {
       _peerSyncTimes[peerId] = DateTime.now();
     }
@@ -401,6 +426,28 @@ class WifiDirectSyncService extends ChangeNotifier {
     } finally {
       _sending = false;
     }
+  }
+
+  Future<void> _flushPendingSync() async {
+    if (!_pendingSync) {
+      return;
+    }
+    if (!_started || !_isConnected || _sending) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastSyncAt != null) {
+      final elapsed = now.difference(_lastSyncAt!);
+      if (elapsed < _minSyncInterval) {
+        _syncDebounceTimer?.cancel();
+        _syncDebounceTimer =
+            Timer(_minSyncInterval - elapsed, _flushPendingSync);
+        return;
+      }
+    }
+    _pendingSync = false;
+    await _sendSyncData();
+    _lastSyncAt = DateTime.now();
   }
 
   Future<void> _queueImport(SyncData data) async {

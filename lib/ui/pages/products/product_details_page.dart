@@ -260,14 +260,12 @@ class ProductDetailsPage extends ConsumerWidget {
               Navigator.pop(context); // Close dialog
 
               try {
-                final repository = ref.read(productRepositoryProvider);
-                await repository.deleteProduct(productId);
-
-                // Invalidate providers to refresh lists
-                ref.invalidate(productsProvider);
-                ref.invalidate(filteredProductsProvider);
-                ref.invalidate(totalProductsCountProvider);
-                ref.invalidate(totalInventoryValueProvider);
+                final deleted = await ref
+                    .read(productNotifierProvider.notifier)
+                    .deleteProduct(productId);
+                if (!deleted) {
+                  throw Exception('Delete failed');
+                }
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
