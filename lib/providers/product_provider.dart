@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product.dart';
 import '../repositories/product_repository.dart';
 import '../services/wifi_direct_sync_service.dart';
+import 'sync_events_provider.dart';
 
 // Repository provider
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
@@ -10,6 +11,7 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 
 // Products list provider
 final productsProvider = FutureProvider<List<Product>>((ref) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   
   try {
@@ -23,18 +25,21 @@ final productsProvider = FutureProvider<List<Product>>((ref) async {
 
 // Single product provider
 final productProvider = FutureProvider.family<Product?, String>((ref, id) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getProductById(id);
 });
 
 // Products by category provider
 final productsByCategoryProvider = FutureProvider.family<List<Product>, String>((ref, category) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getProductsByCategory(category);
 });
 
 // Search products provider
 final searchProductsProvider = FutureProvider.family<List<Product>, String>((ref, query) async {
+  ref.watch(syncEventsProvider);
   if (query.isEmpty) {
     return ref.watch(productsProvider).maybeWhen(
       data: (products) => products,
@@ -47,30 +52,35 @@ final searchProductsProvider = FutureProvider.family<List<Product>, String>((ref
 
 // Low stock products provider
 final lowStockProductsProvider = FutureProvider<List<Product>>((ref) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getLowStockProducts(threshold: 20);
 });
 
 // Categories provider
 final categoriesProvider = FutureProvider<List<String>>((ref) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getAllCategories();
 });
 
 // Total products count provider
 final totalProductsCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getTotalProductsCount();
 });
 
 // Total inventory value provider
 final totalInventoryValueProvider = FutureProvider<double>((ref) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getTotalInventoryValue();
 });
 
 // Products count by category provider
 final productsCountByCategoryProvider = FutureProvider<Map<String, int>>((ref) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getProductsCountByCategory();
 });
@@ -83,6 +93,7 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 // Filtered products provider (combines search and category filter)
 final filteredProductsProvider = FutureProvider<List<Product>>((ref) async {
+  ref.watch(syncEventsProvider);
   final selectedCategory = ref.watch(selectedCategoryProvider);
   final searchQuery = ref.watch(searchQueryProvider);
   final repository = ref.watch(productRepositoryProvider);

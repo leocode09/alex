@@ -14,6 +14,7 @@ import '../repositories/customer_repository.dart';
 import '../repositories/employee_repository.dart';
 import '../repositories/sale_repository.dart';
 import '../repositories/store_repository.dart';
+import 'sync_event_bus.dart';
 
 enum SyncStrategy {
   replace, // Replace all data with incoming data
@@ -172,6 +173,7 @@ class SyncService {
 
       syncResult.success = true;
       syncResult.message = 'Sync completed successfully';
+      SyncEventBus.instance.emit(reason: 'import');
       return syncResult;
     } catch (e) {
       print('Error importing data: $e');

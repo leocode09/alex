@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/category.dart';
 import '../repositories/category_repository.dart';
 import 'product_provider.dart';
+import 'sync_events_provider.dart';
 
 // Category repository provider
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
@@ -17,6 +18,11 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<List<Category>>> {
   final Ref _ref;
 
   CategoriesNotifier(this._ref) : super(const AsyncValue.loading()) {
+    _ref.listen<AsyncValue<SyncEvent>>(syncEventsProvider, (previous, next) {
+      if (next.hasValue) {
+        loadCategories();
+      }
+    });
     loadCategories();
   }
 
@@ -91,12 +97,14 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<List<Category>>> {
 
 // Category names provider (for dropdowns)
 final categoryNamesProvider = FutureProvider<List<String>>((ref) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(categoryRepositoryProvider);
   return await repository.getCategoryNames();
 });
 
 // Single category provider
 final categoryProvider = FutureProvider.family<Category?, String>((ref, id) async {
+  ref.watch(syncEventsProvider);
   final repository = ref.watch(categoryRepositoryProvider);
   return await repository.getCategoryById(id);
 });
