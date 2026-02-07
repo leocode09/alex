@@ -247,6 +247,8 @@ class LanSyncService extends ChangeNotifier {
         if (isClient) {
           _clientSocket = null;
           _clientSubscription = null;
+          _status = _serverRunning ? 'server_listening' : 'stopped';
+          notifyListeners();
         }
         onDone?.call();
       },
@@ -409,11 +411,15 @@ class LanSyncService extends ChangeNotifier {
   }
 
   Future<String> _getDeviceName() async {
+    if (!Platform.isAndroid) {
+      final hostname = Platform.localHostname;
+      return hostname.isNotEmpty ? hostname : 'Device';
+    }
     try {
       final info = await DeviceInfoPlugin().androidInfo;
       return info.model ?? 'Android';
     } catch (_) {
-      return 'Device';
+      return 'Android';
     }
   }
 
