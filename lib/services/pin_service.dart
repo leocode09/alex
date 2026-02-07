@@ -5,6 +5,7 @@ class PinService {
   static const String _pinKey = 'user_pin';
   static const String _pinSetKey = 'pin_is_set';
   static const String _pinPreferencesKey = 'pin_preferences';
+  static bool _sessionVerified = false;
 
   Future<bool> isPinSet() async {
     final prefs = await SharedPreferences.getInstance();
@@ -132,7 +133,17 @@ class PinService {
   Future<bool> verifyPin(String pin) async {
     final prefs = await SharedPreferences.getInstance();
     final storedPin = prefs.getString(_pinKey);
-    return storedPin == pin;
+    final isValid = storedPin == pin;
+    if (isValid) {
+      _sessionVerified = true;
+    }
+    return isValid;
+  }
+
+  bool isSessionVerified() => _sessionVerified;
+
+  void clearSessionVerified() {
+    _sessionVerified = false;
   }
 
   // Helper method to get preferences map
@@ -435,6 +446,7 @@ class PinService {
   }
 
   Future<void> clearPin() async {
+    _sessionVerified = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_pinKey);
     await prefs.setBool(_pinSetKey, false);

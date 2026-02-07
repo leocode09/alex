@@ -105,6 +105,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnLogin = state.uri.path == '/';
       final isOnTimeLock = state.uri.path == '/time-lock';
       final requireLoginPin = await pinService.isPinRequiredForLogin();
+      final isSessionVerified = pinService.isSessionVerified();
+      final isUnlocked = pinUnlocked || isSessionVerified;
 
       if (timeTamper != null && isPinSet && !isOnTimeLock) {
         return '/time-lock';
@@ -120,12 +122,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // PIN is set and required for login but not unlocked (need PIN entry)
-      if (isPinSet && requireLoginPin && !pinUnlocked && !isOnPinEntry) {
+      if (isPinSet && requireLoginPin && !isUnlocked && !isOnPinEntry) {
         return '/pin-entry';
       }
 
       // Unlocked but on login/pin pages
-      if (pinUnlocked && (isOnLogin || isOnPinEntry || isOnPinSetup)) {
+      if (isUnlocked && (isOnLogin || isOnPinEntry || isOnPinSetup)) {
         return '/dashboard';
       }
 

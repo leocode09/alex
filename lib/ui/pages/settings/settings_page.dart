@@ -206,6 +206,7 @@ class SettingsPage extends ConsumerWidget {
           const SizedBox(height: 32),
           OutlinedButton(
             onPressed: () {
+              PinService().clearSessionVerified();
               ref.read(pinUnlockedProvider.notifier).state = false;
               context.go('/pin-entry');
             },
