@@ -15,17 +15,22 @@ class LanSyncService extends ChangeNotifier {
 
   factory LanSyncService() => _instance;
 
-  static const int defaultPort = 42114;
+  static const int discoveryPort = 42111;
+  static const int tcpPort = 42112;
+  static const Duration announceInterval = Duration(seconds: 2);
+  static const Duration peerTimeout = Duration(seconds: 6);
 
   final SyncService _syncService = SyncService();
 
+  bool _running = false;
+  RawDatagramSocket? _discoverySocket;
   ServerSocket? _server;
-  bool _serverRunning = false;
-  final List<_LanConnection> _clients = [];
+  Timer? _announceTimer;
 
-  Socket? _clientSocket;
-  StreamSubscription<String>? _clientSubscription;
-  bool _clientConnecting = false;
+  final Map<String, LanPeer> _peers = <String, LanPeer>{};
+  final Map<String, _LanConnection> _connections =
+      <String, _LanConnection>{};
+  final Set<String> _pendingConnections = <String>{};
 
   String _status = 'stopped';
   String? _lastError;
@@ -45,126 +50,99 @@ class LanSyncService extends ChangeNotifier {
   String? _deviceId;
   String? _deviceName;
 
-  bool get isServerRunning => _serverRunning;
-  bool get isClientConnecting => _clientConnecting;
-  bool get isClientConnected => _clientSocket != null;
-  bool get isConnected => isClientConnected || _clients.isNotEmpty;
+  bool get isRunning => _running;
+  bool get isConnected => _connections.isNotEmpty;
   String get status => _status;
   String? get lastError => _lastError;
   List<String> get localAddresses => List.unmodifiable(_localAddresses);
   List<String> get logs => List.unmodifiable(_logs);
-  List<String> get connectedClients =>
-      _clients.map((client) => client.label).toList();
+  List<LanPeer> get peers =>
+      List.unmodifiable(_peers.values.toList()..sort(_peerSort));
+  Set<String> get connectedPeerIds => Set.unmodifiable(_connections.keys);
+  List<String> get connectedPeers => _connections.values
+      .map((connection) => connection.displayName)
+      .toList();
 
-  Future<void> startServer({int port = defaultPort}) async {
+  Future<void> start() async {
     if (kIsWeb) {
       return;
     }
-    if (_serverRunning) {
+    if (_running) {
       return;
     }
     _lastError = null;
+    await _ensureDeviceInfo();
     try {
       _server = await ServerSocket.bind(
         InternetAddress.anyIPv4,
-        port,
+        tcpPort,
         shared: true,
       );
-      _serverRunning = true;
-      _status = 'server_listening';
-      _addLog('LAN server listening on $port');
-      notifyListeners();
+      _server!.listen(
+        (socket) => _handleLanSocket(socket, outbound: false),
+        onError: (error) => _addLog('LAN server error: $error'),
+      );
+
+      _discoverySocket = await RawDatagramSocket.bind(
+        InternetAddress.anyIPv4,
+        discoveryPort,
+        reuseAddress: true,
+        reusePort: true,
+      );
+      _discoverySocket!.broadcastEnabled = true;
+      _discoverySocket!.listen(
+        _handleLanDatagram,
+        onError: (error) => _addLog('LAN discovery error: $error'),
+      );
+
+      _announceTimer?.cancel();
+      _announceTimer = Timer.periodic(
+        announceInterval,
+        (_) => _sendLanAnnounce(),
+      );
+      _sendLanAnnounce();
+
+      _running = true;
+      _status = 'running';
       await refreshLocalAddresses();
-      _server?.listen(
-        _handleServerConnection,
-        onError: (error) {
-          _lastError = error.toString();
-          _addLog('Server error: $error');
-          notifyListeners();
-        },
-        onDone: () {
-          _serverRunning = false;
-          _status = isClientConnected ? 'client_connected' : 'stopped';
-          notifyListeners();
-        },
+      notifyListeners();
+      _addLog(
+        'LAN discovery running on UDP $discoveryPort / TCP $tcpPort.',
       );
     } catch (e) {
-      _serverRunning = false;
-      _status = 'server_failed';
+      _addLog('LAN start failed: $e');
       _lastError = e.toString();
-      _addLog('Server failed: $e');
-      notifyListeners();
+      await stop();
     }
   }
 
-  Future<void> stopServer() async {
-    if (!_serverRunning) {
-      return;
-    }
-    try {
-      await _server?.close();
-    } catch (_) {}
+  Future<void> stop() async {
+    _announceTimer?.cancel();
+    _announceTimer = null;
+
+    _discoverySocket?.close();
+    _discoverySocket = null;
+
+    final server = _server;
     _server = null;
-    _serverRunning = false;
-    _closeAllClients();
-    _status = isClientConnected ? 'client_connected' : 'stopped';
-    notifyListeners();
-  }
+    if (server != null) {
+      await server.close();
+    }
 
-  Future<void> connectToHost(
-    String host, {
-    int port = defaultPort,
-  }) async {
-    if (kIsWeb) {
-      return;
+    final connections = _connections.values.toList();
+    _connections.clear();
+    for (final connection in connections) {
+      await connection.close();
     }
-    if (host.trim().isEmpty || _clientConnecting) {
-      return;
-    }
-    _clientConnecting = true;
-    _lastError = null;
-    _status = 'client_connecting';
-    notifyListeners();
-    try {
-      await disconnectClient();
-      final socket = await Socket.connect(
-        host.trim(),
-        port,
-        timeout: const Duration(seconds: 4),
-      );
-      socket.setOption(SocketOption.tcpNoDelay, true);
-      _clientSocket = socket;
-      _status = 'client_connected';
-      _addLog('Connected to $host:$port');
-      _clientSubscription = _listenToSocket(
-        socket,
-        isClient: true,
-      );
-      await _ensureDeviceInfo();
-      _flushPendingSync();
-    } catch (e) {
-      _lastError = e.toString();
-      _status = 'client_connect_failed';
-      _addLog('Client connect failed: $e');
-    } finally {
-      _clientConnecting = false;
-      notifyListeners();
-    }
-  }
+    _pendingConnections.clear();
+    _peers.clear();
 
-  Future<void> disconnectClient() async {
-    if (_clientSocket == null) {
-      return;
-    }
-    try {
-      await _clientSubscription?.cancel();
-    } catch (_) {}
-    try {
-      _clientSocket?.destroy();
-    } catch (_) {}
-    _clientSubscription = null;
-    _clientSocket = null;
-    _status = _serverRunning ? 'server_listening' : 'stopped';
+    _running = false;
+    _status = 'stopped';
+    _pendingSync = false;
+    _lastSyncAt = null;
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = null;
     notifyListeners();
   }
 
@@ -185,12 +163,39 @@ class LanSyncService extends ChangeNotifier {
           }
         }
       }
-      final sorted = addresses.toList()..sort();
-      _localAddresses = sorted;
+      _localAddresses = addresses.toList()..sort();
       notifyListeners();
     } catch (e) {
       _lastError = e.toString();
       _addLog('Failed to read IPs: $e');
+      notifyListeners();
+    }
+  }
+
+  Future<void> connectToHost(
+    String host, {
+    int port = tcpPort,
+  }) async {
+    if (kIsWeb) {
+      return;
+    }
+    if (host.trim().isEmpty) {
+      return;
+    }
+    await _ensureDeviceInfo();
+    try {
+      if (!_running) {
+        await start();
+      }
+      final socket = await Socket.connect(
+        host.trim(),
+        port,
+        timeout: const Duration(seconds: 3),
+      );
+      _handleLanSocket(socket, outbound: true);
+    } catch (e) {
+      _lastError = e.toString();
+      _addLog('LAN connect failed to $host:$port: $e');
       notifyListeners();
     }
   }
@@ -202,59 +207,251 @@ class LanSyncService extends ChangeNotifier {
     if (kDebugMode) {
       debugPrint('LanSync: trigger sync ($reason)');
     }
+    if (!_running) {
+      await start();
+    }
     _pendingSync = true;
     _syncDebounceTimer?.cancel();
     _syncDebounceTimer = Timer(_syncDebounce, _flushPendingSync);
   }
 
-  void _handleServerConnection(Socket socket) {
-    socket.setOption(SocketOption.tcpNoDelay, true);
-    final connection = _LanConnection(socket);
-    _clients.add(connection);
-    _status = 'client_connected';
-    _addLog('Client connected: ${connection.label}');
-    notifyListeners();
-    connection.subscription = _listenToSocket(socket, isClient: false, onDone: () {
-      _clients.remove(connection);
-      if (_clients.isEmpty) {
-        _status = _serverRunning ? 'server_listening' : 'stopped';
+  void _handleLanDatagram(RawSocketEvent event) {
+    if (event != RawSocketEvent.read) {
+      return;
+    }
+
+    final socket = _discoverySocket;
+    if (socket == null) {
+      return;
+    }
+
+    Datagram? datagram;
+    while ((datagram = socket.receive()) != null) {
+      final message = utf8.decode(datagram!.data);
+      try {
+        final data = jsonDecode(message);
+        if (data is! Map<String, dynamic>) {
+          continue;
+        }
+        if (data['type'] != 'lan_announce') {
+          continue;
+        }
+
+        final peerId = data['id'];
+        if (peerId is! String || peerId == _deviceId) {
+          continue;
+        }
+
+        final peerName = data['name'] is String
+            ? data['name'] as String
+            : peerId;
+        final port = data['port'] is int ? data['port'] as int : tcpPort;
+        final now = DateTime.now();
+        final peer = LanPeer(
+          id: peerId,
+          name: peerName,
+          address: datagram.address,
+          port: port,
+          lastSeen: now,
+        );
+
+        final existing = _peers[peerId];
+        _peers[peerId] = peer;
+        if (existing == null) {
+          notifyListeners();
+        }
+
+        _maybeConnectToLanPeer(peer);
+      } catch (_) {
+        // Ignore malformed LAN discovery packets.
       }
-      notifyListeners();
-    });
-    _flushPendingSync();
+    }
   }
 
-  StreamSubscription<String> _listenToSocket(
-    Socket socket, {
-    required bool isClient,
-    VoidCallback? onDone,
-  }) {
-    return socket
+  void _sendLanAnnounce() {
+    final socket = _discoverySocket;
+    if (socket == null) {
+      return;
+    }
+
+    final data = <String, dynamic>{
+      'type': 'lan_announce',
+      'id': _deviceId,
+      'name': _deviceName,
+      'port': tcpPort,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+    final bytes = utf8.encode(jsonEncode(data));
+    try {
+      socket.send(bytes, InternetAddress('255.255.255.255'), discoveryPort);
+    } catch (e) {
+      _addLog('LAN announce failed: $e');
+    }
+
+    _pruneLanPeers();
+  }
+
+  void _pruneLanPeers() {
+    if (_peers.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final stalePeers = _peers.entries
+        .where((entry) => now.difference(entry.value.lastSeen) > peerTimeout)
+        .map((entry) => entry.key)
+        .toList();
+
+    if (stalePeers.isEmpty) {
+      return;
+    }
+
+    for (final peerId in stalePeers) {
+      _peers.remove(peerId);
+    }
+    notifyListeners();
+  }
+
+  void _maybeConnectToLanPeer(LanPeer peer) {
+    if (_connections.containsKey(peer.id) ||
+        _pendingConnections.contains(peer.id)) {
+      return;
+    }
+
+    if (!_shouldInitiateLanConnection(peer.id)) {
+      return;
+    }
+
+    _pendingConnections.add(peer.id);
+    unawaited(_connectToLanPeer(peer));
+  }
+
+  bool _shouldInitiateLanConnection(String peerId) {
+    final id = _deviceId;
+    if (id == null) {
+      return false;
+    }
+    return id.compareTo(peerId) < 0;
+  }
+
+  Future<void> _connectToLanPeer(LanPeer peer) async {
+    try {
+      final socket = await Socket.connect(
+        peer.address,
+        peer.port,
+        timeout: const Duration(seconds: 3),
+      );
+      _handleLanSocket(socket, outbound: true);
+    } catch (error) {
+      _addLog(
+        'LAN connect failed to ${peer.name} (${peer.address.address}:${peer.port}): $error',
+      );
+    } finally {
+      _pendingConnections.remove(peer.id);
+    }
+  }
+
+  void _handleLanSocket(Socket socket, {required bool outbound}) {
+    socket.setOption(SocketOption.tcpNoDelay, true);
+    final connection = _LanConnection(socket: socket, outbound: outbound);
+    connection.subscription = socket
         .cast<List<int>>()
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
-      (line) {
-        final payload = line.trim();
-        if (payload.isEmpty) {
-          return;
+          (line) => _onLanLine(connection, line),
+          onError: (error) => _removeLanConnection(connection, error: error),
+          onDone: () => _removeLanConnection(connection),
+          cancelOnError: true,
+        );
+
+    _sendLanHello(connection);
+  }
+
+  void _sendLanHello(_LanConnection connection) {
+    final data = <String, dynamic>{
+      'type': 'lan_hello',
+      'id': _deviceId,
+      'name': _deviceName,
+    };
+    connection.sendJson(jsonEncode(data));
+  }
+
+  void _onLanLine(_LanConnection connection, String line) {
+    try {
+      final data = jsonDecode(line);
+      if (data is! Map<String, dynamic>) {
+        return;
+      }
+
+      final type = data['type'];
+      if (type == 'lan_hello') {
+        final peerId = data['id'];
+        final peerName = data['name'];
+        if (peerId is String) {
+          _registerLanConnection(
+            connection,
+            peerId: peerId,
+            peerName: peerName is String ? peerName : peerId,
+          );
         }
-        unawaited(_handleIncomingPayload(payload));
-      },
-      onError: (error) {
-        _addLog('Socket error: $error');
-      },
-      onDone: () {
-        if (isClient) {
-          _clientSocket = null;
-          _clientSubscription = null;
-          _status = _serverRunning ? 'server_listening' : 'stopped';
-          notifyListeners();
-        }
-        onDone?.call();
-      },
-      cancelOnError: true,
-    );
+        return;
+      }
+
+      if (connection.peerId != null) {
+        unawaited(_handleIncomingPayload(line));
+      }
+    } catch (_) {
+      if (connection.peerId != null) {
+        unawaited(_handleIncomingPayload(line));
+      }
+    }
+  }
+
+  void _registerLanConnection(
+    _LanConnection connection, {
+    required String peerId,
+    required String peerName,
+  }) {
+    if (peerId == _deviceId) {
+      unawaited(connection.close());
+      return;
+    }
+
+    final existing = _connections[peerId];
+    if (existing != null && existing != connection) {
+      final preferOutbound = _shouldInitiateLanConnection(peerId);
+      final keepNew = preferOutbound ? connection.outbound : !connection.outbound;
+      if (!keepNew) {
+        unawaited(connection.close());
+        return;
+      }
+      unawaited(existing.close());
+    }
+
+    connection.peerId = peerId;
+    connection.peerName = peerName;
+    _connections[peerId] = connection;
+
+    _addLog('LAN connected: $peerName ($peerId).');
+    notifyListeners();
+
+    unawaited(triggerSync(reason: 'lan_connected'));
+  }
+
+  void _removeLanConnection(_LanConnection connection, {Object? error}) {
+    final peerId = connection.peerId;
+    if (peerId != null && _connections[peerId] == connection) {
+      _connections.remove(peerId);
+      final name = connection.peerName ?? peerId;
+      _addLog('LAN disconnected: $name.');
+    }
+
+    if (error != null) {
+      _addLog('LAN socket error: $error');
+    }
+    notifyListeners();
+    unawaited(connection.close());
   }
 
   Future<void> _handleIncomingPayload(String payload) async {
@@ -349,21 +546,8 @@ class LanSyncService extends ChangeNotifier {
     if (payload.isEmpty) {
       return;
     }
-    if (_clientSocket != null) {
-      _sendToSocket(_clientSocket!, payload);
-    }
-    if (_clients.isNotEmpty) {
-      for (final connection in _clients) {
-        _sendToSocket(connection.socket, payload);
-      }
-    }
-  }
-
-  void _sendToSocket(Socket socket, String payload) {
-    try {
-      socket.write('$payload\n');
-    } catch (e) {
-      _addLog('Send error: $e');
+    for (final connection in _connections.values) {
+      connection.sendJson(payload);
     }
   }
 
@@ -424,18 +608,6 @@ class LanSyncService extends ChangeNotifier {
     }
   }
 
-  void _closeAllClients() {
-    for (final connection in _clients) {
-      try {
-        connection.subscription?.cancel();
-      } catch (_) {}
-      try {
-        connection.socket.destroy();
-      } catch (_) {}
-    }
-    _clients.clear();
-  }
-
   void _addLog(String message) {
     const maxLogs = 50;
     _logs.add(message);
@@ -444,13 +616,56 @@ class LanSyncService extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  static int _peerSort(LanPeer a, LanPeer b) {
+    final name = a.name.compareTo(b.name);
+    if (name != 0) {
+      return name;
+    }
+    return a.id.compareTo(b.id);
+  }
+}
+
+@immutable
+class LanPeer {
+  const LanPeer({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.port,
+    required this.lastSeen,
+  });
+
+  final String id;
+  final String name;
+  final InternetAddress address;
+  final int port;
+  final DateTime lastSeen;
+
+  String get label => '$name (${address.address}:$port)';
 }
 
 class _LanConnection {
-  _LanConnection(this.socket);
+  _LanConnection({required this.socket, required this.outbound});
 
   final Socket socket;
+  final bool outbound;
+  String? peerId;
+  String? peerName;
   StreamSubscription<String>? subscription;
 
-  String get label => '${socket.remoteAddress.address}:${socket.remotePort}';
+  String get displayName =>
+      peerName ??
+      peerId ??
+      '${socket.remoteAddress.address}:${socket.remotePort}';
+
+  void sendJson(String jsonMessage) {
+    socket.add(utf8.encode(jsonMessage));
+    socket.add(const [10]);
+  }
+
+  Future<void> close() async {
+    await subscription?.cancel();
+    socket.destroy();
+  }
 }
