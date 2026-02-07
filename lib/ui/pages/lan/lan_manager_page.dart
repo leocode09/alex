@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../services/wifi_direct_sync_service.dart';
-import '../../../services/lan_sync_service.dart';
 
 class LanManagerPage extends StatefulWidget {
   const LanManagerPage({super.key});
@@ -10,28 +9,18 @@ class LanManagerPage extends StatefulWidget {
 }
 
 class _LanManagerPageState extends State<LanManagerPage> {
-  final WifiDirectSyncService _wifiService = WifiDirectSyncService();
-  final LanSyncService _lanService = LanSyncService();
-  final TextEditingController _hostController = TextEditingController();
+  final WifiDirectSyncService _service = WifiDirectSyncService();
 
   @override
   void initState() {
     super.initState();
-    _wifiService.start();
-    _lanService.start();
-    _lanService.refreshLocalAddresses();
-  }
-
-  @override
-  void dispose() {
-    _hostController.dispose();
-    super.dispose();
+    _service.start();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_wifiService, _lanService]),
+      animation: _service,
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
@@ -41,21 +30,10 @@ class _LanManagerPageState extends State<LanManagerPage> {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildGroupTitle('Wi-Fi Direct'),
-              _buildWifiStatusCard(context),
-              _buildWifiPreferencesCard(context),
-              _buildWifiControlsCard(context),
-              _buildWifiPeersCard(context),
-              _buildWifiConnectedCard(context),
-              _buildWifiLogsCard(context),
-              const SizedBox(height: 8),
-              _buildGroupTitle('Hotspot / LAN (TCP)'),
-              _buildLanStatusCard(context),
-              _buildLanAddressesCard(context),
-              _buildLanControlsCard(context),
-              _buildLanPeersCard(context),
-              _buildLanClientsCard(context),
-              _buildLanLogsCard(context),
+              _buildStatusCard(context),
+              _buildPreferencesCard(context),
+              _buildControlsCard(context),
+              _buildPeersCard(context),
             ],
           ),
         );
@@ -63,25 +41,12 @@ class _LanManagerPageState extends State<LanManagerPage> {
     );
   }
 
-  Widget _buildGroupTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 4),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWifiStatusCard(BuildContext context) {
-    final status = _formatStatus(_wifiService.status);
+  Widget _buildStatusCard(BuildContext context) {
+    final status = _formatStatus(_service.status);
     final connection =
-        _wifiService.isConnected ? 'Connected' : 'Not connected';
-    final role = _wifiService.isConnected
-        ? (_wifiService.isGroupOwner ? 'Group owner' : 'Client')
+        _service.isConnected ? 'Connected' : 'Not connected';
+    final role = _service.isConnected
+        ? (_service.isGroupOwner ? 'Group owner' : 'Client')
         : 'N/A';
     return _card(
       child: Column(
@@ -92,10 +57,10 @@ class _LanManagerPageState extends State<LanManagerPage> {
           Text('State: $status'),
           Text('Connection: $connection'),
           Text('Role: $role'),
-          if (_wifiService.lastError != null) ...[
+          if (_service.lastError != null) ...[
             const SizedBox(height: 8),
             Text(
-              _wifiService.lastError!,
+              _service.lastError!,
               style: const TextStyle(color: Colors.red),
             ),
           ],
@@ -104,7 +69,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
     );
   }
 
-  Widget _buildWifiPreferencesCard(BuildContext context) {
+  Widget _buildPreferencesCard(BuildContext context) {
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,8 +79,8 @@ class _LanManagerPageState extends State<LanManagerPage> {
             title: const Text('Host Preferred'),
             subtitle:
                 const Text('Try to become group owner when starting'),
-            value: _wifiService.hostPreferred,
-            onChanged: (value) => _wifiService.setHostPreferred(value),
+            value: _service.hostPreferred,
+            onChanged: (value) => _service.setHostPreferred(value),
             contentPadding: EdgeInsets.zero,
           ),
         ],
@@ -123,7 +88,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
     );
   }
 
-  Widget _buildWifiControlsCard(BuildContext context) {
+  Widget _buildControlsCard(BuildContext context) {
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,29 +100,29 @@ class _LanManagerPageState extends State<LanManagerPage> {
             runSpacing: 8,
             children: [
               ElevatedButton.icon(
-                onPressed: _wifiService.isRunning
+                onPressed: _service.isRunning
                     ? null
-                    : () => _wifiService.start(
-                          hostPreferred: _wifiService.hostPreferred,
+                    : () => _service.start(
+                          hostPreferred: _service.hostPreferred,
                         ),
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Start'),
               ),
               OutlinedButton.icon(
-                onPressed: _wifiService.isRunning
-                    ? () => _wifiService.discoverPeers()
+                onPressed: _service.isRunning
+                    ? () => _service.discoverPeers()
                     : null,
                 icon: const Icon(Icons.search),
                 label: const Text('Discover'),
               ),
               OutlinedButton.icon(
                 onPressed:
-                    _wifiService.isConnected ? _wifiService.disconnect : null,
+                    _service.isConnected ? _service.disconnect : null,
                 icon: const Icon(Icons.link_off),
                 label: const Text('Disconnect'),
               ),
               OutlinedButton.icon(
-                onPressed: _wifiService.isRunning ? _wifiService.stop : null,
+                onPressed: _service.isRunning ? _service.stop : null,
                 icon: const Icon(Icons.stop),
                 label: const Text('Stop'),
               ),
@@ -168,23 +133,17 @@ class _LanManagerPageState extends State<LanManagerPage> {
     );
   }
 
-  Widget _buildWifiPeersCard(BuildContext context) {
+  Widget _buildPeersCard(BuildContext context) {
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle('Discovered Peers'),
           const SizedBox(height: 8),
-          if (_wifiService.peers.isEmpty)
+          if (_service.peers.isEmpty)
             const Text('No peers discovered yet.')
           else
-            ..._wifiService.peers.map((peer) {
-              final isConnected = _wifiService.connectedPeers.any(
-                (connected) =>
-                    (peer.address != null &&
-                        connected.address == peer.address) ||
-                    (peer.name != null && connected.name == peer.name),
-              );
+            ..._service.peers.map((peer) {
               final subtitle = [
                 if (peer.address != null) peer.address!,
                 if (peer.status != null) 'Status: ${peer.status}',
@@ -193,230 +152,14 @@ class _LanManagerPageState extends State<LanManagerPage> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(peer.displayName),
                 subtitle: subtitle.isEmpty ? null : Text(subtitle),
-                trailing: isConnected
-                    ? const Text('Connected')
-                    : TextButton(
-                        onPressed: peer.address == null
-                            ? null
-                            : () => _wifiService.connectToPeer(
-                                  peer.address!,
-                                ),
-                        child: const Text('Connect'),
-                      ),
+                trailing: TextButton(
+                  onPressed: peer.address == null
+                      ? null
+                      : () => _service.connectToPeer(peer.address!),
+                  child: const Text('Connect'),
+                ),
               );
             }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWifiConnectedCard(BuildContext context) {
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Connected Peers'),
-          const SizedBox(height: 8),
-          if (_wifiService.connectedPeers.isEmpty)
-            const Text('No connected peers.')
-          else
-            ..._wifiService.connectedPeers.map((peer) {
-              final subtitle = peer.id ?? peer.address;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(peer.displayName),
-                subtitle: subtitle == null ? null : Text(subtitle),
-              );
-            }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWifiLogsCard(BuildContext context) {
-    final logs = _wifiService.logs;
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Logs'),
-          const SizedBox(height: 8),
-          if (logs.isEmpty)
-            const Text('No logs yet.')
-          else
-            ...logs.reversed.take(5).map((log) => Text(log)).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanStatusCard(BuildContext context) {
-    final status = _formatStatus(_lanService.status);
-    final running = _lanService.isRunning ? 'Running' : 'Stopped';
-    final connections = _lanService.connectedPeers.length;
-
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('LAN Status'),
-          const SizedBox(height: 8),
-          Text('State: $status'),
-          Text('LAN: $running'),
-          Text('Peers connected: $connections'),
-          if (_lanService.lastError != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _lanService.lastError!,
-              style: const TextStyle(color: Colors.red),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanAddressesCard(BuildContext context) {
-    final addresses = _lanService.localAddresses;
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Local IP Addresses'),
-          const SizedBox(height: 8),
-          if (addresses.isEmpty)
-            const Text('No IPs detected yet. Tap refresh.')
-          else
-            ...addresses.map((ip) => Text('$ip:${LanSyncService.tcpPort}')),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _lanService.refreshLocalAddresses,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh IPs'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanControlsCard(BuildContext context) {
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Controls'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ElevatedButton.icon(
-                onPressed:
-                    _lanService.isRunning ? null : () => _lanService.start(),
-                icon: const Icon(Icons.wifi_tethering),
-                label: const Text('Start LAN'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _lanService.isRunning ? _lanService.stop : null,
-                icon: const Icon(Icons.stop),
-                label: const Text('Stop LAN'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _lanService.isConnected
-                    ? () => _lanService.triggerSync(reason: 'manual')
-                    : null,
-                icon: const Icon(Icons.sync),
-                label: const Text('Sync Now'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _hostController,
-            decoration: const InputDecoration(
-              labelText: 'Host IP (optional)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () =>
-                    _lanService.connectToHost(_hostController.text),
-                icon: const Icon(Icons.link),
-                label: const Text('Connect'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Both devices must be on the same Wi-Fi or hotspot network.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanClientsCard(BuildContext context) {
-    final clients = _lanService.connectedPeers;
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Connected Peers'),
-          const SizedBox(height: 8),
-          if (clients.isEmpty)
-            const Text('No LAN peers connected.')
-          else
-            ...clients.map((client) => Text(client)).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanPeersCard(BuildContext context) {
-    final peers = _lanService.peers;
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Discovered Peers'),
-          const SizedBox(height: 8),
-          if (peers.isEmpty)
-            const Text('No LAN peers discovered yet.')
-          else
-            ...peers.map((peer) {
-              final isConnected =
-                  _lanService.connectedPeerIds.contains(peer.id);
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(peer.name),
-                subtitle: Text('${peer.address.address}:${peer.port}'),
-                trailing:
-                    isConnected ? const Text('Connected') : const Text('Seen'),
-              );
-            }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanLogsCard(BuildContext context) {
-    final logs = _lanService.logs;
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('LAN Logs'),
-          const SizedBox(height: 8),
-          if (logs.isEmpty)
-            const Text('No logs yet.')
-          else
-            ...logs.reversed.take(5).map((log) => Text(log)).toList(),
         ],
       ),
     );
