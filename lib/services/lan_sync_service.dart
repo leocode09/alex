@@ -230,6 +230,7 @@ class LanSyncService extends ChangeNotifier {
     VoidCallback? onDone,
   }) {
     return socket
+        .cast<List<int>>()
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
