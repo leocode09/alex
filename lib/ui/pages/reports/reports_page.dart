@@ -17,8 +17,10 @@ class ReportsPage extends ConsumerStatefulWidget {
 }
 
 class _ReportsPageState extends ConsumerState<ReportsPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
+  late AnimationController _chartController;
+  late Animation<double> _chartAnimation;
   String _selectedPeriod = 'This Week';
   final NumberFormat _currencyFormat =
       NumberFormat.currency(symbol: '\$', decimalDigits: 2);
@@ -28,11 +30,21 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _chartController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _chartAnimation = CurvedAnimation(
+      parent: _chartController,
+      curve: Curves.easeOutCubic,
+    );
+    _chartController.forward();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _chartController.dispose();
     super.dispose();
   }
 
@@ -61,6 +73,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               setState(() {
                 _selectedPeriod = value;
               });
+              _chartController.forward(from: 0);
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'Today', child: Text('Today')),
@@ -109,12 +122,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final metrics = _calculateSalesMetrics(filteredSales, products);
         final chartSpots = _buildRevenueSeries(filteredSales, range);
         final productStats = _buildProductStats(filteredSales);
+        final productSummaryEntries = productStats.entries.toList()
+          ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
         final topByRevenue = productStats.entries.toList()
           ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
         final topByUnits = productStats.entries.toList()
           ..sort((a, b) => b.value.units.compareTo(a.value.units));
         final paymentEntries = metrics.paymentBreakdown.entries.toList()
           ..sort((a, b) => b.value.total.compareTo(a.value.total));
+        final totalProductsSold = productSummaryEntries.length;
 
         final hasSales = filteredSales.isNotEmpty;
         final hasCostData = metrics.costedItems > 0;
@@ -156,12 +172,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             children: [
               _buildSummaryCards([
                 _SummaryData(
-                    'Recorded Sales',
-                    _formatCurrency(metrics.recordedSales),
-                    ''),
+                  'Income',
+                  _formatCurrency(metrics.recordedSales),
+                  'Gross sales',
+                  subtitleColor: Colors.grey[600],
+                ),
                 _SummaryData('Orders', _formatCount(metrics.orders), ''),
                 _SummaryData(
-                    'Items Sold', _formatCount(metrics.itemsSold), ''),
+                  'Items Sold',
+                  _formatCount(metrics.itemsSold),
+                  totalProductsSold > 0
+                      ? '${_formatCount(totalProductsSold)} products'
+                      : '',
+                ),
               ]),
               const SizedBox(height: 12),
               _buildSummaryCards([
@@ -189,7 +212,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                   subtitleColor: costSubtitleColor,
                 ),
                 _SummaryData(
-                  'Gross Profit',
+                  'Profit',
                   hasCostData ? _formatCurrency(metrics.grossProfit) : 'N/A',
                   profitSubtitle,
                   subtitleColor: profitSubtitleColor,
@@ -213,29 +236,39 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
-                  height: 200,
-                  child: LineChart(
-                    LineChartData(
-                      gridData: const FlGridData(show: false),
-                      titlesData: const FlTitlesData(show: false),
-                      borderData: FlBorderData(show: false),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: chartSpots,
-                          isCurved: true,
-                          color: Theme.of(context).colorScheme.primary,
-                          barWidth: 2,
-                          dotData: const FlDotData(show: false),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.05),
-                          ),
+                  height: 220,
+                  child: AnimatedBuilder(
+                    animation: _chartAnimation,
+                    builder: (context, child) {
+                      final animatedSpots = chartSpots
+                          .map((spot) => FlSpot(
+                              spot.x, spot.y * _chartAnimation.value))
+                          .toList();
+                      return LineChart(
+                        LineChartData(
+                          gridData: const FlGridData(show: false),
+                          titlesData: const FlTitlesData(show: false),
+                          borderData: FlBorderData(show: false),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: animatedSpots,
+                              isCurved: true,
+                              color: Theme.of(context).colorScheme.primary,
+                              barWidth: 2.5,
+                              dotData: const FlDotData(show: false),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.08),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                        swapAnimationDuration: Duration.zero,
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 28),
@@ -284,6 +317,26 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       entry.key,
                       _formatCount(entry.value.units),
                       'Revenue: ${_formatCurrency(entry.value.revenue)}',
+                    );
+                  }).toList(),
+                const SizedBox(height: 28),
+                const Text('All Products Sold',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text(
+                  '${_formatCount(totalProductsSold)} products • ${_formatCount(metrics.itemsSold)} units',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                if (productSummaryEntries.isEmpty)
+                  const Text('No sales data available')
+                else
+                  ...productSummaryEntries.map((entry) {
+                    return _buildListRow(
+                      entry.key,
+                      _formatCurrency(entry.value.revenue),
+                      '${_formatCount(entry.value.units)} units',
                     );
                   }).toList(),
               ],
@@ -768,10 +821,18 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         return Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+              border: Border.all(color: Colors.grey[200]!),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -812,8 +873,16 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
