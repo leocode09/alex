@@ -331,7 +331,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Text(
-                  '${_formatCount(totalProductsSold)} products • ${_formatCount(metrics.itemsSold)} units',
+                  '${_formatCount(totalProductsSold)} products | ${_formatCount(metrics.itemsSold)} units',
                   style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
                 const SizedBox(height: 16),
