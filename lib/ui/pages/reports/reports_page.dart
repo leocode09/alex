@@ -272,7 +272,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                             ),
                           ],
                         ),
-                        swapAnimationDuration: Duration.zero,
                       );
                     },
                   ),
