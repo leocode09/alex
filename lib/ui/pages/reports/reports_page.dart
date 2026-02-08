@@ -38,7 +38,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       parent: _chartController,
       curve: Curves.easeOutCubic,
     );
-    _chartController.forward();
   }
 
   @override
@@ -73,7 +72,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               setState(() {
                 _selectedPeriod = value;
               });
-              _chartController.forward(from: 0);
+              _chartController.reset();
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'Today', child: Text('Today')),
@@ -124,8 +123,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final productStats = _buildProductStats(filteredSales);
         final productSummaryEntries = productStats.entries.toList()
           ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
-        final topByRevenue = productStats.entries.toList()
-          ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
         final topByUnits = productStats.entries.toList()
           ..sort((a, b) => b.value.units.compareTo(a.value.units));
         final paymentEntries = metrics.paymentBreakdown.entries.toList()
@@ -165,6 +162,14 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           profitSubtitleColor = Colors.orange[700];
         }
 
+        if (hasSales && _chartController.status == AnimationStatus.dismissed) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _chartController.forward(from: 0);
+            }
+          });
+        }
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -184,6 +189,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                   totalProductsSold > 0
                       ? '${_formatCount(totalProductsSold)} products'
                       : '',
+                  subtitleColor: Colors.grey[600],
                 ),
               ]),
               const SizedBox(height: 12),
@@ -294,10 +300,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
-                if (topByRevenue.isEmpty)
+                if (productSummaryEntries.isEmpty)
                   const Text('No sales data available')
                 else
-                  ...topByRevenue.take(4).map((entry) {
+                  ...productSummaryEntries.take(4).map((entry) {
                     return _buildListRow(
                       entry.key,
                       _formatCurrency(entry.value.revenue),
