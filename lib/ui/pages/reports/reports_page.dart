@@ -299,36 +299,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 const Text('Top Products by Revenue',
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                if (productSummaryEntries.isEmpty)
-                  const Text('No sales data available')
-                else
-                  ...productSummaryEntries.take(4).map((entry) {
-                    return _buildListRow(
-                      entry.key,
-                      _formatCurrency(entry.value.revenue),
-                      '${_formatCount(entry.value.units)} units',
-                    );
-                  }).toList(),
-                const SizedBox(height: 20),
-                const Text('Top Products by Units',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                if (topByUnits.isEmpty)
-                  const Text('No sales data available')
-                else
-                  ...topByUnits.take(4).map((entry) {
-                    return _buildListRow(
-                      entry.key,
-                      _formatCount(entry.value.units),
-                      'Revenue: ${_formatCurrency(entry.value.revenue)}',
-                    );
-                  }).toList(),
-                const SizedBox(height: 28),
-                const Text('All Products Sold',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Text(
                   '${_formatCount(totalProductsSold)} products | ${_formatCount(metrics.itemsSold)} units',
@@ -343,6 +313,21 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       entry.key,
                       _formatCurrency(entry.value.revenue),
                       '${_formatCount(entry.value.units)} units',
+                    );
+                  }).toList(),
+                const SizedBox(height: 20),
+                const Text('Top Products by Units',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                if (topByUnits.isEmpty)
+                  const Text('No sales data available')
+                else
+                  ...topByUnits.map((entry) {
+                    return _buildListRow(
+                      entry.key,
+                      _formatCount(entry.value.units),
+                      'Revenue: ${_formatCurrency(entry.value.revenue)}',
                     );
                   }).toList(),
               ],
