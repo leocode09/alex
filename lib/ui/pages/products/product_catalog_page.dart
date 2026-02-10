@@ -45,7 +45,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Products',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: false,
         actions: [
           IconButton(
@@ -124,7 +125,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                   decoration: InputDecoration(
                     hintText: 'Search products...',
                     prefixIcon: const Icon(Icons.search, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(color: Colors.grey[300]!),
@@ -149,7 +151,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         itemBuilder: (context, index) {
                           final category = allCategories[index];
                           final isSelected = category == 'All'
-                              ? selectedCategory == null || selectedCategory.isEmpty
+                              ? selectedCategory == null ||
+                                  selectedCategory.isEmpty
                               : selectedCategory == category;
 
                           return Padding(
@@ -157,23 +160,37 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                             child: InkWell(
                               onTap: () {
                                 if (category == 'All') {
-                                  ref.read(selectedCategoryProvider.notifier).state = null;
+                                  ref
+                                      .read(selectedCategoryProvider.notifier)
+                                      .state = null;
                                 } else {
-                                  ref.read(selectedCategoryProvider.notifier).state = category;
+                                  ref
+                                      .read(selectedCategoryProvider.notifier)
+                                      .state = category;
                                 }
                               },
                               borderRadius: BorderRadius.circular(16),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white,
-                                  border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!),
+                                  color: isSelected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.white,
+                                  border: Border.all(
+                                      color: isSelected
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                          : Colors.grey[300]!),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Text(
                                   category,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -202,16 +219,19 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey[300]),
+                        Icon(Icons.inventory_2_outlined,
+                            size: 48, color: Colors.grey[300]),
                         const SizedBox(height: 16),
-                        Text('No products found', style: TextStyle(color: Colors.grey[500])),
+                        Text('No products found',
+                            style: TextStyle(color: Colors.grey[500])),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(
                           onPressed: () async {
                             final searchQuery = _searchController.text.trim();
                             if (await PinProtection.requirePinIfNeeded(
                               context,
-                              isRequired: () => PinService().isPinRequiredForAddProduct(),
+                              isRequired: () =>
+                                  PinService().isPinRequiredForAddProduct(),
                               title: 'Add Product',
                               subtitle: 'Enter PIN to add a product',
                             )) {
@@ -219,7 +239,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                                 return;
                               }
                               if (searchQuery.isNotEmpty) {
-                                context.push('/products/add?name=${Uri.encodeComponent(searchQuery)}');
+                                context.push(
+                                    '/products/add?name=${Uri.encodeComponent(searchQuery)}');
                               } else {
                                 context.push('/products/add');
                               }
@@ -228,7 +249,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                           icon: const Icon(Icons.add),
                           label: const Text('Create Product'),
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
                           ),
                         ),
                       ],
@@ -238,7 +260,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                 return ListView.separated(
                   padding: const EdgeInsets.only(bottom: 80),
                   itemCount: sortedProducts.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, indent: 16, endIndent: 16),
                   itemBuilder: (context, index) {
                     final product = sortedProducts[index];
                     return Dismissible(
@@ -251,9 +274,11 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
                       confirmDismiss: (direction) async {
-                        final canDelete = await PinProtection.requirePinIfNeeded(
+                        final canDelete =
+                            await PinProtection.requirePinIfNeeded(
                           context,
-                          isRequired: () => PinService().isPinRequiredForDeleteProduct(),
+                          isRequired: () =>
+                              PinService().isPinRequiredForDeleteProduct(),
                           title: 'Delete Product',
                           subtitle: 'Enter PIN to delete a product',
                         );
@@ -267,7 +292,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text('Delete Product'),
-                            content: Text('Are you sure you want to delete ${product.name}?'),
+                            content: Text(
+                                'Are you sure you want to delete ${product.name}?'),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),
@@ -275,7 +301,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                               ),
                               TextButton(
                                 onPressed: () => Navigator.pop(context, true),
-                                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                style: TextButton.styleFrom(
+                                    foregroundColor: Colors.red),
                                 child: const Text('Delete'),
                               ),
                             ],
@@ -298,7 +325,7 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                           }
                           return;
                         }
-                        
+
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('${product.name} deleted')),
@@ -309,14 +336,16 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         onTap: () async {
                           if (await PinProtection.requirePinIfNeeded(
                             context,
-                            isRequired: () => PinService().isPinRequiredForViewProductDetails(),
+                            isRequired: () => PinService()
+                                .isPinRequiredForViewProductDetails(),
                             title: 'Product Details',
                             subtitle: 'Enter PIN to view product details',
                           )) {
                             if (!context.mounted) {
                               return;
                             }
-                            context.push('/products/${product.id}', extra: product);
+                            context.push('/products/${product.id}',
+                                extra: product);
                           }
                         },
                         leading: Container(
@@ -326,12 +355,16 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.inventory_2_outlined, size: 20, color: Colors.grey),
+                          child: const Icon(Icons.inventory_2_outlined,
+                              size: 20, color: Colors.grey),
                         ),
-                        title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                        title: Text(product.name,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w500)),
                         subtitle: Text(
                           'Stock: ${product.stock} • ${product.category}',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 12),
                         ),
                         trailing: Text(
                           '\$${product.price.toInt()}',

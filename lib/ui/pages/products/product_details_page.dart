@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../models/inventory_movement.dart';
+import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
@@ -613,7 +614,7 @@ class ProductDetailsPage extends ConsumerWidget {
   Future<void> _showAddStockDialog(
     BuildContext context,
     WidgetRef ref,
-    dynamic product,
+    Product product,
   ) async {
     final allowed = await PinProtection.requirePinIfNeeded(
       context,
@@ -653,14 +654,13 @@ class ProductDetailsPage extends ConsumerWidget {
                 return;
               }
 
-              final updated = await ref
-                  .read(productNotifierProvider.notifier)
-                  .updateStock(
-                    product.id,
-                    product.stock + quantity,
-                    reason: 'restock',
-                    note: 'Manual restock from product details',
-                  );
+              final updated =
+                  await ref.read(productNotifierProvider.notifier).updateStock(
+                        product.id,
+                        product.stock + quantity,
+                        reason: 'restock',
+                        note: 'Manual restock from product details',
+                      );
 
               if (!context.mounted) {
                 return;
@@ -689,7 +689,7 @@ class ProductDetailsPage extends ConsumerWidget {
   Future<void> _showSetStockDialog(
     BuildContext context,
     WidgetRef ref,
-    dynamic product,
+    Product product,
   ) async {
     final allowed = await PinProtection.requirePinIfNeeded(
       context,
@@ -729,14 +729,13 @@ class ProductDetailsPage extends ConsumerWidget {
                 return;
               }
 
-              final updated = await ref
-                  .read(productNotifierProvider.notifier)
-                  .updateStock(
-                    product.id,
-                    newStock,
-                    reason: 'stock_set',
-                    note: 'Manual stock set from product details',
-                  );
+              final updated =
+                  await ref.read(productNotifierProvider.notifier).updateStock(
+                        product.id,
+                        newStock,
+                        reason: 'stock_set',
+                        note: 'Manual stock set from product details',
+                      );
 
               if (!context.mounted) {
                 return;
