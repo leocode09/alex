@@ -8,14 +8,16 @@ final inventoryMovementRepositoryProvider =
   return InventoryMovementRepository();
 });
 
-final inventoryMovementsProvider = FutureProvider<List<InventoryMovement>>((ref) async {
+final inventoryMovementsProvider =
+    FutureProvider<List<InventoryMovement>>((ref) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(inventoryMovementRepositoryProvider);
   return repository.getAllMovements();
 });
 
 final productInventoryMovementsProvider =
-    FutureProvider.family<List<InventoryMovement>, String>((ref, productId) async {
+    FutureProvider.family<List<InventoryMovement>, String>(
+        (ref, productId) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(inventoryMovementRepositoryProvider);
   return repository.getMovementsByProduct(productId, limit: 50);

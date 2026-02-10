@@ -16,7 +16,8 @@ class InventoryMovementRepository {
 
       final List<dynamic> decoded = jsonDecode(jsonData);
       final movements = decoded
-          .map((json) => InventoryMovement.fromMap(json as Map<String, dynamic>))
+          .map(
+              (json) => InventoryMovement.fromMap(json as Map<String, dynamic>))
           .toList();
 
       movements.sort((a, b) => b.createdAt.compareTo(a.createdAt));

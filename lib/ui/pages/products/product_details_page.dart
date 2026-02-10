@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../../../models/inventory_movement.dart';
+import '../../../models/sale.dart';
+import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
+import '../../../providers/sale_provider.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 
@@ -16,6 +21,10 @@ class ProductDetailsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productAsync = ref.watch(productProvider(productId));
+    final salesAsync = ref.watch(salesProvider);
+    final movementsAsync =
+        ref.watch(productInventoryMovementsProvider(productId));
+    final dateFormatter = DateFormat('MMM d, yyyy • h:mm a');
 
     return Scaffold(
       appBar: AppBar(
@@ -27,7 +36,7 @@ class ProductDetailsPage extends ConsumerWidget {
             onPressed: () async {
               final pinService = PinService();
               final requirePin = await pinService.isPinRequiredForEditProduct();
-              
+
               if (requirePin) {
                 final verified = await PinProtection.requirePin(context);
                 if (verified && context.mounted) {
@@ -79,7 +88,8 @@ class ProductDetailsPage extends ConsumerWidget {
               if (value == 'delete') {
                 final verified = await PinProtection.requirePinIfNeeded(
                   context,
-                  isRequired: () => PinService().isPinRequiredForDeleteProduct(),
+                  isRequired: () =>
+                      PinService().isPinRequiredForDeleteProduct(),
                   title: 'Delete Product',
                   subtitle: 'Enter PIN to delete a product',
                 );
@@ -96,6 +106,22 @@ class ProductDetailsPage extends ConsumerWidget {
           if (product == null) {
             return const Center(child: Text('Product not found'));
           }
+
+          final salesEntries = salesAsync.maybeWhen(
+            data: (sales) => _buildProductSaleEntries(sales, product.id),
+            orElse: () => <_ProductSaleEntry>[],
+          );
+          final totalSoldUnits = salesEntries.fold<int>(
+              0, (sum, entry) => sum + entry.item.quantity);
+          final totalSalesCount = salesEntries.length;
+          final totalSoldRevenue = salesEntries.fold<double>(
+            0.0,
+            (sum, entry) => sum + entry.item.subtotal,
+          );
+          final lastSoldAt = salesEntries.isNotEmpty
+              ? salesEntries.first.sale.createdAt
+              : null;
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -193,10 +219,112 @@ class ProductDetailsPage extends ConsumerWidget {
                     product.costPrice != null
                         ? '\$${product.costPrice!.toInt()}'
                         : '-'),
-                if (product.costPrice != null)
+                if (product.costPrice != null && product.price > 0)
                   _buildDetailRow('Margin',
                       '${((product.price - product.costPrice!) / product.price * 100).toStringAsFixed(1)}%'),
                 _buildDetailRow('Description', product.description ?? '-'),
+                _buildDetailRow('Created',
+                    dateFormatter.format(product.createdAt.toLocal())),
+                _buildDetailRow('Updated',
+                    dateFormatter.format(product.updatedAt.toLocal())),
+                const SizedBox(height: 32),
+
+                const Text('Performance',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                GridView.count(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.9,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildMetricCard(
+                      context,
+                      title: 'Sold Units',
+                      value: '$totalSoldUnits',
+                      icon: Icons.sell_outlined,
+                      color: Colors.indigo,
+                    ),
+                    _buildMetricCard(
+                      context,
+                      title: 'Sales Count',
+                      value: '$totalSalesCount',
+                      icon: Icons.receipt_long_outlined,
+                      color: Colors.teal,
+                    ),
+                    _buildMetricCard(
+                      context,
+                      title: 'Revenue',
+                      value: '\$${totalSoldRevenue.toStringAsFixed(2)}',
+                      icon: Icons.attach_money_outlined,
+                      color: Colors.green,
+                    ),
+                    _buildMetricCard(
+                      context,
+                      title: 'Last Sold',
+                      value: lastSoldAt == null
+                          ? 'Never'
+                          : DateFormat('MMM d').format(lastSoldAt.toLocal()),
+                      icon: Icons.schedule_outlined,
+                      color: Colors.orange,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                const Text('Sales History',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                salesAsync.when(
+                  data: (sales) {
+                    final productSales =
+                        _buildProductSaleEntries(sales, product.id);
+                    if (productSales.isEmpty) {
+                      return _buildEmptyStateCard(
+                        icon: Icons.receipt_long_outlined,
+                        text: 'No sales recorded for this product yet.',
+                      );
+                    }
+                    return _buildSalesHistoryList(productSales, dateFormatter);
+                  },
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  error: (err, _) => _buildEmptyStateCard(
+                    icon: Icons.error_outline,
+                    text: 'Failed to load sales history: $err',
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                const Text('Inventory Movements',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                movementsAsync.when(
+                  data: (movements) {
+                    if (movements.isEmpty) {
+                      return _buildEmptyStateCard(
+                        icon: Icons.swap_vert_outlined,
+                        text:
+                            'No inventory movement logs yet. New stock changes will appear here.',
+                      );
+                    }
+                    return _buildInventoryMovementsList(
+                      movements: movements,
+                      dateFormatter: dateFormatter,
+                    );
+                  },
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  error: (err, _) => _buildEmptyStateCard(
+                    icon: Icons.error_outline,
+                    text: 'Failed to load inventory history: $err',
+                  ),
+                ),
               ],
             ),
           );
@@ -241,6 +369,223 @@ class ProductDetailsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildMetricCard(
+    BuildContext context, {
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        color: Colors.grey[50],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const Spacer(),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyStateCard({
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+        color: Colors.grey[50],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.grey[600]),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: Colors.grey[700], fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalesHistoryList(
+    List<_ProductSaleEntry> entries,
+    DateFormat dateFormatter,
+  ) {
+    final visibleEntries = entries.take(20).toList();
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: visibleEntries.asMap().entries.map((entry) {
+          final index = entry.key;
+          final saleEntry = entry.value;
+          final sale = saleEntry.sale;
+          final item = saleEntry.item;
+          final subtitle =
+              '${item.quantity} units • \$${item.price.toStringAsFixed(2)} each\n${dateFormatter.format(sale.createdAt.toLocal())} • Receipt #${_shortId(sale.id)}';
+
+          return Column(
+            children: [
+              ListTile(
+                dense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.blue[50],
+                  child: Icon(Icons.sell_outlined,
+                      size: 16, color: Colors.blue[700]),
+                ),
+                title: Text(
+                  item.productName,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                subtitle:
+                    Text(subtitle, style: TextStyle(color: Colors.grey[600])),
+                trailing: Text(
+                  '\$${item.subtotal.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
+              if (index != visibleEntries.length - 1)
+                const Divider(height: 1, indent: 12, endIndent: 12),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildInventoryMovementsList({
+    required List<InventoryMovement> movements,
+    required DateFormat dateFormatter,
+  }) {
+    final visibleMovements = movements.take(30).toList();
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: visibleMovements.asMap().entries.map((entry) {
+          final index = entry.key;
+          final movement = entry.value;
+          final isIn = movement.delta > 0;
+          final arrowIcon = isIn ? Icons.arrow_upward : Icons.arrow_downward;
+          final arrowColor = isIn ? Colors.green : Colors.red;
+          final deltaText = isIn ? '+${movement.delta}' : '${movement.delta}';
+          final reasonText = _formatMovementReason(movement.reason);
+          final subtitle =
+              '$reasonText • ${dateFormatter.format(movement.createdAt.toLocal())}\nStock: ${movement.stockBefore} → ${movement.stockAfter}';
+
+          return Column(
+            children: [
+              ListTile(
+                dense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: arrowColor.withValues(alpha: 0.12),
+                  child: Icon(arrowIcon, size: 16, color: arrowColor),
+                ),
+                title: Text(
+                  '$deltaText units',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                subtitle:
+                    Text(subtitle, style: TextStyle(color: Colors.grey[600])),
+                trailing: movement.referenceId == null
+                    ? null
+                    : Text(
+                        '#${_shortId(movement.referenceId!)}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+              ),
+              if (index != visibleMovements.length - 1)
+                const Divider(height: 1, indent: 12, endIndent: 12),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  List<_ProductSaleEntry> _buildProductSaleEntries(
+    List<Sale> sales,
+    String productId,
+  ) {
+    final entries = <_ProductSaleEntry>[];
+    for (final sale in sales) {
+      for (final item in sale.items) {
+        if (item.productId == productId) {
+          entries.add(_ProductSaleEntry(sale: sale, item: item));
+        }
+      }
+    }
+    entries.sort((a, b) => b.sale.createdAt.compareTo(a.sale.createdAt));
+    return entries;
+  }
+
+  String _formatMovementReason(String reason) {
+    switch (reason) {
+      case 'sale':
+        return 'Sale';
+      case 'sale_receipt_edit':
+        return 'Receipt Edit';
+      case 'restock':
+        return 'Restock';
+      case 'bulk_restock':
+        return 'Bulk Restock';
+      case 'stock_set':
+        return 'Manual Stock Set';
+      case 'stock_adjustment':
+        return 'Stock Adjustment';
+      default:
+        return reason
+            .split('_')
+            .map((word) => word.isEmpty
+                ? word
+                : '${word[0].toUpperCase()}${word.substring(1)}')
+            .join(' ');
+    }
+  }
+
+  String _shortId(String id) {
+    return id.length <= 6 ? id : id.substring(0, 6);
   }
 
   void _confirmDelete(BuildContext context, WidgetRef ref) {
@@ -289,4 +634,14 @@ class ProductDetailsPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _ProductSaleEntry {
+  final Sale sale;
+  final SaleItem item;
+
+  _ProductSaleEntry({
+    required this.sale,
+    required this.item,
+  });
 }

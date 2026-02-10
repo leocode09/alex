@@ -365,8 +365,7 @@ class InventoryPage extends ConsumerWidget {
                     deltas,
                     syncReason: 'product_bulk_restocked',
                     movementReason: 'bulk_restock',
-                    note:
-                        'Bulk restock of $quantity units from inventory page',
+                    note: 'Bulk restock of $quantity units from inventory page',
                   );
 
               if (!context.mounted) {

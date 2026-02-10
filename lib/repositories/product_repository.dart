@@ -268,9 +268,11 @@ class ProductRepository {
     }
 
     if (recordMovement && movements.isNotEmpty) {
-      final movementSaved = await _inventoryMovementRepo.addMovements(movements);
+      final movementSaved =
+          await _inventoryMovementRepo.addMovements(movements);
       if (!movementSaved) {
-        print('Warning: stock changes were applied but movement logging failed.');
+        print(
+            'Warning: stock changes were applied but movement logging failed.');
       }
     }
   }
