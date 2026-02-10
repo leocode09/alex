@@ -388,24 +388,7 @@ class SettingsPage extends ConsumerWidget {
                   subtitle: 'Enter current PIN to change PIN',
                 );
                 if (verified && parentContext.mounted) {
-                  parentContext.push('/pin-setup');
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.vpn_key),
-              title: const Text('Reset PIN'),
-              subtitle: const Text('Set a new PIN if you forgot it'),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final verified = await PinProtection.requirePinIfNeeded(
-                  parentContext,
-                  isRequired: () => PinService().isPinRequiredForChangePin(),
-                  title: 'Reset PIN',
-                  subtitle: 'Enter PIN to reset your PIN',
-                );
-                if (verified && parentContext.mounted) {
-                  parentContext.push('/pin-setup');
+                  parentContext.push('/pin-setup?mode=change');
                 }
               },
             ),

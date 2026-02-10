@@ -101,6 +101,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final pinService = PinService();
       final isPinSet = await pinService.isPinSet();
       final isOnPinSetup = state.uri.path == '/pin-setup';
+      final isChangingPinFlow =
+          isOnPinSetup && state.uri.queryParameters['mode'] == 'change';
       final isOnPinEntry = state.uri.path == '/pin-entry';
       final isOnLogin = state.uri.path == '/';
       final isOnTimeLock = state.uri.path == '/time-lock';
@@ -127,7 +129,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Unlocked but on login/pin pages
-      if (isUnlocked && (isOnLogin || isOnPinEntry || isOnPinSetup)) {
+      if (isUnlocked &&
+          (isOnLogin || isOnPinEntry || (isOnPinSetup && !isChangingPinFlow))) {
         return '/dashboard';
       }
 
@@ -145,7 +148,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/pin-setup',
         name: 'pin-setup',
-        builder: (context, state) => const PinSetupPage(),
+        builder: (context, state) => PinSetupPage(
+          isChangingPin: state.uri.queryParameters['mode'] == 'change',
+        ),
       ),
 
       // PIN Preferences

@@ -130,6 +130,12 @@ class PinService {
     await prefs.setString(_pinPreferencesKey, jsonEncode(preferences));
   }
 
+  Future<void> updatePin(String pin) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pinKey, pin);
+    await prefs.setBool(_pinSetKey, true);
+  }
+
   Future<bool> verifyPin(String pin) async {
     final prefs = await SharedPreferences.getInstance();
     final storedPin = prefs.getString(_pinKey);

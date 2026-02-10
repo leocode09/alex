@@ -4,7 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../../services/pin_service.dart';
 
 class PinSetupPage extends StatefulWidget {
-  const PinSetupPage({super.key});
+  final bool isChangingPin;
+
+  const PinSetupPage({
+    super.key,
+    this.isChangingPin = false,
+  });
 
   @override
   State<PinSetupPage> createState() => _PinSetupPageState();
@@ -133,6 +138,10 @@ class _PinSetupPageState extends State<PinSetupPage> {
 
   Future<void> _verifyPins() async {
     if (_pin == _confirmPin) {
+      if (widget.isChangingPin) {
+        await _saveChangedPin();
+        return;
+      }
       setState(() {
         _showPreferences = true;
       });
@@ -152,6 +161,20 @@ class _PinSetupPageState extends State<PinSetupPage> {
         });
       }
     }
+  }
+
+  Future<void> _saveChangedPin() async {
+    await _pinService.updatePin(_pin);
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PIN updated successfully.'),
+      ),
+    );
+    context.pop();
   }
 
   Future<void> _savePinWithPreferences() async {
@@ -233,6 +256,13 @@ class _PinSetupPageState extends State<PinSetupPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: widget.isChangingPin
+          ? AppBar(
+              title: const Text('Change PIN'),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+            )
+          : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -247,7 +277,9 @@ class _PinSetupPageState extends State<PinSetupPage> {
               ),
               const SizedBox(height: 24),
               Text(
-                _isConfirming ? 'Confirm PIN' : 'Create PIN',
+                _isConfirming
+                    ? (widget.isChangingPin ? 'Confirm New PIN' : 'Confirm PIN')
+                    : (widget.isChangingPin ? 'Change PIN' : 'Create PIN'),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -256,8 +288,12 @@ class _PinSetupPageState extends State<PinSetupPage> {
               const SizedBox(height: 8),
               Text(
                 _isConfirming
-                    ? 'Enter your PIN again to confirm'
-                    : 'Create a 4-digit PIN to secure your app',
+                    ? (widget.isChangingPin
+                        ? 'Enter your new PIN again to confirm'
+                        : 'Enter your PIN again to confirm')
+                    : (widget.isChangingPin
+                        ? 'Create a new 4-digit PIN'
+                        : 'Create a 4-digit PIN to secure your app'),
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -747,7 +783,7 @@ class _PinSetupPageState extends State<PinSetupPage> {
           ),
           value: value,
           onChanged: onChanged,
-          activeColor: Theme.of(context).colorScheme.primary,
+          activeThumbColor: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
