@@ -361,10 +361,18 @@ class _SalesPageState extends ConsumerState<SalesPage>
         oldQuantities: oldQuantities,
         newQuantities: newQuantities,
       );
+      final saleId = isEditingMode ? editingReceipt.id : const Uuid().v4();
       bool stockApplied = false;
       bool printFailed = false;
 
-      await productRepo.applyStockChanges(stockDeltas);
+      await productRepo.applyStockChanges(
+        stockDeltas,
+        reason: isEditingMode ? 'sale_receipt_edit' : 'sale',
+        referenceId: saleId,
+        note: isEditingMode
+            ? 'Stock adjusted from receipt update'
+            : 'Stock deducted from sale',
+      );
       stockApplied = stockDeltas.isNotEmpty;
 
       try {
@@ -385,7 +393,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
 
         if (isEditingMode) {
           final updatedSale = Sale(
-            id: editingReceipt.id,
+            id: saleId,
             items: saleItems,
             total: totalAmount,
             paymentMethod: method,
@@ -415,7 +423,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
           }
 
           final sale = Sale(
-            id: const Uuid().v4(),
+            id: saleId,
             items: saleItems,
             total: totalAmount,
             paymentMethod: method,
@@ -447,8 +455,13 @@ class _SalesPageState extends ConsumerState<SalesPage>
       } catch (e) {
         if (stockApplied) {
           try {
-            await productRepo
-                .applyStockChanges(_invertStockDeltas(stockDeltas));
+            await productRepo.applyStockChanges(
+              _invertStockDeltas(stockDeltas),
+              reason: 'rollback',
+              referenceId: saleId,
+              note: 'Rollback failed sale stock update',
+              recordMovement: false,
+            );
           } catch (rollbackError) {
             throw Exception('$e Stock rollback failed: $rollbackError');
           }

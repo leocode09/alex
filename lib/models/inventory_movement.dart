@@ -1,0 +1,60 @@
+class InventoryMovement {
+  final String id;
+  final String productId;
+  final String productName;
+  final int delta;
+  final int stockBefore;
+  final int stockAfter;
+  final String reason;
+  final String? referenceId;
+  final String? note;
+  final DateTime createdAt;
+
+  InventoryMovement({
+    required this.id,
+    required this.productId,
+    required this.productName,
+    required this.delta,
+    required this.stockBefore,
+    required this.stockAfter,
+    required this.reason,
+    this.referenceId,
+    this.note,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  bool get isStockIn => delta > 0;
+  bool get isStockOut => delta < 0;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'productId': productId,
+      'productName': productName,
+      'delta': delta,
+      'stockBefore': stockBefore,
+      'stockAfter': stockAfter,
+      'reason': reason,
+      'referenceId': referenceId,
+      'note': note,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory InventoryMovement.fromMap(Map<String, dynamic> map) {
+    return InventoryMovement(
+      id: map['id'] as String,
+      productId: map['productId'] as String,
+      productName: map['productName'] as String? ?? '',
+      delta: (map['delta'] as num?)?.toInt() ?? 0,
+      stockBefore: (map['stockBefore'] as num?)?.toInt() ?? 0,
+      stockAfter: (map['stockAfter'] as num?)?.toInt() ?? 0,
+      reason: map['reason'] as String? ?? 'stock_adjustment',
+      referenceId: map['referenceId'] as String?,
+      note: map['note'] as String?,
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'] as String)
+          : DateTime.now(),
+    );
+  }
+}

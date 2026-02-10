@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
+import '../models/inventory_movement.dart';
 import '../models/product.dart';
 import '../services/database_helper.dart';
+import 'inventory_movement_repository.dart';
 
 class StockOperationException implements Exception {
   final String message;
@@ -13,7 +16,10 @@ class StockOperationException implements Exception {
 
 class ProductRepository {
   final StorageHelper _storage = StorageHelper();
+  final InventoryMovementRepository _inventoryMovementRepo =
+      InventoryMovementRepository();
   static const String _productsKey = 'products';
+  static const Uuid _uuid = Uuid();
 
   // Get all products
   Future<List<Product>> getAllProducts() async {
@@ -154,7 +160,12 @@ class ProductRepository {
   }
 
   // Update stock
-  Future<int> updateStock(String id, int newStock) async {
+  Future<int> updateStock(
+    String id,
+    int newStock, {
+    String reason = 'stock_set',
+    String? note,
+  }) async {
     if (newStock < 0) {
       return 0;
     }
@@ -170,7 +181,11 @@ class ProductRepository {
     }
 
     try {
-      await applyStockChanges({id: delta});
+      await applyStockChanges(
+        {id: delta},
+        reason: reason,
+        note: note ?? 'Stock changed from ${product.stock} to $newStock',
+      );
       return 1;
     } catch (e) {
       print('Error updating stock for $id: $e');
@@ -180,7 +195,13 @@ class ProductRepository {
 
   // Apply multiple stock changes in one validated write.
   // Positive value increases stock, negative value decreases stock.
-  Future<void> applyStockChanges(Map<String, int> stockChanges) async {
+  Future<void> applyStockChanges(
+    Map<String, int> stockChanges, {
+    String reason = 'stock_adjustment',
+    String? referenceId,
+    String? note,
+    bool recordMovement = true,
+  }) async {
     final changes = <String, int>{};
     stockChanges.forEach((productId, delta) {
       if (delta == 0) {
@@ -198,6 +219,7 @@ class ProductRepository {
     final productsById = {for (final product in products) product.id: product};
     final updatedProducts = Map<String, Product>.from(productsById);
     final now = DateTime.now();
+    final movements = <InventoryMovement>[];
 
     for (final entry in changes.entries) {
       final productId = entry.key;
@@ -219,6 +241,23 @@ class ProductRepository {
         stock: newStock,
         updatedAt: now,
       );
+
+      if (recordMovement) {
+        movements.add(
+          InventoryMovement(
+            id: _uuid.v4(),
+            productId: existing.id,
+            productName: existing.name,
+            delta: delta,
+            stockBefore: existing.stock,
+            stockAfter: newStock,
+            reason: reason,
+            referenceId: referenceId,
+            note: note,
+            createdAt: now,
+          ),
+        );
+      }
     }
 
     final productList = updatedProducts.values.toList()
@@ -226,6 +265,13 @@ class ProductRepository {
     final success = await _saveProducts(productList);
     if (!success) {
       throw const StockOperationException('Failed to save stock changes.');
+    }
+
+    if (recordMovement && movements.isNotEmpty) {
+      final movementSaved = await _inventoryMovementRepo.addMovements(movements);
+      if (!movementSaved) {
+        print('Warning: stock changes were applied but movement logging failed.');
+      }
     }
   }
 
@@ -236,7 +282,10 @@ class ProductRepository {
     }
 
     try {
-      await applyStockChanges({id: -quantity});
+      await applyStockChanges(
+        {id: -quantity},
+        reason: 'sale',
+      );
       return true;
     } catch (e) {
       print('Error decreasing stock for $id: $e');
@@ -251,7 +300,10 @@ class ProductRepository {
     }
 
     try {
-      await applyStockChanges({id: quantity});
+      await applyStockChanges(
+        {id: quantity},
+        reason: 'restock',
+      );
       return true;
     } catch (e) {
       print('Error increasing stock for $id: $e');

@@ -568,7 +568,12 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     bool stockApplied = false;
 
     try {
-      await productRepo.applyStockChanges(stockDeltas);
+      await productRepo.applyStockChanges(
+        stockDeltas,
+        reason: 'sale_receipt_edit',
+        referenceId: _sale.id,
+        note: 'Stock adjusted from receipt item update',
+      );
       stockApplied = stockDeltas.isNotEmpty;
 
       final updated = await saleRepo.updateSale(updatedSale);
@@ -581,7 +586,13 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       Object error = e;
       if (stockApplied) {
         try {
-          await productRepo.applyStockChanges(_invertStockDeltas(stockDeltas));
+          await productRepo.applyStockChanges(
+            _invertStockDeltas(stockDeltas),
+            reason: 'rollback',
+            referenceId: _sale.id,
+            note: 'Rollback failed receipt stock update',
+            recordMovement: false,
+          );
         } catch (rollbackError) {
           error = Exception('$e Stock rollback failed: $rollbackError');
         }

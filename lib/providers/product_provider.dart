@@ -189,10 +189,20 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> updateStock(String id, int newStock) async {
+  Future<bool> updateStock(
+    String id,
+    int newStock, {
+    String reason = 'stock_set',
+    String? note,
+  }) async {
     state = const AsyncValue.loading();
     try {
-      final updated = await repository.updateStock(id, newStock);
+      final updated = await repository.updateStock(
+        id,
+        newStock,
+        reason: reason,
+        note: note,
+      );
       if (updated <= 0) {
         throw Exception('Failed to update stock');
       }
@@ -209,10 +219,20 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
   Future<bool> applyStockChanges(
     Map<String, int> stockChanges, {
     String syncReason = 'product_stock_updated',
+    String movementReason = 'stock_adjustment',
+    String? referenceId,
+    String? note,
+    bool recordMovement = true,
   }) async {
     state = const AsyncValue.loading();
     try {
-      await repository.applyStockChanges(stockChanges);
+      await repository.applyStockChanges(
+        stockChanges,
+        reason: movementReason,
+        referenceId: referenceId,
+        note: note,
+        recordMovement: recordMovement,
+      );
       state = const AsyncValue.data(null);
       _invalidateProductCaches();
       await DataSyncTriggers.trigger(reason: syncReason);

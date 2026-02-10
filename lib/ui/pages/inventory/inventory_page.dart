@@ -234,6 +234,8 @@ class InventoryPage extends ConsumerWidget {
                   await ref.read(productNotifierProvider.notifier).updateStock(
                         product.id,
                         product.stock + addAmount,
+                        reason: 'restock',
+                        note: 'Added $addAmount units from inventory page',
                       );
               if (!context.mounted) {
                 return;
@@ -268,6 +270,8 @@ class InventoryPage extends ConsumerWidget {
                   await ref.read(productNotifierProvider.notifier).updateStock(
                         product.id,
                         newStock,
+                        reason: 'stock_set',
+                        note: 'Set stock to $newStock from inventory page',
                       );
               if (!context.mounted) {
                 return;
@@ -360,6 +364,9 @@ class InventoryPage extends ConsumerWidget {
                   .applyStockChanges(
                     deltas,
                     syncReason: 'product_bulk_restocked',
+                    movementReason: 'bulk_restock',
+                    note:
+                        'Bulk restock of $quantity units from inventory page',
                   );
 
               if (!context.mounted) {
