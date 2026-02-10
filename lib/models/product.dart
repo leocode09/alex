@@ -53,7 +53,7 @@ class Product {
       costPrice: map['costPrice'] != null
           ? (map['costPrice'] as num).toDouble()
           : null,
-      stock: map['stock'] as int,
+      stock: (map['stock'] as num?)?.toInt() ?? 0,
       barcode: map['barcode'] as String?,
       sku: map['sku'] as String?,
       description: map['description'] as String?,
@@ -71,6 +71,8 @@ class Product {
     double? costPrice,
     int? stock,
     String? barcode,
+    String? sku,
+    String? description,
     String? category,
     String? supplier,
     DateTime? createdAt,
@@ -83,6 +85,8 @@ class Product {
       costPrice: costPrice ?? this.costPrice,
       stock: stock ?? this.stock,
       barcode: barcode ?? this.barcode,
+      sku: sku ?? this.sku,
+      description: description ?? this.description,
       category: category ?? this.category,
       supplier: supplier ?? this.supplier,
       createdAt: createdAt ?? this.createdAt,

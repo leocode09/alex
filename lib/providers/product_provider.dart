@@ -120,17 +120,28 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
 
   ProductNotifier(this.repository, this.ref) : super(const AsyncValue.data(null));
 
+  void _invalidateProductCaches({String? productId}) {
+    ref.invalidate(productsProvider);
+    ref.invalidate(filteredProductsProvider);
+    ref.invalidate(totalProductsCountProvider);
+    ref.invalidate(totalInventoryValueProvider);
+    ref.invalidate(categoriesProvider);
+    ref.invalidate(productsCountByCategoryProvider);
+    ref.invalidate(lowStockProductsProvider);
+    if (productId != null) {
+      ref.invalidate(productProvider(productId));
+    }
+  }
+
   Future<bool> addProduct(Product product) async {
     state = const AsyncValue.loading();
     try {
-      await repository.insertProduct(product);
+      final inserted = await repository.insertProduct(product);
+      if (inserted <= 0) {
+        throw Exception('Failed to add product');
+      }
       state = const AsyncValue.data(null);
-      // Invalidate products list to refresh
-      ref.invalidate(productsProvider);
-      ref.invalidate(filteredProductsProvider);
-      ref.invalidate(totalProductsCountProvider);
-      ref.invalidate(totalInventoryValueProvider);
-      ref.invalidate(categoriesProvider);
+      _invalidateProductCaches(productId: product.id);
       await DataSyncTriggers.trigger(reason: 'product_added');
       return true;
     } catch (e, stack) {
@@ -142,13 +153,12 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
   Future<bool> updateProduct(Product product) async {
     state = const AsyncValue.loading();
     try {
-      await repository.updateProduct(product);
+      final updated = await repository.updateProduct(product);
+      if (updated <= 0) {
+        throw Exception('Failed to update product');
+      }
       state = const AsyncValue.data(null);
-      // Invalidate related providers
-      ref.invalidate(productsProvider);
-      ref.invalidate(filteredProductsProvider);
-      ref.invalidate(productProvider(product.id));
-      ref.invalidate(totalInventoryValueProvider);
+      _invalidateProductCaches(productId: product.id);
       await DataSyncTriggers.trigger(reason: 'product_updated');
       return true;
     } catch (e, stack) {
@@ -160,13 +170,12 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
   Future<bool> deleteProduct(String id) async {
     state = const AsyncValue.loading();
     try {
-      await repository.deleteProduct(id);
+      final deleted = await repository.deleteProduct(id);
+      if (deleted <= 0) {
+        throw Exception('Failed to delete product');
+      }
       state = const AsyncValue.data(null);
-      // Invalidate related providers
-      ref.invalidate(productsProvider);
-      ref.invalidate(filteredProductsProvider);
-      ref.invalidate(totalProductsCountProvider);
-      ref.invalidate(totalInventoryValueProvider);
+      _invalidateProductCaches(productId: id);
       await DataSyncTriggers.trigger(reason: 'product_deleted');
       return true;
     } catch (e, stack) {
@@ -178,15 +187,30 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
   Future<bool> updateStock(String id, int newStock) async {
     state = const AsyncValue.loading();
     try {
-      await repository.updateStock(id, newStock);
+      final updated = await repository.updateStock(id, newStock);
+      if (updated <= 0) {
+        throw Exception('Failed to update stock');
+      }
       state = const AsyncValue.data(null);
-      // Invalidate related providers
-      ref.invalidate(productsProvider);
-      ref.invalidate(filteredProductsProvider);
-      ref.invalidate(productProvider(id));
-      ref.invalidate(totalInventoryValueProvider);
-      ref.invalidate(lowStockProductsProvider);
+      _invalidateProductCaches(productId: id);
       await DataSyncTriggers.trigger(reason: 'product_stock_updated');
+      return true;
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+      return false;
+    }
+  }
+
+  Future<bool> applyStockChanges(
+    Map<String, int> stockChanges, {
+    String syncReason = 'product_stock_updated',
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      await repository.applyStockChanges(stockChanges);
+      state = const AsyncValue.data(null);
+      _invalidateProductCaches();
+      await DataSyncTriggers.trigger(reason: syncReason);
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

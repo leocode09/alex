@@ -2,6 +2,15 @@ import 'dart:convert';
 import '../models/product.dart';
 import '../services/database_helper.dart';
 
+class StockOperationException implements Exception {
+  final String message;
+
+  const StockOperationException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ProductRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _productsKey = 'products';
@@ -133,39 +142,108 @@ class ProductRepository {
 
   // Update stock
   Future<int> updateStock(String id, int newStock) async {
+    if (newStock < 0) {
+      return 0;
+    }
+
     final product = await getProductById(id);
-    if (product == null) return 0;
-    
-    final updatedProduct = product.copyWith(
-      stock: newStock,
-      updatedAt: DateTime.now(),
-    );
-    
-    return await updateProduct(updatedProduct);
+    if (product == null) {
+      return 0;
+    }
+
+    final delta = newStock - product.stock;
+    if (delta == 0) {
+      return 1;
+    }
+
+    try {
+      await applyStockChanges({id: delta});
+      return 1;
+    } catch (e) {
+      print('Error updating stock for $id: $e');
+      return 0;
+    }
+  }
+
+  // Apply multiple stock changes in one validated write.
+  // Positive value increases stock, negative value decreases stock.
+  Future<void> applyStockChanges(Map<String, int> stockChanges) async {
+    final changes = <String, int>{};
+    stockChanges.forEach((productId, delta) {
+      if (delta == 0) {
+        return;
+      }
+      changes[productId] = (changes[productId] ?? 0) + delta;
+    });
+
+    changes.removeWhere((_, delta) => delta == 0);
+    if (changes.isEmpty) {
+      return;
+    }
+
+    final products = await getAllProducts();
+    final productsById = {for (final product in products) product.id: product};
+    final updatedProducts = Map<String, Product>.from(productsById);
+    final now = DateTime.now();
+
+    for (final entry in changes.entries) {
+      final productId = entry.key;
+      final delta = entry.value;
+      final existing = updatedProducts[productId];
+
+      if (existing == null) {
+        throw StockOperationException('Product not found: $productId');
+      }
+
+      final newStock = existing.stock + delta;
+      if (newStock < 0) {
+        throw StockOperationException(
+          'Insufficient stock for ${existing.name}. Available: ${existing.stock}, requested: ${-delta}.',
+        );
+      }
+
+      updatedProducts[productId] = existing.copyWith(
+        stock: newStock,
+        updatedAt: now,
+      );
+    }
+
+    final productList = updatedProducts.values.toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    final success = await _saveProducts(productList);
+    if (!success) {
+      throw const StockOperationException('Failed to save stock changes.');
+    }
   }
 
   // Decrease stock (for sales)
   Future<bool> decreaseStock(String id, int quantity) async {
-    final product = await getProductById(id);
-    if (product == null || product.stock < quantity) {
+    if (quantity <= 0) {
       return false;
     }
-    
-    final newStock = product.stock - quantity;
-    await updateStock(id, newStock);
-    return true;
+
+    try {
+      await applyStockChanges({id: -quantity});
+      return true;
+    } catch (e) {
+      print('Error decreasing stock for $id: $e');
+      return false;
+    }
   }
 
   // Increase stock (for restocking)
   Future<bool> increaseStock(String id, int quantity) async {
-    final product = await getProductById(id);
-    if (product == null) {
+    if (quantity <= 0) {
       return false;
     }
-    
-    final newStock = product.stock + quantity;
-    await updateStock(id, newStock);
-    return true;
+
+    try {
+      await applyStockChanges({id: quantity});
+      return true;
+    } catch (e) {
+      print('Error increasing stock for $id: $e');
+      return false;
+    }
   }
 
   // Get total products count

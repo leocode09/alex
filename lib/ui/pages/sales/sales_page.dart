@@ -247,6 +247,51 @@ class _SalesPageState extends ConsumerState<SalesPage>
     );
   }
 
+  Map<String, int> _buildCartQuantities() {
+    final quantities = <String, int>{};
+    for (final item in _cart) {
+      final productId = item['id'] as String?;
+      final quantity = item['quantity'] as int?;
+      if (productId == null || quantity == null) {
+        continue;
+      }
+      quantities[productId] = (quantities[productId] ?? 0) + quantity;
+    }
+    return quantities;
+  }
+
+  Map<String, int> _buildSaleQuantities(List<SaleItem> items) {
+    final quantities = <String, int>{};
+    for (final item in items) {
+      quantities[item.productId] =
+          (quantities[item.productId] ?? 0) + item.quantity;
+    }
+    return quantities;
+  }
+
+  Map<String, int> _buildStockDeltas({
+    required Map<String, int> oldQuantities,
+    required Map<String, int> newQuantities,
+  }) {
+    final stockDeltas = <String, int>{};
+    final productIds = <String>{...oldQuantities.keys, ...newQuantities.keys};
+    for (final productId in productIds) {
+      final oldQuantity = oldQuantities[productId] ?? 0;
+      final newQuantity = newQuantities[productId] ?? 0;
+      final delta = oldQuantity - newQuantity;
+      if (delta != 0) {
+        stockDeltas[productId] = delta;
+      }
+    }
+    return stockDeltas;
+  }
+
+  Map<String, int> _invertStockDeltas(Map<String, int> deltas) {
+    return {
+      for (final entry in deltas.entries) entry.key: -entry.value,
+    };
+  }
+
   void _processPayment(String method) async {
     if (_cart.isEmpty) return;
 
@@ -299,63 +344,36 @@ class _SalesPageState extends ConsumerState<SalesPage>
       final productRepo = ref.read(productRepositoryProvider);
       final saleRepo = ref.read(saleRepositoryProvider);
       final authState = ref.read(authProvider);
+      final saleItems = _cart.map((item) {
+        return SaleItem(
+          productId: item['id'],
+          productName: item['name'],
+          quantity: item['quantity'],
+          price: item['price'],
+        );
+      }).toList();
 
-      if (isEditingMode) {
-        // EDITING MODE: Calculate stock differences and update
-        final oldItems = editingReceipt.items;
-        final Map<String, int> oldQuantities = {};
-        for (var item in oldItems) {
-          oldQuantities[item.productId] =
-              (oldQuantities[item.productId] ?? 0) + item.quantity;
-        }
+      final oldQuantities = isEditingMode
+          ? _buildSaleQuantities(editingReceipt!.items)
+          : <String, int>{};
+      final newQuantities = _buildCartQuantities();
+      final stockDeltas = _buildStockDeltas(
+        oldQuantities: oldQuantities,
+        newQuantities: newQuantities,
+      );
+      bool stockApplied = false;
+      bool printFailed = false;
 
-        // 1. Validate and adjust stock for each item
-        for (var cartItem in _cart) {
-          final product = await productRepo.getProductById(cartItem['id']);
-          if (product == null) {
-            throw Exception('Product ${cartItem['name']} not found');
-          }
+      await productRepo.applyStockChanges(stockDeltas);
+      stockApplied = stockDeltas.isNotEmpty;
 
-          final oldQuantity = oldQuantities[cartItem['id']] ?? 0;
-          final quantityDiff = cartItem['quantity'] - oldQuantity;
-
-          if (quantityDiff > 0) {
-            // Need more stock
-            if (product.stock < quantityDiff) {
-              throw Exception('Insufficient stock for ${cartItem['name']}');
-            }
-            await productRepo.decreaseStock(cartItem['id'], quantityDiff);
-          } else if (quantityDiff < 0) {
-            // Return stock
-            await productRepo.increaseStock(cartItem['id'], -quantityDiff);
-          }
-        }
-
-        // Check for removed items and restore their stock
-        for (var oldItem in oldItems) {
-          final stillInCart =
-              _cart.any((cartItem) => cartItem['id'] == oldItem.productId);
-          if (!stillInCart) {
-            await productRepo.increaseStock(
-                oldItem.productId, oldItem.quantity);
-          }
-        }
-
-        // 3. Update Sale Record
-        final saleItems = _cart.map((item) {
-          return SaleItem(
-            productId: item['id'],
-            productName: item['name'],
-            quantity: item['quantity'],
-            price: item['price'],
-          );
-        }).toList();
-
+      try {
         // Calculate cash received and change for Cash payments
         double? cashReceived;
         double? change;
         if (method == 'Cash') {
-          final cashReceivedValue = double.tryParse(_cashReceivedController.text);
+          final cashReceivedValue =
+              double.tryParse(_cashReceivedController.text);
           if (cashReceivedValue != null && cashReceivedValue > 0) {
             cashReceived = cashReceivedValue;
             final difference = cashReceivedValue - totalAmount;
@@ -365,109 +383,82 @@ class _SalesPageState extends ConsumerState<SalesPage>
           }
         }
 
-        final updatedSale = Sale(
-          id: editingReceipt.id,
-          items: saleItems,
-          total: totalAmount,
-          paymentMethod: method,
-          employeeId: editingReceipt.employeeId,
-          customerId: _customerController.text.isNotEmpty
-              ? _customerController.text
-              : null,
-          cashReceived: cashReceived,
-          change: change,
-          createdAt: editingReceipt.createdAt,
-        );
-
-        await saleRepo.updateSale(updatedSale);
-        await DataSyncTriggers.trigger(reason: 'receipt_updated');
-
-        // Clear editing state
-        ref.read(editingReceiptProvider.notifier).state = null;
-      } else {
-        // NEW SALE MODE: Original logic
-        // 1. Validate stock first
-        for (var cartItem in _cart) {
-          final product = await productRepo.getProductById(cartItem['id']);
-          if (product == null) {
-            throw Exception('Product ${cartItem['name']} not found');
-          }
-          if (product.stock < cartItem['quantity']) {
-            throw Exception('Insufficient stock for ${cartItem['name']}');
-          }
-        }
-
-        // 2. Process stock deduction
-        for (var cartItem in _cart) {
-          final success = await productRepo.decreaseStock(
-            cartItem['id'],
-            cartItem['quantity'],
+        if (isEditingMode) {
+          final updatedSale = Sale(
+            id: editingReceipt.id,
+            items: saleItems,
+            total: totalAmount,
+            paymentMethod: method,
+            employeeId: editingReceipt.employeeId,
+            customerId: _customerController.text.isNotEmpty
+                ? _customerController.text
+                : null,
+            cashReceived: cashReceived,
+            change: change,
+            createdAt: editingReceipt.createdAt,
           );
-          if (!success) {
-            throw Exception('Failed to update stock for ${cartItem['name']}');
-          }
-        }
 
-        // 3. Create Sale Record
-        final saleItems = _cart.map((item) {
-          return SaleItem(
-            productId: item['id'],
-            productName: item['name'],
-            quantity: item['quantity'],
-            price: item['price'],
+          final updated = await saleRepo.updateSale(updatedSale);
+          if (!updated) {
+            throw Exception('Failed to update receipt.');
+          }
+          await DataSyncTriggers.trigger(reason: 'receipt_updated');
+
+          // Clear editing state
+          ref.read(editingReceiptProvider.notifier).state = null;
+        } else {
+          // Get current user email or default
+          String employeeId = 'default-employee';
+          if (authState.hasValue && authState.value == true) {
+            final prefs = await SharedPreferences.getInstance();
+            employeeId = prefs.getString('userEmail') ?? 'default-employee';
+          }
+
+          final sale = Sale(
+            id: const Uuid().v4(),
+            items: saleItems,
+            total: totalAmount,
+            paymentMethod: method,
+            employeeId: employeeId,
+            customerId: _customerController.text.isNotEmpty
+                ? _customerController.text
+                : null,
+            cashReceived: cashReceived,
+            change: change,
+            createdAt: DateTime.now(),
           );
-        }).toList();
 
-        // Get current user email or default
-        String employeeId = 'default-employee';
-        if (authState.hasValue && authState.value == true) {
-          final prefs = await SharedPreferences.getInstance();
-          employeeId = prefs.getString('userEmail') ?? 'default-employee';
-        }
+          final inserted = await saleRepo.insertSale(sale);
+          if (!inserted) {
+            throw Exception('Failed to save sale.');
+          }
+          await DataSyncTriggers.trigger(reason: 'sale_created');
 
-        // Calculate cash received and change for Cash payments
-        double? cashReceived;
-        double? change;
-        if (method == 'Cash') {
-          final cashReceivedValue = double.tryParse(_cashReceivedController.text);
-          if (cashReceivedValue != null && cashReceivedValue > 0) {
-            cashReceived = cashReceivedValue;
-            final difference = cashReceivedValue - totalAmount;
-            if (difference >= 0) {
-              change = difference;
-            }
+          // Attempt to print receipt
+          try {
+            final printerService = ref.read(printerServiceProvider);
+            final receiptSettings = ref.read(receiptSettingsProvider);
+            await printerService.printReceipt(sale, receiptSettings);
+          } catch (e) {
+            printFailed = true;
+            debugPrint('Auto-print failed: $e');
           }
         }
-
-        final sale = Sale(
-          id: const Uuid().v4(),
-          items: saleItems,
-          total: totalAmount,
-          paymentMethod: method,
-          employeeId: employeeId,
-          customerId: _customerController.text.isNotEmpty
-              ? _customerController.text
-              : null,
-          cashReceived: cashReceived,
-          change: change,
-          createdAt: DateTime.now(),
-        );
-
-        await saleRepo.insertSale(sale);
-        await DataSyncTriggers.trigger(reason: 'sale_created');
-
-        // Attempt to print receipt
-        try {
-          final printerService = ref.read(printerServiceProvider);
-          final receiptSettings = ref.read(receiptSettingsProvider);
-          await printerService.printReceipt(sale, receiptSettings);
-        } catch (e) {
-          debugPrint('Auto-print failed: $e');
+      } catch (e) {
+        if (stockApplied) {
+          try {
+            await productRepo.applyStockChanges(_invertStockDeltas(stockDeltas));
+          } catch (rollbackError) {
+            throw Exception('$e Stock rollback failed: $rollbackError');
+          }
         }
+        rethrow;
       }
 
       // 4. Update UI State
       ref.invalidate(productsProvider);
+      ref.invalidate(lowStockProductsProvider);
+      ref.invalidate(totalInventoryValueProvider);
       ref.invalidate(todaysSalesCountProvider);
       ref.invalidate(todaysRevenueProvider);
       ref.invalidate(salesProvider);
@@ -499,7 +490,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   child: Text(
                     isEditingMode
                         ? 'Receipt updated successfully! \$${totalAmount.toStringAsFixed(2)}'
-                        : 'Payment successful! \$${totalAmount.toStringAsFixed(2)}${!isEditingMode && mounted ? "\n(Print failed: Check printer connection)" : ""}',
+                        : 'Payment successful! \$${totalAmount.toStringAsFixed(2)}${printFailed ? "\n(Print failed: Check printer connection)" : ""}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
