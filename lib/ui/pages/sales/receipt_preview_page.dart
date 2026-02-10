@@ -8,7 +8,6 @@ import '../../../providers/receipt_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/product_provider.dart';
-import '../../../repositories/sale_repository.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/data_sync_triggers.dart';
@@ -336,6 +335,38 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
+  Map<String, int> _buildItemQuantities(List<SaleItem> items) {
+    final quantities = <String, int>{};
+    for (final item in items) {
+      quantities[item.productId] =
+          (quantities[item.productId] ?? 0) + item.quantity;
+    }
+    return quantities;
+  }
+
+  Map<String, int> _buildStockDeltas({
+    required Map<String, int> oldQuantities,
+    required Map<String, int> newQuantities,
+  }) {
+    final stockDeltas = <String, int>{};
+    final productIds = <String>{...oldQuantities.keys, ...newQuantities.keys};
+    for (final productId in productIds) {
+      final oldQuantity = oldQuantities[productId] ?? 0;
+      final newQuantity = newQuantities[productId] ?? 0;
+      final delta = oldQuantity - newQuantity;
+      if (delta != 0) {
+        stockDeltas[productId] = delta;
+      }
+    }
+    return stockDeltas;
+  }
+
+  Map<String, int> _invertStockDeltas(Map<String, int> deltas) {
+    return {
+      for (final entry in deltas.entries) entry.key: -entry.value,
+    };
+  }
+
   Future<void> _editItem(BuildContext context, int index, SaleItem item) async {
     final allowed = await PinProtection.requirePinIfNeeded(
       context,
@@ -392,6 +423,15 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
               final quantity =
                   int.tryParse(quantityController.text) ?? item.quantity;
               final price = double.tryParse(priceController.text) ?? item.price;
+              if (quantity <= 0 || price <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content:
+                          Text('Quantity and price must be greater than 0')),
+                );
+                return;
+              }
+
               final name = nameController.text.isEmpty
                   ? item.productName
                   : nameController.text;
@@ -486,7 +526,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
             quantity: quantity,
             price: product.price,
           );
-          
+
           final updatedItems = List<SaleItem>.from(_sale.items)..add(newItem);
           await _updateSaleItems(updatedItems);
         },
@@ -499,6 +539,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       0.0,
       (sum, item) => sum + item.subtotal,
     );
+    final cashReceived =
+        _sale.paymentMethod == 'Cash' ? _sale.cashReceived : null;
+    final change = cashReceived != null && cashReceived >= newTotal
+        ? cashReceived - newTotal
+        : null;
 
     final updatedSale = Sale(
       id: _sale.id,
@@ -507,13 +552,53 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       paymentMethod: _sale.paymentMethod,
       customerId: _sale.customerId,
       employeeId: _sale.employeeId,
+      cashReceived: cashReceived,
+      change: change,
       createdAt: _sale.createdAt,
     );
 
-    await ref.read(saleRepositoryProvider).updateSale(updatedSale);
-    await DataSyncTriggers.trigger(reason: 'receipt_items_updated');
+    final productRepo = ref.read(productRepositoryProvider);
+    final saleRepo = ref.read(saleRepositoryProvider);
+    final oldQuantities = _buildItemQuantities(_sale.items);
+    final newQuantities = _buildItemQuantities(updatedItems);
+    final stockDeltas = _buildStockDeltas(
+      oldQuantities: oldQuantities,
+      newQuantities: newQuantities,
+    );
+    bool stockApplied = false;
+
+    try {
+      await productRepo.applyStockChanges(stockDeltas);
+      stockApplied = stockDeltas.isNotEmpty;
+
+      final updated = await saleRepo.updateSale(updatedSale);
+      if (!updated) {
+        throw Exception('Failed to update receipt.');
+      }
+
+      await DataSyncTriggers.trigger(reason: 'receipt_items_updated');
+    } catch (e) {
+      Object error = e;
+      if (stockApplied) {
+        try {
+          await productRepo.applyStockChanges(_invertStockDeltas(stockDeltas));
+        } catch (rollbackError) {
+          error = Exception('$e Stock rollback failed: $rollbackError');
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $error')),
+        );
+      }
+      return;
+    }
 
     // Refresh providers
+    ref.invalidate(productsProvider);
+    ref.invalidate(lowStockProductsProvider);
+    ref.invalidate(totalInventoryValueProvider);
     ref.invalidate(salesProvider);
     ref.invalidate(todaysRevenueProvider);
     ref.invalidate(totalRevenueProvider);
@@ -632,6 +717,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                       ? null
                       : customerController.text,
                   employeeId: _sale.employeeId,
+                  cashReceived:
+                      paymentMethod == 'Cash' ? _sale.cashReceived : null,
+                  change: paymentMethod == 'Cash' ? _sale.change : null,
                   createdAt: newDateTime,
                 );
 
@@ -778,7 +866,8 @@ class _AddItemDialog extends ConsumerStatefulWidget {
 
 class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _quantityController = TextEditingController(text: '1');
+  final TextEditingController _quantityController =
+      TextEditingController(text: '1');
   String _searchQuery = '';
   Product? _selectedProduct;
 
@@ -816,7 +905,7 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Search bar
             TextField(
               controller: _searchController,
@@ -845,25 +934,31 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Product list
             Expanded(
               child: productsAsync.when(
                 data: (products) {
                   final filtered = _searchQuery.isEmpty
                       ? products
-                      : products.where((p) =>
-                          p.name.toLowerCase().contains(_searchQuery) ||
-                          (p.barcode?.toLowerCase().contains(_searchQuery) ?? false) ||
-                          (p.sku?.toLowerCase().contains(_searchQuery) ?? false)
-                        ).toList();
+                      : products
+                          .where((p) =>
+                              p.name.toLowerCase().contains(_searchQuery) ||
+                              (p.barcode
+                                      ?.toLowerCase()
+                                      .contains(_searchQuery) ??
+                                  false) ||
+                              (p.sku?.toLowerCase().contains(_searchQuery) ??
+                                  false))
+                          .toList();
 
                   if (filtered.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                          Icon(Icons.search_off,
+                              size: 64, color: Colors.grey[400]),
                           const SizedBox(height: 16),
                           Text(
                             _searchQuery.isEmpty
@@ -875,9 +970,11 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
                               onPressed: () async {
-                                final allowed = await PinProtection.requirePinIfNeeded(
+                                final allowed =
+                                    await PinProtection.requirePinIfNeeded(
                                   context,
-                                  isRequired: () => PinService().isPinRequiredForAddProduct(),
+                                  isRequired: () =>
+                                      PinService().isPinRequiredForAddProduct(),
                                   title: 'Add Product',
                                   subtitle: 'Enter PIN to add a product',
                                 );
@@ -888,7 +985,8 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                                   return;
                                 }
                                 Navigator.pop(context);
-                                context.push('/products/add?name=${Uri.encodeComponent(_searchQuery)}');
+                                context.push(
+                                    '/products/add?name=${Uri.encodeComponent(_searchQuery)}');
                               },
                               icon: const Icon(Icons.add),
                               label: const Text('Create Product'),
@@ -970,7 +1068,7 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                 ),
               ),
             ),
-            
+
             // Quantity and Add button
             if (_selectedProduct != null) ...[
               const Divider(height: 24),
@@ -991,7 +1089,8 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                     flex: 2,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        final quantity = int.tryParse(_quantityController.text) ?? 1;
+                        final quantity =
+                            int.tryParse(_quantityController.text) ?? 1;
                         if (quantity <= 0) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -1000,30 +1099,16 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                           );
                           return;
                         }
-                        
+
                         if (_selectedProduct!.stock < quantity) {
-                          final proceed = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Low Stock Warning'),
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
                               content: Text(
-                                'Only ${_selectedProduct!.stock} units available. '
-                                'Do you want to continue?',
+                                'Only ${_selectedProduct!.stock} units available.',
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Continue'),
-                                ),
-                              ],
                             ),
                           );
-                          
-                          if (proceed != true) return;
+                          return;
                         }
 
                         await widget.onItemAdded(_selectedProduct!, quantity);

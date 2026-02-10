@@ -218,8 +218,14 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                     controller: _priceController,
                     label: 'Selling Price',
                     keyboardType: TextInputType.number,
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Required' : null,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      final value = double.tryParse(v);
+                      if (value == null || value <= 0) {
+                        return 'Enter a valid price';
+                      }
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -228,8 +234,14 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                     controller: _stockController,
                     label: 'Stock',
                     keyboardType: TextInputType.number,
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Required' : null,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      final value = int.tryParse(v);
+                      if (value == null || value < 0) {
+                        return 'Enter a valid stock';
+                      }
+                      return null;
+                    },
                   ),
                 ),
               ],
@@ -264,7 +276,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 onPressed: () async {
                   final allowed = await PinProtection.requirePinIfNeeded(
                     context,
-                    isRequired: () => PinService().isPinRequiredForScanBarcode(),
+                    isRequired: () =>
+                        PinService().isPinRequiredForScanBarcode(),
                     title: 'Scan Barcode',
                     subtitle: 'Enter PIN to scan barcode',
                   );
@@ -283,6 +296,14 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                     controller: _costPriceController,
                     label: 'Cost Price',
                     keyboardType: TextInputType.number,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return null;
+                      final value = double.tryParse(v);
+                      if (value == null || value < 0) {
+                        return 'Enter a valid cost';
+                      }
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 16),

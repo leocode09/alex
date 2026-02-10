@@ -13,7 +13,7 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 final productsProvider = FutureProvider<List<Product>>((ref) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
-  
+
   try {
     return await repository.getAllProducts();
   } catch (e, stackTrace) {
@@ -24,27 +24,30 @@ final productsProvider = FutureProvider<List<Product>>((ref) async {
 });
 
 // Single product provider
-final productProvider = FutureProvider.family<Product?, String>((ref, id) async {
+final productProvider =
+    FutureProvider.family<Product?, String>((ref, id) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getProductById(id);
 });
 
 // Products by category provider
-final productsByCategoryProvider = FutureProvider.family<List<Product>, String>((ref, category) async {
+final productsByCategoryProvider =
+    FutureProvider.family<List<Product>, String>((ref, category) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getProductsByCategory(category);
 });
 
 // Search products provider
-final searchProductsProvider = FutureProvider.family<List<Product>, String>((ref, query) async {
+final searchProductsProvider =
+    FutureProvider.family<List<Product>, String>((ref, query) async {
   ref.watch(syncEventsProvider);
   if (query.isEmpty) {
     return ref.watch(productsProvider).maybeWhen(
-      data: (products) => products,
-      orElse: () => [],
-    );
+          data: (products) => products,
+          orElse: () => [],
+        );
   }
   final repository = ref.watch(productRepositoryProvider);
   return await repository.searchProducts(query);
@@ -79,7 +82,8 @@ final totalInventoryValueProvider = FutureProvider<double>((ref) async {
 });
 
 // Products count by category provider
-final productsCountByCategoryProvider = FutureProvider<Map<String, int>>((ref) async {
+final productsCountByCategoryProvider =
+    FutureProvider<Map<String, int>>((ref) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getProductsCountByCategory();
@@ -118,7 +122,8 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
   final ProductRepository repository;
   final Ref ref;
 
-  ProductNotifier(this.repository, this.ref) : super(const AsyncValue.data(null));
+  ProductNotifier(this.repository, this.ref)
+      : super(const AsyncValue.data(null));
 
   void _invalidateProductCaches({String? productId}) {
     ref.invalidate(productsProvider);
@@ -228,7 +233,8 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 // Product notifier provider
-final productNotifierProvider = StateNotifierProvider<ProductNotifier, AsyncValue<void>>((ref) {
+final productNotifierProvider =
+    StateNotifierProvider<ProductNotifier, AsyncValue<void>>((ref) {
   final repository = ref.watch(productRepositoryProvider);
   return ProductNotifier(repository, ref);
 });

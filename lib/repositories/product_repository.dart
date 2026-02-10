@@ -20,10 +20,10 @@ class ProductRepository {
     try {
       final jsonData = await _storage.getData(_productsKey);
       if (jsonData == null) return [];
-      
+
       final List<dynamic> decoded = jsonDecode(jsonData);
       final products = decoded.map((json) => Product.fromMap(json)).toList();
-      
+
       // Sort by name
       products.sort((a, b) => a.name.compareTo(b.name));
       return products;
@@ -78,7 +78,8 @@ class ProductRepository {
     final lowerQuery = query.toLowerCase();
     return products.where((p) {
       final nameMatch = p.name.toLowerCase().contains(lowerQuery);
-      final barcodeMatch = p.barcode?.toLowerCase().contains(lowerQuery) ?? false;
+      final barcodeMatch =
+          p.barcode?.toLowerCase().contains(lowerQuery) ?? false;
       return nameMatch || barcodeMatch;
     }).toList();
   }
@@ -105,7 +106,15 @@ class ProductRepository {
 
   // Insert product
   Future<int> insertProduct(Product product) async {
+    if (product.stock < 0) {
+      return 0;
+    }
+
     final products = await getAllProducts();
+    if (products.any((p) => p.id == product.id)) {
+      return 0;
+    }
+
     products.add(product);
     final success = await _saveProducts(products);
     return success ? 1 : 0;
@@ -113,16 +122,20 @@ class ProductRepository {
 
   // Update product
   Future<int> updateProduct(Product product) async {
+    if (product.stock < 0) {
+      return 0;
+    }
+
     final products = await getAllProducts();
     final index = products.indexWhere((p) => p.id == product.id);
-    
+
     if (index == -1) return 0;
-    
+
     // Update the updatedAt timestamp
     final updatedProduct = product.copyWith(
       updatedAt: DateTime.now(),
     );
-    
+
     products[index] = updatedProduct;
     final success = await _saveProducts(products);
     return success ? 1 : 0;
@@ -133,9 +146,9 @@ class ProductRepository {
     final products = await getAllProducts();
     final initialLength = products.length;
     products.removeWhere((p) => p.id == id);
-    
+
     if (products.length == initialLength) return 0;
-    
+
     final success = await _saveProducts(products);
     return success ? 1 : 0;
   }
@@ -266,13 +279,13 @@ class ProductRepository {
   Future<Map<String, int>> getProductsCountByCategory() async {
     final products = await getAllProducts();
     final Map<String, int> counts = {};
-    
+
     for (var product in products) {
       if (product.category != null) {
         counts[product.category!] = (counts[product.category!] ?? 0) + 1;
       }
     }
-    
+
     return counts;
   }
 
@@ -286,9 +299,8 @@ class ProductRepository {
   // Check if barcode exists (for validation)
   Future<bool> barcodeExists(String barcode, {String? excludeId}) async {
     final products = await getAllProducts();
-    return products.any((p) => 
-      p.barcode == barcode && (excludeId == null || p.id != excludeId)
-    );
+    return products.any((p) =>
+        p.barcode == barcode && (excludeId == null || p.id != excludeId));
   }
 
   // Replace all products (for sync)

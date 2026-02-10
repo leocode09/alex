@@ -447,7 +447,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
       } catch (e) {
         if (stockApplied) {
           try {
-            await productRepo.applyStockChanges(_invertStockDeltas(stockDeltas));
+            await productRepo
+                .applyStockChanges(_invertStockDeltas(stockDeltas));
           } catch (rollbackError) {
             throw Exception('$e Stock rollback failed: $rollbackError');
           }
@@ -621,7 +622,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 ),
                 Builder(
                   builder: (context) {
-                    final cashReceived = double.tryParse(_cashReceivedController.text) ?? 0.0;
+                    final cashReceived =
+                        double.tryParse(_cashReceivedController.text) ?? 0.0;
                     if (cashReceived > 0) {
                       final difference = cashReceived - _total;
                       if (difference >= 0) {
@@ -920,9 +922,11 @@ class _SalesPageState extends ConsumerState<SalesPage>
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
                               onPressed: () async {
-                                final allowed = await PinProtection.requirePinIfNeeded(
+                                final allowed =
+                                    await PinProtection.requirePinIfNeeded(
                                   context,
-                                  isRequired: () => PinService().isPinRequiredForAddProduct(),
+                                  isRequired: () =>
+                                      PinService().isPinRequiredForAddProduct(),
                                   title: 'Add Product',
                                   subtitle: 'Enter PIN to add a product',
                                 );
