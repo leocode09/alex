@@ -205,6 +205,28 @@ class ProductDetailsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _showAddStockDialog(context, ref, product),
+                        icon: const Icon(Icons.add_box_outlined, size: 18),
+                        label: const Text('Add Stock'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _showSetStockDialog(context, ref, product),
+                        icon: const Icon(Icons.tune_outlined, size: 18),
+                        label: const Text('Set Stock'),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 32),
 
                 // Details
@@ -586,6 +608,158 @@ class ProductDetailsPage extends ConsumerWidget {
 
   String _shortId(String id) {
     return id.length <= 6 ? id : id.substring(0, 6);
+  }
+
+  Future<void> _showAddStockDialog(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic product,
+  ) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForAdjustStock(),
+      title: 'Add Stock',
+      subtitle: 'Enter PIN to add stock',
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+
+    final quantityController = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Add Stock - ${product.name}'),
+        content: TextField(
+          controller: quantityController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Quantity to add',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final quantity = int.tryParse(quantityController.text.trim());
+              if (quantity == null || quantity <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid quantity')),
+                );
+                return;
+              }
+
+              final updated = await ref
+                  .read(productNotifierProvider.notifier)
+                  .updateStock(
+                    product.id,
+                    product.stock + quantity,
+                    reason: 'restock',
+                    note: 'Manual restock from product details',
+                  );
+
+              if (!context.mounted) {
+                return;
+              }
+
+              if (updated) {
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Added $quantity units to ${product.name}'),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to add stock')),
+                );
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showSetStockDialog(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic product,
+  ) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForAdjustStock(),
+      title: 'Set Stock',
+      subtitle: 'Enter PIN to set stock quantity',
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+
+    final stockController = TextEditingController(text: '${product.stock}');
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Set Stock - ${product.name}'),
+        content: TextField(
+          controller: stockController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'New stock quantity',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newStock = int.tryParse(stockController.text.trim());
+              if (newStock == null || newStock < 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid stock value')),
+                );
+                return;
+              }
+
+              final updated = await ref
+                  .read(productNotifierProvider.notifier)
+                  .updateStock(
+                    product.id,
+                    newStock,
+                    reason: 'stock_set',
+                    note: 'Manual stock set from product details',
+                  );
+
+              if (!context.mounted) {
+                return;
+              }
+
+              if (updated) {
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${product.name} stock set to $newStock'),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to set stock')),
+                );
+              }
+            },
+            child: const Text('Set'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmDelete(BuildContext context, WidgetRef ref) {

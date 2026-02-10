@@ -49,6 +49,25 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
         centerTitle: false,
         actions: [
           IconButton(
+            icon: const Icon(Icons.add_box_outlined),
+            tooltip: 'Restock Inventory',
+            onPressed: () async {
+              final allowed = await PinProtection.requirePinIfNeeded(
+                context,
+                isRequired: () => PinService().isPinRequiredForAdjustStock(),
+                title: 'Adjust Stock',
+                subtitle: 'Enter PIN to adjust stock levels',
+              );
+              if (!allowed) {
+                return;
+              }
+              if (!context.mounted) {
+                return;
+              }
+              context.push('/inventory');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.category_outlined),
             tooltip: 'Manage Categories',
             onPressed: () async {
