@@ -354,7 +354,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
       }).toList();
 
       final oldQuantities = isEditingMode
-          ? _buildSaleQuantities(editingReceipt!.items)
+          ? _buildSaleQuantities(editingReceipt.items)
           : <String, int>{};
       final newQuantities = _buildCartQuantities();
       final stockDeltas = _buildStockDeltas(
