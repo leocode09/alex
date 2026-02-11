@@ -856,8 +856,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       }
 
       if (printCount >= 1) {
-        final allowed = await PinProtection.requirePin(
+        final allowed = await PinProtection.requirePinIfNeeded(
           context,
+          isRequired: () async => true,
           title: 'Reprint Receipt',
           subtitle: 'Enter PIN to reprint this receipt',
         );
