@@ -15,6 +15,7 @@ import '../../../providers/receipt_provider.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/data_sync_triggers.dart';
+import '../../../services/receipt_print_service.dart';
 import 'receipts_page.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
@@ -446,7 +447,19 @@ class _SalesPageState extends ConsumerState<SalesPage>
           try {
             final printerService = ref.read(printerServiceProvider);
             final receiptSettings = ref.read(receiptSettingsProvider);
-            await printerService.printReceipt(sale, receiptSettings);
+            final receiptPrintService = ReceiptPrintService();
+            final nextPrintNumber =
+                await receiptPrintService.getNextPrintNumber(sale.id);
+
+            await printerService.printReceipt(
+              sale,
+              receiptSettings,
+              printNumber: nextPrintNumber,
+            );
+            await receiptPrintService.markPrinted(
+              sale.id,
+              printNumber: nextPrintNumber,
+            );
           } catch (e) {
             printFailed = true;
             debugPrint('Auto-print failed: $e');

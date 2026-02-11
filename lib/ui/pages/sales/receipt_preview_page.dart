@@ -10,6 +10,7 @@ import '../../../providers/sale_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
+import '../../../services/receipt_print_service.dart';
 import '../../../services/data_sync_triggers.dart';
 import 'receipts_page.dart'; // For PrinterDialog
 
@@ -845,11 +846,46 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
 
   Future<void> _printReceipt(ReceiptSettings settings) async {
     final printerService = ref.read(printerServiceProvider);
+    final receiptPrintService = ReceiptPrintService();
+
     try {
-      await printerService.printReceipt(_sale, settings);
+      final printCount = await receiptPrintService.getPrintCount(_sale.id);
+      final nextPrintNumber = printCount + 1;
+      if (!mounted) {
+        return;
+      }
+
+      if (printCount >= 1) {
+        final allowed = await PinProtection.requirePin(
+          context,
+          title: 'Reprint Receipt',
+          subtitle: 'Enter PIN to reprint this receipt',
+        );
+        if (!mounted) {
+          return;
+        }
+        if (!allowed) {
+          return;
+        }
+      }
+
+      await printerService.printReceipt(
+        _sale,
+        settings,
+        printNumber: nextPrintNumber,
+      );
+      await receiptPrintService.markPrinted(
+        _sale.id,
+        printNumber: nextPrintNumber,
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Printing...')),
+          SnackBar(
+            content: Text(
+              'Printing... (${receiptPrintService.buildPrintLabel(nextPrintNumber)})',
+            ),
+          ),
         );
       }
     } catch (e) {

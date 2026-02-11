@@ -119,17 +119,26 @@ class PrinterService {
 
   bool _isKnownPrinterService(String uuid) {
     final lowerUuid = uuid.toLowerCase();
-    return _knownPrinterServiceUuids.any((known) => lowerUuid.contains(known.toLowerCase()));
+    return _knownPrinterServiceUuids
+        .any((known) => lowerUuid.contains(known.toLowerCase()));
   }
 
   bool _isKnownPrinterCharacteristic(String uuid) {
     final lowerUuid = uuid.toLowerCase();
-    return _knownPrinterCharacteristicUuids.any((known) => lowerUuid.contains(known.toLowerCase()));
+    return _knownPrinterCharacteristicUuids
+        .any((known) => lowerUuid.contains(known.toLowerCase()));
+  }
+
+  String _buildPrintLabel(int printNumber) {
+    if (printNumber <= 1) {
+      return 'ORIGINAL PRINT';
+    }
+    return 'REPRINT #$printNumber';
   }
 
   Future<void> _findWriteCharacteristic(BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
-    
+
     BluetoothCharacteristic? fallbackCharacteristic;
     bool fallbackUseWithoutResponse = false;
 
@@ -137,27 +146,30 @@ class PrinterService {
     for (var service in services) {
       print('Service: ${service.uuid}');
       for (var characteristic in service.characteristics) {
-        print('  Characteristic: ${characteristic.uuid}, props: ${characteristic.properties}');
+        print(
+            '  Characteristic: ${characteristic.uuid}, props: ${characteristic.properties}');
       }
     }
 
     // First pass: Look for known printer characteristics
     for (var service in services) {
       final isKnownService = _isKnownPrinterService(service.uuid.toString());
-      
+
       for (var characteristic in service.characteristics) {
         try {
           final props = characteristic.properties;
-          final isKnownChar = _isKnownPrinterCharacteristic(characteristic.uuid.toString());
+          final isKnownChar =
+              _isKnownPrinterCharacteristic(characteristic.uuid.toString());
           final isWritable = props.write || props.writeWithoutResponse;
-          
+
           if (!isWritable) continue;
 
           // If this is a known printer characteristic, use it immediately
           if (isKnownChar || isKnownService) {
             _writeCharacteristic = characteristic;
             _useWriteWithoutResponse = props.writeWithoutResponse;
-            print('Using known printer characteristic: ${characteristic.uuid} (writeWithoutResponse: $_useWriteWithoutResponse)');
+            print(
+                'Using known printer characteristic: ${characteristic.uuid} (writeWithoutResponse: $_useWriteWithoutResponse)');
             return;
           }
 
@@ -176,14 +188,19 @@ class PrinterService {
     if (fallbackCharacteristic != null) {
       _writeCharacteristic = fallbackCharacteristic;
       _useWriteWithoutResponse = fallbackUseWithoutResponse;
-      print('Using fallback characteristic: ${fallbackCharacteristic.uuid} (writeWithoutResponse: $_useWriteWithoutResponse)');
+      print(
+          'Using fallback characteristic: ${fallbackCharacteristic.uuid} (writeWithoutResponse: $_useWriteWithoutResponse)');
       return;
     }
-    
+
     throw Exception('No write characteristic found');
   }
 
-  Future<void> printReceipt(Sale sale, ReceiptSettings settings) async {
+  Future<void> printReceipt(
+    Sale sale,
+    ReceiptSettings settings, {
+    int printNumber = 1,
+  }) async {
     if (_connectedDevice == null) {
       throw Exception('Printer not connected');
     }
@@ -227,6 +244,13 @@ class PrinterService {
           width: 4,
           styles: const PosStyles(align: PosAlign.right)),
     ]);
+    bytes += generator.text(
+      _buildPrintLabel(printNumber),
+      styles: const PosStyles(
+        align: PosAlign.center,
+        bold: true,
+      ),
+    );
     bytes += generator.hr();
 
     // Customer Info
@@ -379,7 +403,7 @@ class PrinterService {
 
     // ESC/POS initialize command - reset printer to default state
     final initCommand = [0x1B, 0x40]; // ESC @
-    
+
     // Prepend initialization command
     final dataToSend = [...initCommand, ...bytes];
 
@@ -390,11 +414,13 @@ class PrinterService {
     // Use a smaller chunk size for better compatibility
     // Many thermal printers work better with smaller chunks
     const int chunkSize = 20;
-    
+
     for (var i = 0; i < dataToSend.length; i += chunkSize) {
-      var end = (i + chunkSize < dataToSend.length) ? i + chunkSize : dataToSend.length;
+      var end = (i + chunkSize < dataToSend.length)
+          ? i + chunkSize
+          : dataToSend.length;
       final chunk = dataToSend.sublist(i, end);
-      
+
       try {
         // Try writeWithoutResponse first if supported, as it's more reliable for printers
         await _writeCharacteristic!.write(
@@ -418,7 +444,7 @@ class PrinterService {
         }
       }
     }
-    
+
     print('Print data sent successfully');
     // Final delay to ensure all data is processed
     await Future.delayed(const Duration(milliseconds: 200));
