@@ -91,6 +91,15 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                               '${sale.items.length} items • ${sale.paymentMethod}',
                               style: TextStyle(color: Colors.grey[600]),
                             ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'PIN Reference: #${_shortReceiptRef(sale.id)}',
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -105,6 +114,13 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
         ),
       ],
     );
+  }
+
+  String _shortReceiptRef(String saleId) {
+    if (saleId.length <= 6) {
+      return saleId.toUpperCase();
+    }
+    return saleId.substring(0, 6).toUpperCase();
   }
 
   void _showPrinterDialog(BuildContext context) {
