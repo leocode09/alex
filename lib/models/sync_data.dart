@@ -2,6 +2,7 @@ import 'product.dart';
 import 'category.dart';
 import 'customer.dart';
 import 'employee.dart';
+import 'expense.dart';
 import 'sale.dart';
 import 'store.dart';
 
@@ -11,6 +12,7 @@ class SyncData {
   final List<Category> categories;
   final List<Customer> customers;
   final List<Employee> employees;
+  final List<Expense> expenses;
   final List<Sale> sales;
   final List<Store> stores;
   final DateTime syncTimestamp;
@@ -22,6 +24,7 @@ class SyncData {
     required this.categories,
     required this.customers,
     required this.employees,
+    required this.expenses,
     required this.sales,
     required this.stores,
     DateTime? syncTimestamp,
@@ -36,6 +39,7 @@ class SyncData {
       'categories': categories.map((c) => c.toMap()).toList(),
       'customers': customers.map((c) => c.toMap()).toList(),
       'employees': employees.map((e) => e.toMap()).toList(),
+      'expenses': expenses.map((e) => e.toMap()).toList(),
       'sales': sales.map((s) => s.toMap()).toList(),
       'stores': stores.map((s) => s.toMap()).toList(),
       'syncTimestamp': syncTimestamp.toIso8601String(),
@@ -59,6 +63,9 @@ class SyncData {
             .toList(),
         employees: (json['employees'] as List? ?? [])
             .map((e) => Employee.fromMap(e as Map<String, dynamic>))
+            .toList(),
+        expenses: (json['expenses'] as List? ?? [])
+            .map((e) => Expense.fromMap(e as Map<String, dynamic>))
             .toList(),
         sales: (json['sales'] as List? ?? [])
             .map((s) => Sale.fromMap(s as Map<String, dynamic>))
@@ -84,6 +91,7 @@ class SyncData {
       categories.length +
       customers.length +
       employees.length +
+      expenses.length +
       sales.length +
       stores.length;
 
@@ -97,6 +105,7 @@ class SyncData {
       categories: [],
       customers: [],
       employees: [],
+      expenses: [],
       sales: [],
       stores: [],
       deviceId: deviceId,
@@ -108,6 +117,7 @@ class SyncData {
     List<Category>? categories,
     List<Customer>? customers,
     List<Employee>? employees,
+    List<Expense>? expenses,
     List<Sale>? sales,
     List<Store>? stores,
     DateTime? syncTimestamp,
@@ -119,6 +129,7 @@ class SyncData {
       categories: categories ?? this.categories,
       customers: customers ?? this.customers,
       employees: employees ?? this.employees,
+      expenses: expenses ?? this.expenses,
       sales: sales ?? this.sales,
       stores: stores ?? this.stores,
       syncTimestamp: syncTimestamp ?? this.syncTimestamp,

@@ -6,12 +6,14 @@ import '../models/product.dart';
 import '../models/category.dart';
 import '../models/customer.dart';
 import '../models/employee.dart';
+import '../models/expense.dart';
 import '../models/sale.dart';
 import '../models/store.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/category_repository.dart';
 import '../repositories/customer_repository.dart';
 import '../repositories/employee_repository.dart';
+import '../repositories/expense_repository.dart';
 import '../repositories/sale_repository.dart';
 import '../repositories/store_repository.dart';
 import 'sync_event_bus.dart';
@@ -27,6 +29,7 @@ class SyncService {
   final CategoryRepository _categoryRepo = CategoryRepository();
   final CustomerRepository _customerRepo = CustomerRepository();
   final EmployeeRepository _employeeRepo = EmployeeRepository();
+  final ExpenseRepository _expenseRepo = ExpenseRepository();
   final SaleRepository _saleRepo = SaleRepository();
   final StoreRepository _storeRepo = StoreRepository();
 
@@ -67,6 +70,7 @@ class SyncService {
       final categories = await _categoryRepo.getAllCategories();
       final customers = await _customerRepo.getAllCustomers();
       final employees = await _employeeRepo.getAllEmployees();
+      final expenses = await _expenseRepo.getAllExpenses();
       final sales = await _saleRepo.getAllSales();
       final stores = await _storeRepo.getAllStores();
 
@@ -75,6 +79,7 @@ class SyncService {
         categories: categories,
         customers: customers,
         employees: employees,
+        expenses: expenses,
         sales: sales,
         stores: stores,
         deviceId: deviceId,
@@ -148,6 +153,7 @@ class SyncService {
           syncResult.categoriesImported = await _replaceCategories(incomingData.categories);
           syncResult.customersImported = await _replaceCustomers(incomingData.customers);
           syncResult.employeesImported = await _replaceEmployees(incomingData.employees);
+          syncResult.expensesImported = await _replaceExpenses(incomingData.expenses);
           syncResult.salesImported = await _replaceSales(incomingData.sales);
           syncResult.storesImported = await _replaceStores(incomingData.stores);
           break;
@@ -157,6 +163,7 @@ class SyncService {
           syncResult.categoriesImported = await _mergeCategories(incomingData.categories);
           syncResult.customersImported = await _mergeCustomers(incomingData.customers);
           syncResult.employeesImported = await _mergeEmployees(incomingData.employees);
+          syncResult.expensesImported = await _mergeExpenses(incomingData.expenses);
           syncResult.salesImported = await _mergeSales(incomingData.sales);
           syncResult.storesImported = await _mergeStores(incomingData.stores);
           break;
@@ -166,6 +173,7 @@ class SyncService {
           syncResult.categoriesImported = await _appendCategories(incomingData.categories);
           syncResult.customersImported = await _appendCustomers(incomingData.customers);
           syncResult.employeesImported = await _appendEmployees(incomingData.employees);
+          syncResult.expensesImported = await _appendExpenses(incomingData.expenses);
           syncResult.salesImported = await _appendSales(incomingData.sales);
           syncResult.storesImported = await _appendStores(incomingData.stores);
           break;
@@ -203,6 +211,11 @@ class SyncService {
   Future<int> _replaceEmployees(List<Employee> employees) async {
     await _employeeRepo.replaceAllEmployees(employees);
     return employees.length;
+  }
+
+  Future<int> _replaceExpenses(List<Expense> expenses) async {
+    await _expenseRepo.replaceAllExpenses(expenses);
+    return expenses.length;
   }
 
   Future<int> _replaceSales(List<Sale> sales) async {
@@ -289,6 +302,25 @@ class SyncService {
     }
 
     await _employeeRepo.replaceAllEmployees(employeeMap.values.toList());
+    return imported;
+  }
+
+  Future<int> _mergeExpenses(List<Expense> incomingExpenses) async {
+    final existingExpenses = await _expenseRepo.getAllExpenses();
+    final Map<String, Expense> expenseMap = {
+      for (var e in existingExpenses) e.id: e
+    };
+
+    int imported = 0;
+    for (var incoming in incomingExpenses) {
+      final existing = expenseMap[incoming.id];
+      if (existing == null || incoming.updatedAt.isAfter(existing.updatedAt)) {
+        expenseMap[incoming.id] = incoming;
+        imported++;
+      }
+    }
+
+    await _expenseRepo.replaceAllExpenses(expenseMap.values.toList());
     return imported;
   }
 
@@ -386,6 +418,22 @@ class SyncService {
     return newEmployees.length;
   }
 
+  Future<int> _appendExpenses(List<Expense> incomingExpenses) async {
+    final existingExpenses = await _expenseRepo.getAllExpenses();
+    final existingIds = existingExpenses.map((e) => e.id).toSet();
+
+    final newExpenses = incomingExpenses
+        .where((e) => !existingIds.contains(e.id))
+        .toList();
+
+    if (newExpenses.isNotEmpty) {
+      existingExpenses.addAll(newExpenses);
+      await _expenseRepo.replaceAllExpenses(existingExpenses);
+    }
+
+    return newExpenses.length;
+  }
+
   Future<int> _appendSales(List<Sale> incomingSales) async {
     final existingSales = await _saleRepo.getAllSales();
     final existingIds = existingSales.map((s) => s.id).toSet();
@@ -440,6 +488,7 @@ class SyncResult {
   int categoriesImported;
   int customersImported;
   int employeesImported;
+  int expensesImported;
   int salesImported;
   int storesImported;
 
@@ -450,6 +499,7 @@ class SyncResult {
     this.categoriesImported = 0,
     this.customersImported = 0,
     this.employeesImported = 0,
+    this.expensesImported = 0,
     this.salesImported = 0,
     this.storesImported = 0,
   });
@@ -459,6 +509,7 @@ class SyncResult {
       categoriesImported +
       customersImported +
       employeesImported +
+      expensesImported +
       salesImported +
       storesImported;
 
@@ -470,6 +521,7 @@ class SyncResult {
       'categoriesImported': categoriesImported,
       'customersImported': customersImported,
       'employeesImported': employeesImported,
+      'expensesImported': expensesImported,
       'salesImported': salesImported,
       'storesImported': storesImported,
       'totalImported': totalImported,
