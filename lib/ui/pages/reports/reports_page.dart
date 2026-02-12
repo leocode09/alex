@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+import '../../../models/expense.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
-import '../../../providers/sale_provider.dart';
+import '../../../providers/expense_provider.dart';
 import '../../../providers/product_provider.dart';
+import '../../../providers/sale_provider.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../services/data_sync_triggers.dart';
 import '../../../services/pin_service.dart';
 
 class ReportsPage extends ConsumerStatefulWidget {
@@ -25,6 +29,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   final NumberFormat _currencyFormat =
       NumberFormat.currency(symbol: '\$', decimalDigits: 2);
   final NumberFormat _countFormat = NumberFormat.decimalPattern();
+  final Uuid _uuid = const Uuid();
 
   @override
   void initState() {
@@ -109,6 +114,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   Widget _buildSalesTab() {
     final salesAsync = ref.watch(salesProvider);
     final productsAsync = ref.watch(productsProvider);
+    final expensesAsync = ref.watch(expensesProvider);
 
     return salesAsync.when(
       data: (allSales) {
@@ -116,9 +122,17 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           data: (items) => items,
           orElse: () => const <Product>[],
         );
+        final allExpenses = expensesAsync.maybeWhen(
+          data: (items) => items,
+          orElse: () => const <Expense>[],
+        );
         final range = _getPeriodRange(_selectedPeriod);
         final filteredSales = _filterSalesByRange(allSales, range);
+        final filteredExpenses = _filterExpensesByRange(allExpenses, range);
         final metrics = _calculateSalesMetrics(filteredSales, products);
+        final totalExpenses = filteredExpenses.fold<double>(
+            0.0, (sum, expense) => sum + expense.amount);
+        final balance = metrics.grossProfit - totalExpenses;
         final chartSpots = _buildRevenueSeries(filteredSales, range);
         final productStats = _buildProductStats(filteredSales);
         final productSummaryEntries = productStats.entries.toList()
@@ -134,6 +148,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final hasMissingCost = metrics.missingCostItems > 0;
         final isCostLoading = productsAsync.isLoading;
         final hasCostError = productsAsync.hasError;
+        final isExpenseLoading = expensesAsync.isLoading;
+        final hasExpenseError = expensesAsync.hasError;
 
         String costSubtitle = '';
         Color? costSubtitleColor;
@@ -160,6 +176,39 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         } else if (hasMissingCost) {
           profitSubtitle = 'Partial cost';
           profitSubtitleColor = Colors.orange[700];
+        }
+
+        String expenseSubtitle = '';
+        Color? expenseSubtitleColor;
+        if (hasExpenseError) {
+          expenseSubtitle = 'Expense data unavailable';
+          expenseSubtitleColor = Colors.red;
+        } else if (isExpenseLoading && filteredExpenses.isEmpty) {
+          expenseSubtitle = 'Expense data loading';
+          expenseSubtitleColor = Colors.orange[700];
+        } else if (filteredExpenses.isNotEmpty) {
+          expenseSubtitle =
+              '${_formatCount(filteredExpenses.length)} entries';
+          expenseSubtitleColor = Colors.grey[600];
+        }
+
+        String balanceSubtitle = '';
+        Color? balanceSubtitleColor;
+        if (hasCostError) {
+          balanceSubtitle = 'Cost data unavailable';
+          balanceSubtitleColor = Colors.red;
+        } else if (isCostLoading && !hasCostData) {
+          balanceSubtitle = 'Cost data loading';
+          balanceSubtitleColor = Colors.orange[700];
+        } else if (hasMissingCost) {
+          balanceSubtitle = 'Partial cost';
+          balanceSubtitleColor = Colors.orange[700];
+        } else if (hasExpenseError) {
+          balanceSubtitle = 'Expense data unavailable';
+          balanceSubtitleColor = Colors.red;
+        } else {
+          balanceSubtitle = 'Profit - Expenses';
+          balanceSubtitleColor = Colors.grey[600];
         }
 
         if (hasSales && _chartController.status == AnimationStatus.dismissed) {
@@ -231,6 +280,67 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                   '',
                 ),
               ]),
+              const SizedBox(height: 12),
+              _buildSummaryCards([
+                _SummaryData(
+                  'Expenses',
+                  _formatCurrency(totalExpenses),
+                  expenseSubtitle,
+                  subtitleColor: expenseSubtitleColor,
+                ),
+                _SummaryData(
+                  'Balance',
+                  hasCostData ? _formatCurrency(balance) : 'N/A',
+                  balanceSubtitle,
+                  subtitleColor: balanceSubtitleColor,
+                ),
+                _SummaryData(
+                  'Expense Entries',
+                  _formatCount(filteredExpenses.length),
+                  _periodLabel(_selectedPeriod),
+                  subtitleColor: Colors.grey[600],
+                ),
+              ]),
+              const SizedBox(height: 10),
+              Text(
+                'Formula: Income - Cost = Profit, Profit - Expenses = Balance',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Expense Tracking',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton.icon(
+                    onPressed: _showAddExpenseDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Expense'),
+                  ),
+                ],
+              ),
+              if (hasExpenseError)
+                const Text('Failed to load expenses')
+              else if (filteredExpenses.isEmpty)
+                const Text('No expenses for this period')
+              else ...[
+                const SizedBox(height: 12),
+                ...filteredExpenses.take(8).map(_buildExpenseRow).toList(),
+                if (filteredExpenses.length > 8)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Showing latest 8 expenses',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 28),
               if (!hasSales)
                 const Text('No sales data for this period')
@@ -657,6 +767,14 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     }).toList();
   }
 
+  List<Expense> _filterExpensesByRange(
+      List<Expense> expenses, DateTimeRange range) {
+    return expenses.where((expense) {
+      return !expense.createdAt.isBefore(range.start) &&
+          !expense.createdAt.isAfter(range.end);
+    }).toList();
+  }
+
   List<FlSpot> _buildRevenueSeries(
       List<Sale> sales, DateTimeRange range) {
     if (range.start.year == range.end.year &&
@@ -803,6 +921,233 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       }
     }
     return stats;
+  }
+
+  Future<void> _showAddExpenseDialog() async {
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Expense'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: InputDecoration(
+                  labelText: 'Expense Title',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                ),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                decoration: InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '\$',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                decoration: InputDecoration(
+                  labelText: 'Note (Optional)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              final amount = double.tryParse(amountController.text.trim());
+              final note = noteController.text.trim();
+
+              if (title.isEmpty || amount == null || amount <= 0) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Enter a valid title and amount'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+                return;
+              }
+
+              final expense = Expense(
+                id: 'exp_${_uuid.v4()}',
+                title: title,
+                amount: amount,
+                note: note.isEmpty ? null : note,
+              );
+
+              final repository = ref.read(expenseRepositoryProvider);
+              final success = await repository.insertExpense(expense);
+
+              if (!mounted) {
+                return;
+              }
+
+              Navigator.pop(context);
+              if (success) {
+                ref.invalidate(expensesProvider);
+                await DataSyncTriggers.trigger(reason: 'expense_added');
+              }
+              if (!mounted) {
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(success ? 'Expense added' : 'Failed to add expense'),
+                  backgroundColor: success ? Colors.green : Colors.red,
+                ),
+              );
+            },
+            child: Text(
+              'Save',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteExpense(Expense expense) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Expense'),
+        content: Text('Delete "${expense.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final repository = ref.read(expenseRepositoryProvider);
+              final success = await repository.deleteExpense(expense.id);
+
+              if (!mounted) {
+                return;
+              }
+
+              Navigator.pop(context);
+              if (success) {
+                ref.invalidate(expensesProvider);
+                await DataSyncTriggers.trigger(reason: 'expense_deleted');
+              }
+              if (!mounted) {
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content:
+                      Text(success ? 'Expense deleted' : 'Failed to delete expense'),
+                  backgroundColor: success ? Colors.green : Colors.red,
+                ),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpenseRow(Expense expense) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  expense.title,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                if (expense.note != null && expense.note!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      expense.note!,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('MMM d, y | h:mm a').format(expense.createdAt),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _formatCurrency(expense.amount),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Delete expense',
+            onPressed: () => _confirmDeleteExpense(expense),
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSummaryCards(List<_SummaryData> data) {
