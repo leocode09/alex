@@ -19,17 +19,17 @@ class AppBadge extends StatelessWidget {
     final extras = context.appExtras;
     final colors = _resolveColors(context, extras);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
         color: colors.$1,
         borderRadius: BorderRadius.circular(AppTokens.radiusS),
-        border: Border.all(color: colors.$2),
+        border: Border.all(color: colors.$2, width: AppTokens.border),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: colors.$3,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
       ),
     );

@@ -73,7 +73,13 @@ class AppPageScaffold extends StatelessWidget {
     }
     return AppBar(
       centerTitle: centerTitle,
-      title: Text(title!, style: const TextStyle(fontWeight: FontWeight.w700)),
+      title: Text(
+        title!,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.1,
+        ),
+      ),
       actions: actions,
       bottom: bottom,
     );

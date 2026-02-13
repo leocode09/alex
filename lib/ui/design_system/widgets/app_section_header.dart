@@ -28,7 +28,8 @@ class AppSectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
                 ),
           ),
           if (actionEnabled)
@@ -37,13 +38,16 @@ class AppSectionHeader extends StatelessWidget {
               style: TextButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.primary,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppTokens.radiusS),
-                  side: BorderSide(color: extras.border),
+                  side: BorderSide(color: extras.borderStrong),
                 ),
               ),
-              child: Text(actionLabel!),
+              child: Text(
+                actionLabel!,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
         ],
       ),

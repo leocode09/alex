@@ -41,22 +41,22 @@ class AppStatTile extends StatelessWidget {
                   label,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: extras.muted,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppTokens.space2),
+          const SizedBox(height: AppTokens.space1),
           Text(
             value,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   fontFamily: 'IBMPlexMono',
                 ),
           ),
           if (subtitle != null && subtitle!.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               subtitle!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
