@@ -38,7 +38,7 @@ class MainScaffold extends StatelessWidget {
           selectedIndex: currentIndex,
           onDestinationSelected: (index) => _onTap(context, index),
           elevation: 0,
-          height: 68,
+          height: 62,
           backgroundColor: AppTokens.paper,
           indicatorColor: AppTokens.accentSoft,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -54,7 +54,7 @@ class MainScaffold extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: extendedRail ? 224 : 88,
+              width: extendedRail ? 210 : 82,
               decoration: const BoxDecoration(
                 color: AppTokens.paper,
                 border:
@@ -64,8 +64,8 @@ class MainScaffold extends StatelessWidget {
                 selectedIndex: currentIndex,
                 extended: extendedRail,
                 onDestinationSelected: (index) => _onTap(context, index),
-                minWidth: 88,
-                minExtendedWidth: 224,
+                minWidth: 82,
+                minExtendedWidth: 210,
                 labelType: extendedRail
                     ? NavigationRailLabelType.none
                     : NavigationRailLabelType.all,

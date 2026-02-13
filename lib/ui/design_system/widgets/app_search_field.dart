@@ -22,7 +22,7 @@ class AppSearchField extends StatelessWidget {
         hintText: hintText,
         prefixIcon: const Icon(Icons.search, size: 20),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTokens.radiusM),
         ),

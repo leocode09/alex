@@ -138,7 +138,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppTokens.paperAlt,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         hintStyle: textTheme.bodyMedium?.copyWith(color: AppTokens.mutedText),
         labelStyle: textTheme.bodyMedium?.copyWith(color: AppTokens.mutedText),
         border: OutlineInputBorder(
