@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../../../models/sale.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../helpers/pin_protection.dart';
@@ -16,6 +17,15 @@ class ReceiptsTab extends ConsumerStatefulWidget {
 }
 
 class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final salesAsync = ref.watch(salesProvider);
@@ -35,16 +45,47 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (value) {
+              setState(() => _searchQuery = value);
+            },
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search receipts, IDs, items, totals, dates',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchQuery.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    ),
+            ),
+          ),
+        ),
         Expanded(
           child: salesAsync.when(
             data: (sales) {
               if (sales.isEmpty) {
                 return const Center(child: Text('No receipts found'));
               }
+              final filteredSales = _filterSales(sales, _searchQuery);
+              if (filteredSales.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No receipts match "${_searchQuery.trim()}"',
+                  ),
+                );
+              }
               return ListView.builder(
-                itemCount: sales.length,
+                itemCount: filteredSales.length,
                 itemBuilder: (context, index) {
-                  final sale = sales[index];
+                  final sale = filteredSales[index];
                   return Card(
                     margin:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -121,6 +162,76 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
         ),
       ],
     );
+  }
+
+  List<Sale> _filterSales(List<Sale> sales, String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      return sales;
+    }
+
+    final tokens = trimmed
+        .split(RegExp(r'\s+'))
+        .map(_normalize)
+        .where((token) => token.isNotEmpty)
+        .toList();
+
+    if (tokens.isEmpty) {
+      return sales;
+    }
+
+    return sales
+        .where((sale) => _matchesSaleQuery(sale, tokens))
+        .toList(growable: false);
+  }
+
+  bool _matchesSaleQuery(Sale sale, List<String> queryTokens) {
+    final searchable = _buildSearchableText(sale);
+    return queryTokens.every(searchable.contains);
+  }
+
+  String _buildSearchableText(Sale sale) {
+    final itemNames = sale.items.map((item) => item.productName).join(' ');
+    final itemIds = sale.items.map((item) => item.productId).join(' ');
+    final totalQuantity =
+        sale.items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final dateA = DateFormat('MMM d, HH:mm').format(sale.createdAt);
+    final dateB = DateFormat('MMM d, yyyy HH:mm').format(sale.createdAt);
+    final dateC = DateFormat('yyyy-MM-dd').format(sale.createdAt);
+    final dateD = DateFormat('dd/MM/yyyy').format(sale.createdAt);
+    final dateE = DateFormat('HH:mm').format(sale.createdAt);
+    final fullRef = sale.id.toUpperCase();
+    final shortRef = _shortReceiptRef(sale.id);
+
+    final source = [
+      sale.id,
+      fullRef,
+      shortRef,
+      '#$shortRef',
+      sale.paymentMethod,
+      sale.total.toStringAsFixed(2),
+      sale.total.toStringAsFixed(0),
+      '\$${sale.total.toStringAsFixed(2)}',
+      sale.customerId ?? '',
+      sale.employeeId,
+      itemNames,
+      itemIds,
+      sale.items.length.toString(),
+      totalQuantity.toString(),
+      dateA,
+      dateB,
+      dateC,
+      dateD,
+      dateE,
+      sale.cashReceived?.toStringAsFixed(2) ?? '',
+      sale.change?.toStringAsFixed(2) ?? '',
+    ].join(' ');
+
+    return _normalize(source);
+  }
+
+  String _normalize(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   String _shortReceiptRef(String saleId) {
