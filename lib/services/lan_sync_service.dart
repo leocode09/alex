@@ -740,7 +740,7 @@ class LanSyncService extends ChangeNotifier {
     }
     try {
       final info = await DeviceInfoPlugin().androidInfo;
-      return info.model ?? 'Android';
+      return info.model;
     } catch (_) {
       return 'Android';
     }

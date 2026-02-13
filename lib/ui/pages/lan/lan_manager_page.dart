@@ -209,7 +209,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
                   child: const Text('Connect'),
                 ),
               );
-            }).toList(),
+            }),
         ],
       ),
     );
@@ -380,7 +380,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
                 trailing:
                     isConnected ? const Text('Connected') : const Text('Seen'),
               );
-            }).toList(),
+            }),
         ],
       ),
     );
@@ -397,7 +397,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
           if (clients.isEmpty)
             const Text('No LAN peers connected.')
           else
-            ...clients.map((client) => Text(client)).toList(),
+            ...clients.map((client) => Text(client)),
         ],
       ),
     );
@@ -432,7 +432,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
               SizedBox(
                 width: 220,
                 child: DropdownButtonFormField<String>(
-                  value: selectedDevice,
+                  initialValue: selectedDevice,
                   decoration: const InputDecoration(
                     labelText: 'Device',
                     border: OutlineInputBorder(),
@@ -459,7 +459,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
               SizedBox(
                 width: 220,
                 child: DropdownButtonFormField<LanActionTimeRange>(
-                  value: _selectedTimeRange,
+                  initialValue: _selectedTimeRange,
                   decoration: const InputDecoration(
                     labelText: 'Period',
                     border: OutlineInputBorder(),
@@ -584,7 +584,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
 
   Future<void> _saveDeviceName(BuildContext context) async {
     await _lanService.setDeviceName(_deviceNameController.text);
-    if (!mounted) {
+    if (!context.mounted) {
       return;
     }
     _deviceNameController.text = _lanService.deviceName;
@@ -597,7 +597,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
 
   Future<void> _resetDeviceName(BuildContext context) async {
     await _lanService.setDeviceName('');
-    if (!mounted) {
+    if (!context.mounted) {
       return;
     }
     _deviceNameController.text = _lanService.deviceName;
