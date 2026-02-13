@@ -806,6 +806,143 @@ class ProductDetailsPage extends ConsumerWidget {
     );
   }
 
+  Future<void> _showRecordVarianceDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Product product,
+  ) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForAdjustStock(),
+      title: 'Record Variance',
+      subtitle: 'Enter PIN to record stock variance',
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+
+    final countedStockController =
+        TextEditingController(text: product.stock.toString());
+    final noteController = TextEditingController();
+    final reasons = <MapEntry<String, String>>[
+      const MapEntry('count', 'Cycle Count'),
+      const MapEntry('damage', 'Damage'),
+      const MapEntry('theft', 'Theft'),
+      const MapEntry('expired', 'Expired'),
+      const MapEntry('found', 'Found Stock'),
+      const MapEntry('correction', 'Correction'),
+      const MapEntry('other', 'Other'),
+    ];
+    var selectedReason = reasons.first.key;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text('Record Variance - ${product.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Expected stock: ${product.stock}'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: countedStockController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Counted stock',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedReason,
+                decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  border: OutlineInputBorder(),
+                ),
+                items: reasons
+                    .map(
+                      (entry) => DropdownMenuItem<String>(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setDialogState(() => selectedReason = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Note (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final countedStock =
+                    int.tryParse(countedStockController.text.trim());
+                if (countedStock == null || countedStock < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Enter a valid stock count')),
+                  );
+                  return;
+                }
+
+                final delta = countedStock - product.stock;
+                final success = await ref
+                    .read(productNotifierProvider.notifier)
+                    .recordProductVariance(
+                      product.id,
+                      countedStock: countedStock,
+                      reasonCode: selectedReason,
+                      referenceId:
+                          'variance_${DateTime.now().millisecondsSinceEpoch}',
+                      note: noteController.text.trim().isEmpty
+                          ? null
+                          : noteController.text.trim(),
+                    );
+
+                if (!context.mounted) {
+                  return;
+                }
+
+                if (success) {
+                  Navigator.pop(dialogContext);
+                  final sign = delta > 0 ? '+' : '';
+                  final suffix =
+                      delta == 0 ? 'No stock change' : 'Stock change: $sign$delta';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Variance recorded. $suffix')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to record variance')),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _confirmDelete(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,

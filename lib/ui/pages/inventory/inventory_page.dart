@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../models/inventory_movement.dart';
 import '../../../models/product.dart';
+import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../services/pin_service.dart';
 
@@ -14,6 +17,8 @@ class InventoryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
+    final varianceMovementsAsync = ref.watch(inventoryVariancesProvider);
+    final varianceStatsAsync = ref.watch(inventoryVarianceStatsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -22,7 +27,28 @@ class InventoryPage extends ConsumerWidget {
         centerTitle: false,
       ),
       body: productsAsync.when(
-        data: (products) => _buildContent(context, ref, products),
+        data: (products) => _buildContent(
+          context,
+          ref,
+          products,
+          varianceMovementsAsync.maybeWhen(
+            data: (movements) => movements,
+            orElse: () => const <InventoryMovement>[],
+          ),
+          varianceStatsAsync.maybeWhen(
+            data: (stats) => stats,
+            orElse: () => const InventoryVarianceStats(
+              totalLogs: 0,
+              matchedLogs: 0,
+              adjustedLogs: 0,
+              unitsAdded: 0,
+              unitsRemoved: 0,
+              netUnits: 0,
+              retailImpact: 0.0,
+              costImpact: 0.0,
+            ),
+          ),
+        ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
@@ -30,7 +56,12 @@ class InventoryPage extends ConsumerWidget {
   }
 
   Widget _buildContent(
-      BuildContext context, WidgetRef ref, List<Product> products) {
+    BuildContext context,
+    WidgetRef ref,
+    List<Product> products,
+    List<InventoryMovement> varianceMovements,
+    InventoryVarianceStats varianceStats,
+  ) {
     final totalProducts = products.length;
     final totalUnits = products.fold<int>(0, (sum, p) => sum + p.stock);
     final lowStockItems = products
@@ -40,6 +71,14 @@ class InventoryPage extends ConsumerWidget {
     final outOfStockItems = products.where((p) => p.stock == 0).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
     final alertItems = [...outOfStockItems, ...lowStockItems];
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentVariances = varianceMovements
+        .where((movement) => !movement.createdAt.isBefore(sevenDaysAgo))
+        .toList();
+    final recentVarianceStats =
+        InventoryVarianceStats.fromMovements(recentVariances);
+    final recentVarianceLogs = varianceMovements.take(8).toList();
+    final dateFormatter = DateFormat('MMM d, h:mm a');
 
     return ListView(
       padding: const EdgeInsets.all(16.0),
@@ -85,6 +124,30 @@ class InventoryPage extends ConsumerWidget {
                 '${outOfStockItems.length}',
                 Icons.remove_shopping_cart_outlined,
                 isWarning: outOfStockItems.isNotEmpty,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildSummaryCard(
+                context,
+                'Variance (7d)',
+                '${recentVarianceStats.totalLogs}',
+                Icons.fact_check_outlined,
+                isWarning: recentVarianceStats.adjustedLogs > 0,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSummaryCard(
+                context,
+                'Net Units (7d)',
+                '${recentVarianceStats.netUnits > 0 ? '+' : ''}${recentVarianceStats.netUnits}',
+                Icons.balance_outlined,
+                isWarning: recentVarianceStats.netUnits < 0,
               ),
             ),
           ],
@@ -173,6 +236,100 @@ class InventoryPage extends ConsumerWidget {
             lowStockItems: [...lowStockItems, ...outOfStockItems],
           ),
         ),
+        const SizedBox(height: 8),
+        _buildActionTile(
+          context,
+          'Record Variance',
+          Icons.fact_check_outlined,
+          () => _showRecordVarianceDialog(
+            context,
+            ref,
+            products: products,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text('Variance Overview',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 8),
+        _buildVarianceOverviewCard(context, varianceStats),
+        const SizedBox(height: 24),
+        const Text('Recent Variances',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 12),
+        if (recentVarianceLogs.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[200]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'No variance records yet. Use "Record Variance" to start tracking inventory discrepancies.',
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[200]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: recentVarianceLogs.asMap().entries.map((entry) {
+                final index = entry.key;
+                final movement = entry.value;
+                final delta = movement.delta;
+                final deltaLabel = delta > 0 ? '+$delta' : '$delta';
+                final deltaColor = delta > 0
+                    ? Colors.green[700]
+                    : delta < 0
+                        ? Colors.red[700]
+                        : Colors.grey[700];
+                final reasonLabel = _formatVarianceReason(movement.reason);
+                return Column(
+                  children: [
+                    ListTile(
+                      dense: true,
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: delta > 0
+                            ? Colors.green[50]
+                            : delta < 0
+                                ? Colors.red[50]
+                                : Colors.grey[100],
+                        child: Icon(
+                          delta > 0
+                              ? Icons.arrow_upward
+                              : delta < 0
+                                  ? Icons.arrow_downward
+                                  : Icons.horizontal_rule,
+                          size: 16,
+                          color: deltaColor,
+                        ),
+                      ),
+                      title: Text(
+                        movement.productName,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        '$reasonLabel - ${dateFormatter.format(movement.createdAt.toLocal())}\nStock: ${movement.stockBefore} -> ${movement.stockAfter}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                      trailing: Text(
+                        delta == 0 ? 'OK' : deltaLabel,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: deltaColor,
+                        ),
+                      ),
+                    ),
+                    if (index != recentVarianceLogs.length - 1)
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
       ],
     );
   }
@@ -392,6 +549,282 @@ class InventoryPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showRecordVarianceDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    required List<Product> products,
+    Product? initialProduct,
+  }) async {
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No products available')),
+      );
+      return;
+    }
+
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForAdjustStock(),
+      title: 'Record Variance',
+      subtitle: 'Enter PIN to record product variance',
+    );
+    if (!allowed || !context.mounted) {
+      return;
+    }
+
+    final sortedProducts = [...products]..sort((a, b) => a.name.compareTo(b.name));
+    var selectedProduct = initialProduct ?? sortedProducts.first;
+    final countedStockController =
+        TextEditingController(text: selectedProduct.stock.toString());
+    final noteController = TextEditingController();
+    final reasons = <MapEntry<String, String>>[
+      const MapEntry('count', 'Cycle Count'),
+      const MapEntry('damage', 'Damage'),
+      const MapEntry('theft', 'Theft'),
+      const MapEntry('expired', 'Expired'),
+      const MapEntry('found', 'Found Stock'),
+      const MapEntry('correction', 'Correction'),
+      const MapEntry('other', 'Other'),
+    ];
+    var selectedReason = reasons.first.key;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Record Product Variance'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedProduct.id,
+                  decoration: const InputDecoration(
+                    labelText: 'Product',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: sortedProducts
+                      .map(
+                        (product) => DropdownMenuItem<String>(
+                          value: product.id,
+                          child: Text(product.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    final nextProduct = sortedProducts.firstWhere(
+                      (product) => product.id == value,
+                    );
+                    setDialogState(() {
+                      selectedProduct = nextProduct;
+                      countedStockController.text = nextProduct.stock.toString();
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                Text('Expected stock: ${selectedProduct.stock}'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: countedStockController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Counted stock',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedReason,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: reasons
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    setDialogState(() => selectedReason = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Note (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final countedStock =
+                    int.tryParse(countedStockController.text.trim());
+                if (countedStock == null || countedStock < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Enter a valid stock count')),
+                  );
+                  return;
+                }
+
+                final delta = countedStock - selectedProduct.stock;
+                final success = await ref
+                    .read(productNotifierProvider.notifier)
+                    .recordProductVariance(
+                      selectedProduct.id,
+                      countedStock: countedStock,
+                      reasonCode: selectedReason,
+                      referenceId:
+                          'variance_${DateTime.now().millisecondsSinceEpoch}',
+                      note: noteController.text.trim().isEmpty
+                          ? null
+                          : noteController.text.trim(),
+                    );
+
+                if (!context.mounted) {
+                  return;
+                }
+
+                if (success) {
+                  Navigator.pop(dialogContext);
+                  final sign = delta > 0 ? '+' : '';
+                  final suffix =
+                      delta == 0 ? 'No stock change' : 'Stock change: $sign$delta';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(
+                            'Variance saved for ${selectedProduct.name}. $suffix')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to record variance')),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVarianceOverviewCard(
+    BuildContext context,
+    InventoryVarianceStats stats,
+  ) {
+    final netColor = stats.netUnits > 0
+        ? Colors.green[700]
+        : stats.netUnits < 0
+            ? Colors.red[700]
+            : Colors.grey[700];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Logs: ${stats.totalLogs} (${stats.adjustedLogs} adjusted, ${stats.matchedLogs} matched)',
+            style: TextStyle(color: Colors.grey[700], fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Added: +${stats.unitsAdded}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green[700],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Removed: -${stats.unitsRemoved}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red[700],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Net units: ${stats.netUnits > 0 ? '+' : ''}${stats.netUnits}',
+            style: TextStyle(fontWeight: FontWeight.bold, color: netColor),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Cost impact: \$${stats.costImpact.toStringAsFixed(2)}',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+          Text(
+            'Retail impact: \$${stats.retailImpact.toStringAsFixed(2)}',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatVarianceReason(String reason) {
+    if (!InventoryMovement.isVarianceReason(reason)) {
+      return reason;
+    }
+
+    final code = reason.substring(InventoryMovement.varianceReasonPrefix.length);
+    switch (code) {
+      case 'count':
+        return 'Cycle Count';
+      case 'damage':
+        return 'Damage';
+      case 'theft':
+        return 'Theft';
+      case 'expired':
+        return 'Expired';
+      case 'found':
+        return 'Found Stock';
+      case 'correction':
+        return 'Correction';
+      case 'other':
+        return 'Other';
+      default:
+        return code
+            .split('_')
+            .map((word) => word.isEmpty
+                ? word
+                : '${word[0].toUpperCase()}${word.substring(1)}')
+            .join(' ');
+    }
   }
 
   Widget _buildSummaryCard(

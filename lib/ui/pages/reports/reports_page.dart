@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../models/expense.dart';
+import '../../../models/inventory_movement.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/expense_provider.dart';
+import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../helpers/pin_protection.dart';
@@ -467,6 +469,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
   Widget _buildInventoryTab() {
     final productsAsync = ref.watch(productsProvider);
+    final varianceMovementsAsync = ref.watch(inventoryVariancesProvider);
 
     return productsAsync.when(
       data: (products) {
@@ -533,6 +536,25 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
         final topValueProducts = [...products]
           ..sort((a, b) => (b.price * b.stock).compareTo(a.price * a.stock));
+        final range = _getPeriodRange(_selectedPeriod);
+        final periodVariances = varianceMovementsAsync.maybeWhen(
+          data: (movements) => movements.where((movement) {
+            return !movement.createdAt.isBefore(range.start) &&
+                !movement.createdAt.isAfter(range.end);
+          }).toList(),
+          orElse: () => const <InventoryMovement>[],
+        );
+        final varianceStats = InventoryVarianceStats.fromMovements(
+          periodVariances,
+        );
+        final topVarianceProducts = <String, int>{};
+        for (final movement in periodVariances) {
+          topVarianceProducts[movement.productName] =
+              (topVarianceProducts[movement.productName] ?? 0) +
+                  movement.delta.abs();
+        }
+        final sortedVarianceProducts = topVarianceProducts.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -560,6 +582,29 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       : '',
                   subtitleColor:
                       missingCostUnits > 0 ? Colors.orange[700] : null,
+                ),
+              ]),
+              const SizedBox(height: 12),
+              _buildSummaryCards([
+                _SummaryData(
+                  'Variances',
+                  _formatCount(varianceStats.totalLogs),
+                  _periodLabel(_selectedPeriod),
+                  subtitleColor: Colors.grey[600],
+                ),
+                _SummaryData(
+                  'Variance Net',
+                  '${varianceStats.netUnits > 0 ? '+' : ''}${_formatCount(varianceStats.netUnits)}',
+                  'In: +${_formatCount(varianceStats.unitsAdded)} | Out: -${_formatCount(varianceStats.unitsRemoved)}',
+                  subtitleColor: varianceStats.netUnits < 0
+                      ? Colors.red[700]
+                      : Colors.grey[600],
+                ),
+                _SummaryData(
+                  'Variance Cost',
+                  _formatCurrency(varianceStats.costImpact),
+                  'Retail: ${_formatCurrency(varianceStats.retailImpact)}',
+                  subtitleColor: Colors.grey[600],
                 ),
               ]),
               const SizedBox(height: 32),
@@ -593,6 +638,39 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     '${_formatCount(product.stock)} units',
                   );
                 }),
+              const SizedBox(height: 32),
+              const Text('Recent Variances',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              if (periodVariances.isEmpty)
+                const Text('No variance records for this period')
+              else
+                ...periodVariances.take(5).map((movement) {
+                  final sign = movement.delta > 0 ? '+' : '';
+                  final subtitle =
+                      '${_formatVarianceReason(movement.reason)} | Stock ${movement.stockBefore} -> ${movement.stockAfter}';
+                  return _buildListRow(
+                    movement.productName,
+                    movement.delta == 0
+                        ? '0 units'
+                        : '$sign${_formatCount(movement.delta)} units',
+                    subtitle,
+                  );
+                }),
+              if (sortedVarianceProducts.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text('Top Variance Products',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                ...sortedVarianceProducts.take(5).map((entry) {
+                  return _buildListRow(
+                    entry.key,
+                    '${_formatCount(entry.value)} units',
+                    'Absolute movement from variances',
+                  );
+                }),
+              ],
               const SizedBox(height: 32),
               const Text('Low Stock Alerts',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
