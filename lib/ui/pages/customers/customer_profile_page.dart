@@ -1,45 +1,48 @@
 import 'package:flutter/material.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
-import '../../design_system/app_badge.dart';
 import '../../design_system/app_tokens.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
 import '../../design_system/widgets/app_panel.dart';
 import '../../design_system/widgets/app_section_header.dart';
 import '../../design_system/widgets/app_stat_tile.dart';
 
-class EmployeeProfilePage extends StatelessWidget {
-  final String employeeId;
+class CustomerProfilePage extends StatelessWidget {
+  final String customerId;
 
-  const EmployeeProfilePage({
+  const CustomerProfilePage({
     super.key,
-    required this.employeeId,
+    required this.customerId,
   });
 
   @override
   Widget build(BuildContext context) {
-    final employee = {
-      'name': 'Alice Johnson',
-      'email': 'alice@example.com',
+    final customer = {
+      'name': 'John Doe',
       'phone': '+250 788 123 456',
-      'role': 'Cashier',
-      'status': 'Active',
+      'email': 'john.doe@example.com',
+      'totalPurchases': 12,
+      'totalSpent': 45000,
       'joinDate': '2024-01-15',
-      'salesCount': 245,
-      'totalSales': 4500000,
     };
 
+    final recentPurchases = [
+      {'date': '2024-12-10', 'amount': 5000, 'items': 3},
+      {'date': '2024-12-08', 'amount': 3500, 'items': 2},
+      {'date': '2024-12-05', 'amount': 8000, 'items': 5},
+    ];
+
     return AppPageScaffold(
-      title: 'Employee Profile',
+      title: 'Customer Profile',
       actions: [
         IconButton(
           icon: const Icon(Icons.edit_outlined),
           onPressed: () async {
             final allowed = await PinProtection.requirePinIfNeeded(
               context,
-              isRequired: () => PinService().isPinRequiredForEditEmployee(),
-              title: 'Edit Employee',
-              subtitle: 'Enter PIN to edit employee',
+              isRequired: () => PinService().isPinRequiredForEditCustomer(),
+              title: 'Edit Customer',
+              subtitle: 'Enter PIN to edit customer',
             );
             if (!allowed) {
               return;
@@ -60,9 +63,9 @@ class EmployeeProfilePage extends StatelessWidget {
                   radius: 28,
                   backgroundColor: AppTokens.paper,
                   child: Text(
-                    employee['name'].toString().substring(0, 1),
+                    customer['name'].toString().substring(0, 1),
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 22,
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w700,
                     ),
@@ -73,15 +76,10 @@ class EmployeeProfilePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(employee['name'] as String, style: Theme.of(context).textTheme.titleLarge),
+                      Text(customer['name'] as String, style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 4),
-                      AppBadge(
-                        label: employee['role'] as String,
-                        tone: AppBadgeTone.accent,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(employee['email'] as String, style: const TextStyle(color: AppTokens.mutedText)),
-                      Text(employee['phone'] as String, style: const TextStyle(color: AppTokens.mutedText)),
+                      Text(customer['phone'] as String, style: const TextStyle(color: AppTokens.mutedText)),
+                      Text(customer['email'] as String, style: const TextStyle(color: AppTokens.mutedText)),
                     ],
                   ),
                 ),
@@ -93,49 +91,42 @@ class EmployeeProfilePage extends StatelessWidget {
             children: [
               Expanded(
                 child: AppStatTile(
-                  label: 'Sales',
-                  value: '${employee['salesCount']}',
+                  label: 'Purchases',
+                  value: '${customer['totalPurchases']}',
                   icon: Icons.receipt_long_outlined,
                 ),
               ),
               const SizedBox(width: AppTokens.space2),
               Expanded(
                 child: AppStatTile(
-                  label: 'Revenue',
-                  value: '\$${(employee['totalSales'] as int) ~/ 1000}K',
+                  label: 'Spent',
+                  value: '\$${customer['totalSpent']}',
                   icon: Icons.attach_money_outlined,
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppTokens.space4),
-          const AppSectionHeader(title: 'Performance'),
+          const AppSectionHeader(title: 'Recent Purchases'),
           AppPanel(
             child: Column(
-              children: [
-                _buildPerformanceRow('Total Sales', '${employee['salesCount']}'),
-                const Divider(height: 1),
-                _buildPerformanceRow('Total Revenue', '\$${employee['totalSales']}'),
-                const Divider(height: 1),
-                _buildPerformanceRow('Average/Day', '${(employee['salesCount'] as int) ~/ 30} sales'),
-                const Divider(height: 1),
-                _buildPerformanceRow('Joined', employee['joinDate'] as String),
-              ],
+              children: recentPurchases.asMap().entries.map((entry) {
+                final index = entry.key;
+                final purchase = entry.value;
+                return Column(
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('\$${purchase['amount']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text('${purchase['items']} items', style: const TextStyle(color: AppTokens.mutedText, fontSize: 12)),
+                      trailing: Text(purchase['date'] as String, style: const TextStyle(color: AppTokens.mutedText, fontSize: 12)),
+                    ),
+                    if (index < recentPurchases.length - 1) const Divider(height: 1),
+                  ],
+                );
+              }).toList(),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPerformanceRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: AppTokens.mutedText)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );
