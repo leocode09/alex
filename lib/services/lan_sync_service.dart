@@ -30,8 +30,7 @@ class LanSyncService extends ChangeNotifier {
   Timer? _announceTimer;
 
   final Map<String, LanPeer> _peers = <String, LanPeer>{};
-  final Map<String, _LanConnection> _connections =
-      <String, _LanConnection>{};
+  final Map<String, _LanConnection> _connections = <String, _LanConnection>{};
   final Set<String> _pendingConnections = <String>{};
 
   String _status = 'stopped';
@@ -61,19 +60,17 @@ class LanSyncService extends ChangeNotifier {
       (_deviceName != null && _deviceName!.trim().isNotEmpty)
           ? _deviceName!.trim()
           : 'Device';
-  String get deviceId =>
-      (_deviceId != null && _deviceId!.trim().isNotEmpty)
-          ? _deviceId!
-          : 'unknown_device';
+  String get deviceId => (_deviceId != null && _deviceId!.trim().isNotEmpty)
+      ? _deviceId!
+      : 'unknown_device';
   List<String> get localAddresses => List.unmodifiable(_localAddresses);
   List<String> get logs => List.unmodifiable(_logs);
   List<LanSyncAction> get actions => List.unmodifiable(_actions);
   List<LanPeer> get peers =>
       List.unmodifiable(_peers.values.toList()..sort(_peerSort));
   Set<String> get connectedPeerIds => Set.unmodifiable(_connections.keys);
-  List<String> get connectedPeers => _connections.values
-      .map((connection) => connection.displayName)
-      .toList();
+  List<String> get connectedPeers =>
+      _connections.values.map((connection) => connection.displayName).toList();
 
   Future<void> initialize() async {
     if (kIsWeb) {
@@ -286,9 +283,8 @@ class LanSyncService extends ChangeNotifier {
           continue;
         }
 
-        final peerName = data['name'] is String
-            ? data['name'] as String
-            : peerId;
+        final peerName =
+            data['name'] is String ? data['name'] as String : peerId;
         final port = data['port'] is int ? data['port'] as int : tcpPort;
         final now = DateTime.now();
         final peer = LanPeer(
@@ -477,7 +473,8 @@ class LanSyncService extends ChangeNotifier {
     final existing = _connections[peerId];
     if (existing != null && existing != connection) {
       final preferOutbound = _shouldInitiateLanConnection(peerId);
-      final keepNew = preferOutbound ? connection.outbound : !connection.outbound;
+      final keepNew =
+          preferOutbound ? connection.outbound : !connection.outbound;
       if (!keepNew) {
         unawaited(connection.close());
         return;
@@ -723,7 +720,8 @@ class LanSyncService extends ChangeNotifier {
 
   Future<void> _ensureDeviceInfo() async {
     _deviceId ??= await _syncService.getDeviceId();
-    _deviceName ??= await _getPreferredDeviceName() ?? await _getDefaultDeviceName();
+    _deviceName ??=
+        await _getPreferredDeviceName() ?? await _getDefaultDeviceName();
   }
 
   Future<String?> _getPreferredDeviceName() async {
@@ -791,8 +789,8 @@ class LanSyncService extends ChangeNotifier {
     final normalizedDeviceId = (deviceId != null && deviceId.trim().isNotEmpty)
         ? deviceId.trim()
         : this.deviceId;
-    final normalizedDeviceName =
-        _resolveSourceDeviceName(deviceId: normalizedDeviceId, providedName: deviceName);
+    final normalizedDeviceName = _resolveSourceDeviceName(
+        deviceId: normalizedDeviceId, providedName: deviceName);
     final action = LanSyncAction(
       timestamp: DateTime.now(),
       message: message,

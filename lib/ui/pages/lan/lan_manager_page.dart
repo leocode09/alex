@@ -69,10 +69,12 @@ class _LanManagerPageState extends State<LanManagerPage> {
               const SizedBox(height: 8),
               _buildGroupTitle('Hotspot / LAN'),
               _buildLanStatusCard(context),
+              _buildLanDeviceNameCard(context),
               _buildLanAddressesCard(context),
               _buildLanControlsCard(context),
               _buildLanPeersCard(context),
               _buildLanClientsCard(context),
+              _buildLanActionsCard(context),
             ],
           ),
         );
@@ -95,8 +97,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
 
   Widget _buildStatusCard(BuildContext context) {
     final status = _formatStatus(_service.status);
-    final connection =
-        _service.isConnected ? 'Connected' : 'Not connected';
+    final connection = _service.isConnected ? 'Connected' : 'Not connected';
     final role = _service.isConnected
         ? (_service.isGroupOwner ? 'Group owner' : 'Client')
         : 'N/A';
@@ -129,8 +130,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
           _sectionTitle('Preferences'),
           SwitchListTile(
             title: const Text('Host Preferred'),
-            subtitle:
-                const Text('Try to become group owner when starting'),
+            subtitle: const Text('Try to become group owner when starting'),
             value: _service.hostPreferred,
             onChanged: (value) => _service.setHostPreferred(value),
             contentPadding: EdgeInsets.zero,
@@ -161,15 +161,13 @@ class _LanManagerPageState extends State<LanManagerPage> {
                 label: const Text('Start'),
               ),
               OutlinedButton.icon(
-                onPressed: _service.isRunning
-                    ? () => _service.discoverPeers()
-                    : null,
+                onPressed:
+                    _service.isRunning ? () => _service.discoverPeers() : null,
                 icon: const Icon(Icons.search),
                 label: const Text('Discover'),
               ),
               OutlinedButton.icon(
-                onPressed:
-                    _service.isConnected ? _service.disconnect : null,
+                onPressed: _service.isConnected ? _service.disconnect : null,
                 icon: const Icon(Icons.link_off),
                 label: const Text('Disconnect'),
               ),
@@ -243,6 +241,46 @@ class _LanManagerPageState extends State<LanManagerPage> {
     );
   }
 
+  Widget _buildLanDeviceNameCard(BuildContext context) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('Device Name'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _deviceNameController,
+            decoration: const InputDecoration(
+              labelText: 'Name this device',
+              hintText: 'Ex: Store Counter 1',
+              border: OutlineInputBorder(),
+              helperText:
+                  'Used to label sync actions on LAN and identify this device to peers.',
+            ),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _saveDeviceName(context),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _saveDeviceName(context),
+                icon: const Icon(Icons.save),
+                label: const Text('Save Name'),
+              ),
+              OutlinedButton(
+                onPressed: () => _resetDeviceName(context),
+                child: const Text('Reset Default'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLanAddressesCard(BuildContext context) {
     final addresses = _lanService.localAddresses;
     return _card(
@@ -307,8 +345,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
           ),
           const SizedBox(height: 8),
           ElevatedButton.icon(
-            onPressed: () =>
-                _lanService.connectToHost(_hostController.text),
+            onPressed: () => _lanService.connectToHost(_hostController.text),
             icon: const Icon(Icons.link),
             label: const Text('Connect'),
           ),
@@ -366,6 +403,211 @@ class _LanManagerPageState extends State<LanManagerPage> {
     );
   }
 
+  Widget _buildLanActionsCard(BuildContext context) {
+    final allActions = _lanService.actions.reversed.toList();
+    final deviceFilters = _buildDeviceFilters(allActions);
+    final selectedDevice = deviceFilters.any(
+      (filter) => filter.id == _selectedDeviceFilter,
+    )
+        ? _selectedDeviceFilter
+        : _allDevicesFilter;
+    final filteredActions = allActions.where((action) {
+      if (selectedDevice != _allDevicesFilter &&
+          action.deviceId != selectedDevice) {
+        return false;
+      }
+      return _matchesTimeRange(action.timestamp, _selectedTimeRange);
+    }).toList();
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('Actions'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: 220,
+                child: DropdownButtonFormField<String>(
+                  value: selectedDevice,
+                  decoration: const InputDecoration(
+                    labelText: 'Device',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: deviceFilters
+                      .map(
+                        (filter) => DropdownMenuItem<String>(
+                          value: filter.id,
+                          child: Text(filter.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    setState(() {
+                      _selectedDeviceFilter = value;
+                    });
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 220,
+                child: DropdownButtonFormField<LanActionTimeRange>(
+                  value: _selectedTimeRange,
+                  decoration: const InputDecoration(
+                    labelText: 'Period',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: LanActionTimeRange.values
+                      .map(
+                        (value) => DropdownMenuItem<LanActionTimeRange>(
+                          value: value,
+                          child: Text(_timeRangeLabel(value)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    setState(() {
+                      _selectedTimeRange = value;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '${filteredActions.length} action(s)',
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (filteredActions.isEmpty)
+            Text(
+              'No actions match the selected filters.',
+              style: TextStyle(color: Colors.grey[600]),
+            )
+          else
+            ...filteredActions.take(100).map(
+                  (action) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(action.message),
+                    subtitle: Text(
+                      '${action.deviceName} • ${_formatActionTimestamp(action.timestamp)}',
+                    ),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  List<_DeviceFilter> _buildDeviceFilters(List<LanSyncAction> actions) {
+    final map = <String, String>{};
+    for (final action in actions) {
+      if (action.deviceId.trim().isEmpty) {
+        continue;
+      }
+      map[action.deviceId] = action.deviceName;
+    }
+
+    final filters = [
+      const _DeviceFilter(id: _allDevicesFilter, label: 'All devices'),
+      ...map.entries
+          .map(
+            (entry) => _DeviceFilter(
+              id: entry.key,
+              label: entry.value,
+            ),
+          )
+          .toList()
+        ..sort((a, b) => a.label.compareTo(b.label)),
+    ];
+    return filters;
+  }
+
+  bool _matchesTimeRange(DateTime timestamp, LanActionTimeRange range) {
+    if (range == LanActionTimeRange.allTime) {
+      return true;
+    }
+    final now = DateTime.now();
+    switch (range) {
+      case LanActionTimeRange.today:
+        return timestamp.year == now.year &&
+            timestamp.month == now.month &&
+            timestamp.day == now.day;
+      case LanActionTimeRange.thisWeek:
+        final today = DateTime(now.year, now.month, now.day);
+        final weekStart = today.subtract(Duration(days: now.weekday - 1));
+        final weekEnd = weekStart.add(const Duration(days: 7));
+        return !timestamp.isBefore(weekStart) && timestamp.isBefore(weekEnd);
+      case LanActionTimeRange.thisMonth:
+        return timestamp.year == now.year && timestamp.month == now.month;
+      case LanActionTimeRange.thisYear:
+        return timestamp.year == now.year;
+      case LanActionTimeRange.allTime:
+        return true;
+    }
+  }
+
+  String _timeRangeLabel(LanActionTimeRange range) {
+    switch (range) {
+      case LanActionTimeRange.today:
+        return 'Today';
+      case LanActionTimeRange.thisWeek:
+        return 'This week';
+      case LanActionTimeRange.thisMonth:
+        return 'This month';
+      case LanActionTimeRange.thisYear:
+        return 'This year';
+      case LanActionTimeRange.allTime:
+        return 'All time';
+    }
+  }
+
+  String _formatActionTimestamp(DateTime timestamp) {
+    return DateFormat('MMM d, yyyy h:mm a').format(timestamp);
+  }
+
+  Future<void> _saveDeviceName(BuildContext context) async {
+    await _lanService.setDeviceName(_deviceNameController.text);
+    if (!mounted) {
+      return;
+    }
+    _deviceNameController.text = _lanService.deviceName;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Device name saved as "${_lanService.deviceName}".'),
+      ),
+    );
+  }
+
+  Future<void> _resetDeviceName(BuildContext context) async {
+    await _lanService.setDeviceName('');
+    if (!mounted) {
+      return;
+    }
+    _deviceNameController.text = _lanService.deviceName;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Device name reset to "${_lanService.deviceName}".'),
+      ),
+    );
+  }
+
   Widget _card({required Widget child}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -402,4 +644,11 @@ class _LanManagerPageState extends State<LanManagerPage> {
             : '${part[0].toUpperCase()}${part.substring(1)}')
         .join(' ');
   }
+}
+
+class _DeviceFilter {
+  const _DeviceFilter({required this.id, required this.label});
+
+  final String id;
+  final String label;
 }
