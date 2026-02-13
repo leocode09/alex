@@ -1339,11 +1339,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: const Color.fromRGBO(0, 0, 0, 0.03),
+            color: Color.fromRGBO(0, 0, 0, 0.03),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -1405,11 +1405,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               color: Colors.white,
               border: Border.all(color: Colors.grey[200]!),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
+              boxShadow: const [
                 BoxShadow(
-                  color: const Color.fromRGBO(0, 0, 0, 0.03),
+                  color: Color.fromRGBO(0, 0, 0, 0.03),
                   blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  offset: Offset(0, 4),
                 ),
               ],
             ),
@@ -1455,11 +1455,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: const Color.fromRGBO(0, 0, 0, 0.03),
+            color: Color.fromRGBO(0, 0, 0, 0.03),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
