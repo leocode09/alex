@@ -1151,6 +1151,38 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     return DateFormat('MMM d, yyyy h:mm a').format(timestamp);
   }
 
+  String _formatVarianceReason(String reason) {
+    if (!InventoryMovement.isVarianceReason(reason)) {
+      return reason;
+    }
+
+    final code =
+        reason.substring(InventoryMovement.varianceReasonPrefix.length);
+    switch (code) {
+      case 'count':
+        return 'Cycle Count';
+      case 'damage':
+        return 'Damage';
+      case 'theft':
+        return 'Theft';
+      case 'expired':
+        return 'Expired';
+      case 'found':
+        return 'Found Stock';
+      case 'correction':
+        return 'Correction';
+      case 'other':
+        return 'Other';
+      default:
+        return code
+            .split('_')
+            .map((word) => word.isEmpty
+                ? word
+                : '${word[0].toUpperCase()}${word.substring(1)}')
+            .join(' ');
+    }
+  }
+
   double _saleCalculatedTotal(Sale sale) {
     return sale.items.fold<double>(0.0, (sum, item) => sum + item.subtotal);
   }

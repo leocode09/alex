@@ -574,7 +574,8 @@ class InventoryPage extends ConsumerWidget {
       return;
     }
 
-    final sortedProducts = [...products]..sort((a, b) => a.name.compareTo(b.name));
+    final sortedProducts = [...products]
+      ..sort((a, b) => a.name.compareTo(b.name));
     var selectedProduct = initialProduct ?? sortedProducts.first;
     final countedStockController =
         TextEditingController(text: selectedProduct.stock.toString());
@@ -623,7 +624,8 @@ class InventoryPage extends ConsumerWidget {
                     );
                     setDialogState(() {
                       selectedProduct = nextProduct;
-                      countedStockController.text = nextProduct.stock.toString();
+                      countedStockController.text =
+                          nextProduct.stock.toString();
                     });
                   },
                 ),
@@ -709,8 +711,9 @@ class InventoryPage extends ConsumerWidget {
                 if (success) {
                   Navigator.pop(dialogContext);
                   final sign = delta > 0 ? '+' : '';
-                  final suffix =
-                      delta == 0 ? 'No stock change' : 'Stock change: $sign$delta';
+                  final suffix = delta == 0
+                      ? 'No stock change'
+                      : 'Stock change: $sign$delta';
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                         content: Text(
@@ -801,7 +804,8 @@ class InventoryPage extends ConsumerWidget {
       return reason;
     }
 
-    final code = reason.substring(InventoryMovement.varianceReasonPrefix.length);
+    final code =
+        reason.substring(InventoryMovement.varianceReasonPrefix.length);
     switch (code) {
       case 'count':
         return 'Cycle Count';

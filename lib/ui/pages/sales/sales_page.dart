@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
+import '../../../providers/inventory_movement_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/printer_provider.dart';
@@ -503,6 +504,11 @@ class _SalesPageState extends ConsumerState<SalesPage>
       ref.invalidate(salesProvider);
       ref.invalidate(totalRevenueProvider);
       ref.invalidate(totalSalesCountProvider);
+      ref.invalidate(inventoryMovementsProvider);
+      ref.invalidate(inventoryVariancesProvider);
+      ref.invalidate(inventoryVarianceStatsProvider);
+      ref.invalidate(productInventoryMovementsProvider);
+      ref.invalidate(productInventoryVariancesProvider);
 
       // 5. Clear Local State
       setState(() {

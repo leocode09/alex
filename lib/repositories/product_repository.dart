@@ -296,8 +296,7 @@ class ProductRepository {
     }
 
     final normalizedReason = _normalizeVarianceReason(reasonCode);
-    final reason =
-        '${InventoryMovement.varianceReasonPrefix}$normalizedReason';
+    final reason = '${InventoryMovement.varianceReasonPrefix}$normalizedReason';
     final delta = countedStock - product.stock;
     final varianceNoteParts = <String>[
       'Expected: ${product.stock}',

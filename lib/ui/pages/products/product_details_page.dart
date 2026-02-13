@@ -542,8 +542,11 @@ class ProductDetailsPage extends ConsumerWidget {
               : isOut
                   ? Icons.arrow_downward
                   : Icons.horizontal_rule;
-          final arrowColor =
-              isIn ? Colors.green : isOut ? Colors.red : Colors.grey;
+          final arrowColor = isIn
+              ? Colors.green
+              : isOut
+                  ? Colors.red
+                  : Colors.grey;
           final deltaText =
               movement.delta > 0 ? '+${movement.delta}' : '${movement.delta}';
           final reasonText = _formatMovementReason(movement.reason);
@@ -602,7 +605,8 @@ class ProductDetailsPage extends ConsumerWidget {
 
   String _formatMovementReason(String reason) {
     if (InventoryMovement.isVarianceReason(reason)) {
-      final code = reason.substring(InventoryMovement.varianceReasonPrefix.length);
+      final code =
+          reason.substring(InventoryMovement.varianceReasonPrefix.length);
       switch (code) {
         case 'count':
           return 'Cycle Count';
@@ -924,8 +928,9 @@ class ProductDetailsPage extends ConsumerWidget {
                 if (success) {
                   Navigator.pop(dialogContext);
                   final sign = delta > 0 ? '+' : '';
-                  final suffix =
-                      delta == 0 ? 'No stock change' : 'Stock change: $sign$delta';
+                  final suffix = delta == 0
+                      ? 'No stock change'
+                      : 'Stock change: $sign$delta';
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Variance recorded. $suffix')),
                   );

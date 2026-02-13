@@ -7,6 +7,7 @@ import '../../../models/product.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
+import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
@@ -613,6 +614,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     ref.invalidate(salesProvider);
     ref.invalidate(todaysRevenueProvider);
     ref.invalidate(totalRevenueProvider);
+    ref.invalidate(inventoryMovementsProvider);
+    ref.invalidate(inventoryVariancesProvider);
+    ref.invalidate(inventoryVarianceStatsProvider);
+    ref.invalidate(productInventoryMovementsProvider);
+    ref.invalidate(productInventoryVariancesProvider);
 
     if (mounted) {
       setState(() {
@@ -716,6 +722,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       ref.invalidate(yesterdaysSalesCountProvider);
       ref.invalidate(yesterdaysRevenueProvider);
       ref.invalidate(lastWeekRevenueProvider);
+      ref.invalidate(inventoryMovementsProvider);
+      ref.invalidate(inventoryVariancesProvider);
+      ref.invalidate(inventoryVarianceStatsProvider);
+      ref.invalidate(productInventoryMovementsProvider);
+      ref.invalidate(productInventoryVariancesProvider);
 
       if (!mounted) {
         return;
