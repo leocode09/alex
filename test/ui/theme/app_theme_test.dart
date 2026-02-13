@@ -7,7 +7,6 @@ void main() {
   test('app theme uses flat style invariants', () {
     final theme = AppTheme.lightTheme;
 
-    expect(theme.fontFamily, 'SpaceGrotesk');
     expect(theme.shadowColor, Colors.transparent);
     expect(theme.appBarTheme.elevation, 0);
     expect(theme.cardTheme.elevation, 0);

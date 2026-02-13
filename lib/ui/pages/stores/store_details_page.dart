@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
-import '../../design_system/app_badge.dart';
+import '../../design_system/widgets/app_badge.dart';
 import '../../design_system/app_tokens.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
 import '../../design_system/widgets/app_panel.dart';

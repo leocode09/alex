@@ -64,7 +64,6 @@ class MainScaffold extends StatelessWidget {
                 selectedIndex: currentIndex,
                 extended: extendedRail,
                 onDestinationSelected: (index) => _onTap(context, index),
-                elevation: 0,
                 minWidth: 88,
                 minExtendedWidth: 224,
                 labelType: extendedRail

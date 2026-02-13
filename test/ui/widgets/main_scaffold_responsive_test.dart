@@ -19,18 +19,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  tearDown(() async {
-    final binding = TestWidgetsFlutterBinding.ensureInitialized();
-    await binding.setSurfaceSize(null);
-  });
-
   testWidgets('uses bottom navigation on compact widths', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await pumpSized(tester, size: const Size(390, 844));
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationRail), findsNothing);
   });
 
   testWidgets('uses compact rail on medium widths', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await pumpSized(tester, size: const Size(900, 900));
     final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
     expect(rail.extended, isFalse);
@@ -38,6 +35,7 @@ void main() {
   });
 
   testWidgets('uses extended rail on large widths', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await pumpSized(tester, size: const Size(1280, 900));
     final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
     expect(rail.extended, isTrue);

@@ -36,6 +36,9 @@ void main() {
   }
 
   testWidgets('main pages render without immediate crash', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+
     await pumpPage(tester, const LoginPage(), withProviders: true);
     await pumpPage(tester, const SettingsPage(), withProviders: true);
     await pumpPage(tester, const StoresPage());
