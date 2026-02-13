@@ -148,6 +148,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final metrics = _calculateSalesMetrics(filteredSales, products);
         final totalExpenses = filteredExpenses.fold<double>(
             0.0, (sum, expense) => sum + expense.amount);
+        final incomeMinusExpenses = metrics.recordedSales - totalExpenses;
         final balance = metrics.grossProfit - totalExpenses;
         final chartSpots = _buildRevenueSeries(filteredSales, range);
         final productStats = _buildProductStats(filteredSales);
@@ -268,10 +269,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 _SummaryData(
                     'Discounts', _formatCurrency(metrics.discounts), ''),
                 _SummaryData(
-                  'Avg. Order',
-                  metrics.orders > 0
-                      ? _formatCurrency(metrics.avgOrder)
-                      : 'N/A',
+                  'Income - Expenses',
+                  _formatCurrency(incomeMinusExpenses),
                   '',
                 ),
               ]),
