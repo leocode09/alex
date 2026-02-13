@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/printer_provider.dart';
@@ -16,6 +15,7 @@ import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/data_sync_triggers.dart';
 import '../../../services/receipt_print_service.dart';
+import '../../../services/lan_sync_service.dart';
 import 'receipts_page.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
@@ -344,7 +344,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
     try {
       final productRepo = ref.read(productRepositoryProvider);
       final saleRepo = ref.read(saleRepositoryProvider);
-      final authState = ref.read(authProvider);
       final saleItems = _cart.map((item) {
         return SaleItem(
           productId: item['id'],
@@ -416,11 +415,24 @@ class _SalesPageState extends ConsumerState<SalesPage>
           // Clear editing state
           ref.read(editingReceiptProvider.notifier).state = null;
         } else {
-          // Get current user email or default
+          // Use this device's configured app name for sales attribution.
           String employeeId = 'default-employee';
-          if (authState.hasValue && authState.value == true) {
-            final prefs = await SharedPreferences.getInstance();
-            employeeId = prefs.getString('userEmail') ?? 'default-employee';
+          final prefs = await SharedPreferences.getInstance();
+          final configuredDeviceName =
+              prefs.getString('lan_device_name')?.trim();
+          if (configuredDeviceName != null && configuredDeviceName.isNotEmpty) {
+            employeeId = configuredDeviceName;
+          } else {
+            try {
+              final lanService = LanSyncService();
+              await lanService.initialize();
+              final deviceName = lanService.deviceName.trim();
+              if (deviceName.isNotEmpty) {
+                employeeId = deviceName;
+              }
+            } catch (_) {
+              // Keep fallback when device name cannot be resolved.
+            }
           }
 
           final sale = Sale(
