@@ -203,8 +203,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           expenseSubtitle = 'Expense data loading';
           expenseSubtitleColor = Colors.orange[700];
         } else if (filteredExpenses.isNotEmpty) {
-          expenseSubtitle =
-              '${_formatCount(filteredExpenses.length)} entries';
+          expenseSubtitle = '${_formatCount(filteredExpenses.length)} entries';
           expenseSubtitleColor = Colors.grey[600];
         }
 
@@ -270,7 +269,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     'Discounts', _formatCurrency(metrics.discounts), ''),
                 _SummaryData(
                   'Avg. Order',
-                  metrics.orders > 0 ? _formatCurrency(metrics.avgOrder) : 'N/A',
+                  metrics.orders > 0
+                      ? _formatCurrency(metrics.avgOrder)
+                      : 'N/A',
                   '',
                 ),
               ]),
@@ -347,7 +348,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 const Text('No expenses for this period')
               else ...[
                 const SizedBox(height: 12),
-                ...filteredExpenses.take(8).map(_buildExpenseRow).toList(),
+                ...filteredExpenses.take(8).map(_buildExpenseRow),
                 if (filteredExpenses.length > 8)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -373,8 +374,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     animation: _chartAnimation,
                     builder: (context, child) {
                       final animatedSpots = chartSpots
-                          .map((spot) => FlSpot(
-                              spot.x, spot.y * _chartAnimation.value))
+                          .map((spot) =>
+                              FlSpot(spot.x, spot.y * _chartAnimation.value))
                           .toList();
                       return LineChart(
                         LineChartData(
@@ -393,7 +394,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                                 color: Theme.of(context)
                                     .colorScheme
                                     .primary
-                                    .withOpacity(0.08),
+                                    .withValues(alpha: 0.08),
                               ),
                             ),
                           ],
@@ -419,7 +420,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       _formatCurrency(entry.value.total),
                       '${_formatCount(entry.value.count)} sales | ${_formatPercent(share)}',
                     );
-                  }).toList(),
+                  }),
                 const SizedBox(height: 28),
                 const Text('Top Products by Revenue',
                     style:
@@ -439,7 +440,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       _formatCurrency(entry.value.revenue),
                       '${_formatCount(entry.value.units)} units',
                     );
-                  }).toList(),
+                  }),
                 const SizedBox(height: 20),
                 const Text('Top Products by Units',
                     style:
@@ -454,7 +455,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                       _formatCount(entry.value.units),
                       'Revenue: ${_formatCurrency(entry.value.revenue)}',
                     );
-                  }).toList(),
+                  }),
               ],
             ],
           ),
@@ -532,8 +533,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         }
 
         final topValueProducts = [...products]
-          ..sort((a, b) =>
-              (b.price * b.stock).compareTo(a.price * a.stock));
+          ..sort((a, b) => (b.price * b.stock).compareTo(a.price * a.stock));
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -548,10 +548,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               ]),
               const SizedBox(height: 12),
               _buildSummaryCards([
-                _SummaryData('Out of Stock', _formatCount(outOfStockItems.length),
-                    outOfStockItems.isNotEmpty ? 'Alert' : ''),
                 _SummaryData(
-                    'Retail Value', _formatCurrency(retailValue), ''),
+                    'Out of Stock',
+                    _formatCount(outOfStockItems.length),
+                    outOfStockItems.isNotEmpty ? 'Alert' : ''),
+                _SummaryData('Retail Value', _formatCurrency(retailValue), ''),
                 _SummaryData(
                   'Cost Value',
                   hasCostData ? _formatCurrency(costValue) : 'N/A',
@@ -592,7 +593,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     _formatCurrency(value),
                     '${_formatCount(product.stock)} units',
                   );
-                }).toList(),
+                }),
               const SizedBox(height: 32),
               const Text('Low Stock Alerts',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -606,7 +607,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     '${_formatCount(product.stock)} left',
                     product.stock < 10 ? 'Reorder' : 'Low',
                   );
-                }).toList(),
+                }),
               if (outOfStockItems.isNotEmpty) ...[
                 const SizedBox(height: 32),
                 const Text('Out of Stock',
@@ -619,7 +620,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     '0 units',
                     'Restock',
                   );
-                }).toList(),
+                }),
               ],
             ],
           ),
@@ -659,8 +660,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             sortedByOrders.isNotEmpty ? sortedByOrders.first : null;
         final activeStaff = employeeStats.length;
         final totalSales = filteredSales.length;
-        final avgOrder =
-            totalSales > 0 ? totalRevenue / totalSales : 0.0;
+        final avgOrder = totalSales > 0 ? totalRevenue / totalSales : 0.0;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -670,8 +670,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               _buildSummaryCards([
                 _SummaryData('Active Staff', _formatCount(activeStaff), ''),
                 _SummaryData('Total Sales', _formatCount(totalSales), ''),
-                _SummaryData(
-                    'Revenue', _formatCurrency(totalRevenue), ''),
+                _SummaryData('Revenue', _formatCurrency(totalRevenue), ''),
               ]),
               const SizedBox(height: 12),
               _buildSummaryCards([
@@ -685,7 +684,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                         : ''),
                 _SummaryData(
                     'Most Orders',
-                    mostOrders != null ? mostOrders.key.split('@').first : 'N/A',
+                    mostOrders != null
+                        ? mostOrders.key.split('@').first
+                        : 'N/A',
                     mostOrders != null
                         ? '${_formatCount(mostOrders.value.orders)} orders'
                         : ''),
@@ -707,7 +708,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     _formatCurrency(revenue),
                     '${_formatCount(count)} orders | ${_formatPercent(share)}',
                   );
-                }).toList(),
+                }),
             ],
           ),
         );
@@ -846,11 +847,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey[200]!),
-                          boxShadow: [
+                          boxShadow: const [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
+                              color: Color.fromRGBO(0, 0, 0, 0.03),
                               blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              offset: Offset(0, 4),
                             ),
                           ],
                         ),
@@ -955,20 +956,18 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     }).toList();
   }
 
-  List<FlSpot> _buildRevenueSeries(
-      List<Sale> sales, DateTimeRange range) {
+  List<FlSpot> _buildRevenueSeries(List<Sale> sales, DateTimeRange range) {
     if (range.start.year == range.end.year &&
         range.start.month == range.end.month &&
         range.start.day == range.end.day) {
       return List.generate(24, (i) {
-        final hourStart = DateTime(
-            range.start.year, range.start.month, range.start.day, i);
+        final hourStart =
+            DateTime(range.start.year, range.start.month, range.start.day, i);
         final hourEnd = hourStart.add(const Duration(hours: 1));
         final revenue = sales.where((sale) {
           return !sale.createdAt.isBefore(hourStart) &&
               sale.createdAt.isBefore(hourEnd);
-        }).fold<double>(
-            0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
+        }).fold<double>(0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
         return FlSpot(i.toDouble(), revenue);
       });
     }
@@ -982,8 +981,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final revenue = sales.where((sale) {
           return !sale.createdAt.isBefore(dayStart) &&
               !sale.createdAt.isAfter(dayEnd);
-        }).fold<double>(
-            0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
+        }).fold<double>(0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
         return FlSpot(i.toDouble(), revenue);
       });
     }
@@ -998,8 +996,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       final revenue = sales.where((sale) {
         return !sale.createdAt.isBefore(monthStart) &&
             !sale.createdAt.isAfter(monthEnd);
-      }).fold<double>(
-          0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
+      }).fold<double>(0.0, (sum, sale) => sum + _saleCalculatedTotal(sale));
       return FlSpot(i.toDouble(), revenue);
     });
   }
@@ -1237,7 +1234,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               final note = noteController.text.trim();
 
               if (title.isEmpty || amount == null || amount <= 0) {
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Enter a valid title and amount'),
@@ -1258,7 +1255,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               final repository = ref.read(expenseRepositoryProvider);
               final success = await repository.insertExpense(expense);
 
-              if (!mounted) {
+              if (!context.mounted) {
                 return;
               }
 
@@ -1267,12 +1264,13 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 ref.invalidate(expensesProvider);
                 await DataSyncTriggers.trigger(reason: 'expense_added');
               }
-              if (!mounted) {
+              if (!context.mounted) {
                 return;
               }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(success ? 'Expense added' : 'Failed to add expense'),
+                  content:
+                      Text(success ? 'Expense added' : 'Failed to add expense'),
                   backgroundColor: success ? Colors.green : Colors.red,
                 ),
               );
@@ -1306,7 +1304,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               final repository = ref.read(expenseRepositoryProvider);
               final success = await repository.deleteExpense(expense.id);
 
-              if (!mounted) {
+              if (!context.mounted) {
                 return;
               }
 
@@ -1315,13 +1313,13 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 ref.invalidate(expensesProvider);
                 await DataSyncTriggers.trigger(reason: 'expense_deleted');
               }
-              if (!mounted) {
+              if (!context.mounted) {
                 return;
               }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content:
-                      Text(success ? 'Expense deleted' : 'Failed to delete expense'),
+                  content: Text(
+                      success ? 'Expense deleted' : 'Failed to delete expense'),
                   backgroundColor: success ? Colors.green : Colors.red,
                 ),
               );
@@ -1343,7 +1341,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: const Color.fromRGBO(0, 0, 0, 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1409,7 +1407,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: const Color.fromRGBO(0, 0, 0, 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1459,7 +1457,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: const Color.fromRGBO(0, 0, 0, 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1512,6 +1510,16 @@ class _SummaryData {
   final Color? subtitleColor;
 
   _SummaryData(this.title, this.value, this.subtitle, {this.subtitleColor});
+}
+
+class _SyncDeviceFilter {
+  final String id;
+  final String label;
+
+  const _SyncDeviceFilter({
+    required this.id,
+    required this.label,
+  });
 }
 
 class _SalesMetrics {
