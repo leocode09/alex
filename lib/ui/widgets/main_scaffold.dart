@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../helpers/pin_protection.dart';
 import '../../services/pin_service.dart';
+import '../design_system/app_theme_extensions.dart';
 import '../design_system/app_tokens.dart';
 
 class MainScaffold extends StatelessWidget {
@@ -27,20 +28,24 @@ class MainScaffold extends StatelessWidget {
   }
 
   Widget _buildCompactScaffold(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final extras = context.appExtras;
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppTokens.line, width: 1)),
-          color: AppTokens.paper,
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: extras.border, width: AppTokens.border),
+          ),
+          color: scheme.surface,
         ),
         child: NavigationBar(
           selectedIndex: currentIndex,
           onDestinationSelected: (index) => _onTap(context, index),
           elevation: 0,
           height: 62,
-          backgroundColor: AppTokens.paper,
-          indicatorColor: AppTokens.accentSoft,
+          backgroundColor: scheme.surface,
+          indicatorColor: extras.accentSoft,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: _destinations(context),
         ),
@@ -49,16 +54,22 @@ class MainScaffold extends StatelessWidget {
   }
 
   Widget _buildWideScaffold(BuildContext context, bool extendedRail) {
+    final scheme = Theme.of(context).colorScheme;
+    final extras = context.appExtras;
     return Scaffold(
       body: SafeArea(
         child: Row(
           children: [
             Container(
               width: extendedRail ? 210 : 82,
-              decoration: const BoxDecoration(
-                color: AppTokens.paper,
-                border:
-                    Border(right: BorderSide(color: AppTokens.line, width: 1)),
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                border: Border(
+                  right: BorderSide(
+                    color: extras.border,
+                    width: AppTokens.border,
+                  ),
+                ),
               ),
               child: NavigationRail(
                 selectedIndex: currentIndex,

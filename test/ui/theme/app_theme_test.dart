@@ -18,4 +18,20 @@ void main() {
     expect(theme.colorScheme.surfaceTint, Colors.transparent);
     expect(theme.extensions.values.isNotEmpty, isTrue);
   });
+
+  test('dark app theme keeps flat style invariants', () {
+    final theme = AppTheme.darkTheme;
+
+    expect(theme.brightness, Brightness.dark);
+    expect(theme.shadowColor, Colors.transparent);
+    expect(theme.appBarTheme.elevation, 0);
+    expect(theme.cardTheme.elevation, 0);
+    expect(theme.floatingActionButtonTheme.elevation, 0);
+    expect(theme.navigationBarTheme.elevation, 0);
+    expect(theme.dialogTheme.elevation, 0);
+    expect(theme.bottomSheetTheme.elevation, 0);
+    expect(theme.colorScheme.primary, AppTokens.accent);
+    expect(theme.colorScheme.surfaceTint, Colors.transparent);
+    expect(theme.extensions.values.isNotEmpty, isTrue);
+  });
 }

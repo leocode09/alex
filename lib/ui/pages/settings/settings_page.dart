@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/pin_unlock_provider.dart';
+import '../../../providers/theme_mode_provider.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
+import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
 import '../../design_system/widgets/app_panel.dart';
 
@@ -13,12 +15,13 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return AppPageScaffold(
       title: 'Settings',
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildSectionHeader('General'),
+          _buildSectionHeader(context, 'General'),
           _buildSettingTile(
             context,
             'Store Profile',
@@ -116,7 +119,7 @@ class SettingsPage extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 24),
-          _buildSectionHeader('Account & Security'),
+          _buildSectionHeader(context, 'Account & Security'),
           _buildSettingTile(
             context,
             'Employees',
@@ -144,7 +147,7 @@ class SettingsPage extends ConsumerWidget {
             onTap: () => _showSecurityOptions(context),
           ),
           const SizedBox(height: 24),
-          _buildSectionHeader('App Preferences'),
+          _buildSectionHeader(context, 'App Preferences'),
           _buildSettingTile(
             context,
             'Language',
@@ -155,9 +158,9 @@ class SettingsPage extends ConsumerWidget {
           _buildSettingTile(
             context,
             'Theme',
-            'Light Mode',
+            _themeModeLabel(themeMode),
             Icons.brightness_6_outlined,
-            onTap: () {},
+            onTap: () => _showThemeOptions(context, ref, themeMode),
           ),
           _buildSettingTile(
             context,
@@ -180,7 +183,7 @@ class SettingsPage extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 24),
-          _buildSectionHeader('Support'),
+          _buildSectionHeader(context, 'Support'),
           _buildSettingTile(
             context,
             'Help Center',
@@ -196,7 +199,7 @@ class SettingsPage extends ConsumerWidget {
             onTap: () {},
           ),
           const SizedBox(height: 24),
-          _buildSectionHeader('Data Management'),
+          _buildSectionHeader(context, 'Data Management'),
           _buildSettingTile(
             context,
             'Clear All Data',
@@ -224,7 +227,8 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    final muted = context.appExtras.muted;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 4),
       child: Text(
@@ -232,7 +236,7 @@ class SettingsPage extends ConsumerWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Colors.grey[600],
+          color: muted,
           letterSpacing: 1.0,
         ),
       ),
@@ -246,20 +250,114 @@ class SettingsPage extends ConsumerWidget {
     IconData icon, {
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
+    final extras = context.appExtras;
     return AppPanel(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading:
-            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
-        title: Text(title,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
-        subtitle: Text(subtitle,
-            style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        trailing:
-            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+        leading: Icon(icon, color: theme.colorScheme.primary, size: 22),
+        title: Text(
+          title,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: extras.muted,
+            fontSize: 12,
+          ),
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          size: 14,
+          color: extras.muted,
+        ),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
+    );
+  }
+
+  String _themeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.dark:
+        return 'Dark Mode';
+      case ThemeMode.system:
+        return 'System Default';
+      case ThemeMode.light:
+        return 'Light Mode';
+    }
+  }
+
+  void _showThemeOptions(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode currentMode,
+  ) {
+    final textTheme = Theme.of(context).textTheme;
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(
+                  'Choose Theme',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              RadioListTile<ThemeMode>(
+                value: ThemeMode.light,
+                groupValue: currentMode,
+                title: const Text('Light'),
+                onChanged: (value) async {
+                  if (value == null) return;
+                  await ref
+                      .read(themeModeProvider.notifier)
+                      .setThemeMode(value);
+                  if (sheetContext.mounted) {
+                    Navigator.pop(sheetContext);
+                  }
+                },
+              ),
+              RadioListTile<ThemeMode>(
+                value: ThemeMode.dark,
+                groupValue: currentMode,
+                title: const Text('Dark'),
+                onChanged: (value) async {
+                  if (value == null) return;
+                  await ref
+                      .read(themeModeProvider.notifier)
+                      .setThemeMode(value);
+                  if (sheetContext.mounted) {
+                    Navigator.pop(sheetContext);
+                  }
+                },
+              ),
+              RadioListTile<ThemeMode>(
+                value: ThemeMode.system,
+                groupValue: currentMode,
+                title: const Text('System default'),
+                onChanged: (value) async {
+                  if (value == null) return;
+                  await ref
+                      .read(themeModeProvider.notifier)
+                      .setThemeMode(value);
+                  if (sheetContext.mounted) {
+                    Navigator.pop(sheetContext);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

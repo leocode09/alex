@@ -32,7 +32,7 @@ class AppPanel extends StatelessWidget {
         color: color ?? (emphasized ? extras.panelAlt : extras.panel),
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
         border: Border.all(
-          color: outlinedStrong ? extras.borderStrong : extras.borderStrong,
+          color: outlinedStrong ? extras.borderStrong : extras.border,
           width: outlinedStrong ? AppTokens.borderStrong : AppTokens.border,
         ),
       ),
