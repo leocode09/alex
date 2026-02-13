@@ -311,13 +311,7 @@ class _SyncPageState extends State<SyncPage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.3),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
+                  border: Border.all(color: Colors.grey.shade300),
                 ),
                 child: QrImageView(
                   data: syncProvider.qrData!,

@@ -7,6 +7,7 @@ import '../../../providers/pin_unlock_provider.dart';
 import '../../../providers/time_tamper_provider.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/time_tamper_service.dart';
+import '../../design_system/app_tokens.dart';
 
 class TimeTamperPage extends ConsumerStatefulWidget {
   const TimeTamperPage({super.key});
@@ -90,28 +91,21 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Stack(
           children: [
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _pulse,
                 builder: (context, child) {
-                  final glow = 0.15 + (_pulse.value * 0.25);
+                  final glow = 0.08 + (_pulse.value * 0.1);
                   return Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          const Color(0xFF0A0A0A),
-                          const Color(0xFF2B0000),
-                          const Color(0xFF6B0000).withOpacity(0.9),
-                        ],
-                      ),
-                    ),
+                    color: AppTokens.paperAlt,
                     child: CustomPaint(
-                      painter: _HazardStripePainter(opacity: glow),
+                      painter: _HazardStripePainter(
+                        opacity: glow,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   );
                 },
@@ -130,20 +124,14 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF2D2D),
+                          color: AppTokens.accentSoft,
                           borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF2D2D).withOpacity(0.4),
-                              blurRadius: 18,
-                              spreadRadius: 2,
-                            ),
-                          ],
+                          border: Border.all(color: Theme.of(context).colorScheme.primary),
                         ),
-                        child: const Text(
+                        child: Text(
                           'DANGER',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 2,
                           ),
@@ -161,20 +149,16 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                               height: 120,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFF1A0000),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFFF2D2D)
-                                        .withOpacity(0.5),
-                                    blurRadius: 30,
-                                    spreadRadius: 6,
-                                  ),
-                                ],
+                                color: AppTokens.accentSoft,
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 2,
+                                ),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.warning_rounded,
                                 size: 70,
-                                color: Color(0xFFFF2D2D),
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           );
@@ -185,7 +169,7 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                         'TIME CHANGE DETECTED',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTokens.ink,
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.2,
@@ -196,7 +180,7 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                         'Access is locked until you verify your identity.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFFFFC1C1),
+                          color: AppTokens.mutedText,
                           fontSize: 14,
                           height: 1.4,
                         ),
@@ -206,9 +190,9 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A0000),
+                          color: AppTokens.paper,
                           border: Border.all(
-                            color: const Color(0xFFFF2D2D),
+                            color: Theme.of(context).colorScheme.primary,
                             width: 1,
                           ),
                           borderRadius: BorderRadius.circular(12),
@@ -217,7 +201,7 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                           reason,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            color: Color(0xFFFF9E9E),
+                            color: AppTokens.mutedText,
                             fontSize: 12,
                           ),
                         ),
@@ -226,15 +210,6 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF2D2D),
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1,
-                            ),
-                          ),
                           onPressed: _handleVerify,
                           child: Text(_isPinSet ? 'ENTER PIN' : 'SET PIN'),
                         ),
@@ -243,13 +218,6 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFFF8080),
-                            side: const BorderSide(
-                              color: Color(0xFFFF2D2D),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
                           onPressed: _openSettings,
                           child: const Text('OPEN DATE & TIME SETTINGS'),
                         ),
@@ -268,13 +236,14 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
 
 class _HazardStripePainter extends CustomPainter {
   final double opacity;
+  final Color color;
 
-  _HazardStripePainter({required this.opacity});
+  _HazardStripePainter({required this.opacity, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFFF2D2D).withOpacity(opacity * 0.2)
+      ..color = color.withValues(alpha: opacity)
       ..strokeWidth = 14;
 
     const gap = 48.0;
@@ -289,6 +258,6 @@ class _HazardStripePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HazardStripePainter oldDelegate) {
-    return oldDelegate.opacity != opacity;
+    return oldDelegate.opacity != opacity || oldDelegate.color != color;
   }
 }
