@@ -11,7 +11,16 @@ import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/data_sync_triggers.dart';
+import '../../../services/lan_sync_service.dart';
 import '../../../services/pin_service.dart';
+
+enum SyncActionTimeRange {
+  today,
+  thisWeek,
+  thisMonth,
+  thisYear,
+  allTime,
+}
 
 class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
@@ -22,10 +31,14 @@ class ReportsPage extends ConsumerStatefulWidget {
 
 class _ReportsPageState extends ConsumerState<ReportsPage>
     with TickerProviderStateMixin {
+  static const String _allDevicesFilter = '__all_devices__';
   late TabController _tabController;
   late AnimationController _chartController;
   late Animation<double> _chartAnimation;
+  final LanSyncService _lanSyncService = LanSyncService();
   String _selectedPeriod = 'This Week';
+  String _selectedSyncDeviceFilter = _allDevicesFilter;
+  SyncActionTimeRange _selectedSyncTimeRange = SyncActionTimeRange.allTime;
   final NumberFormat _currencyFormat =
       NumberFormat.currency(symbol: '\$', decimalDigits: 2);
   final NumberFormat _countFormat = NumberFormat.decimalPattern();
@@ -34,7 +47,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _chartController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -43,6 +56,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       parent: _chartController,
       curve: Curves.easeOutCubic,
     );
+    _lanSyncService.initialize();
   }
 
   @override
@@ -68,6 +82,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             Tab(text: 'Sales'),
             Tab(text: 'Inventory'),
             Tab(text: 'Employees'),
+            Tab(text: 'Sync'),
           ],
         ),
         actions: [
@@ -106,6 +121,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           _buildSalesTab(),
           _buildInventoryTab(),
           _buildEmployeesTab(),
+          _buildSyncTab(),
         ],
       ),
     );
@@ -701,6 +717,170 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     );
   }
 
+  Widget _buildSyncTab() {
+    return AnimatedBuilder(
+      animation: _lanSyncService,
+      builder: (context, _) {
+        final allActions = _lanSyncService.actions.reversed.toList();
+        final deviceFilters = _buildSyncDeviceFilters(allActions);
+        final selectedDevice = deviceFilters.any(
+          (filter) => filter.id == _selectedSyncDeviceFilter,
+        )
+            ? _selectedSyncDeviceFilter
+            : _allDevicesFilter;
+        final filteredActions = allActions.where((action) {
+          if (selectedDevice != _allDevicesFilter &&
+              action.deviceId != selectedDevice) {
+            return false;
+          }
+          return _matchesSyncTimeRange(
+            action.timestamp,
+            _selectedSyncTimeRange,
+          );
+        }).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Sync Actions',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Filter shared LAN activity by device and period.',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: selectedDevice,
+                      decoration: const InputDecoration(
+                        labelText: 'Device',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: deviceFilters
+                          .map(
+                            (filter) => DropdownMenuItem<String>(
+                              value: filter.id,
+                              child: Text(filter.label),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setState(() {
+                          _selectedSyncDeviceFilter = value;
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<SyncActionTimeRange>(
+                      initialValue: _selectedSyncTimeRange,
+                      decoration: const InputDecoration(
+                        labelText: 'Period',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: SyncActionTimeRange.values
+                          .map(
+                            (value) => DropdownMenuItem<SyncActionTimeRange>(
+                              value: value,
+                              child: Text(_syncTimeRangeLabel(value)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setState(() {
+                          _selectedSyncTimeRange = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${filteredActions.length} action(s)',
+                style: TextStyle(
+                  color: Colors.grey[700],
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (filteredActions.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Text(
+                    'No sync actions match the selected filters.',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                )
+              else
+                ...filteredActions.take(200).map(
+                      (action) => Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              action.message,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${action.deviceName} | ${_formatSyncActionTimestamp(action.timestamp)}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _handleTabTap(int index) async {
     final previousIndex = _tabController.index;
     if (index == previousIndex) {
@@ -836,6 +1016,72 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       default:
         return 'This Year';
     }
+  }
+
+  List<_SyncDeviceFilter> _buildSyncDeviceFilters(List<LanSyncAction> actions) {
+    final map = <String, String>{};
+    for (final action in actions) {
+      if (action.deviceId.trim().isEmpty) {
+        continue;
+      }
+      map[action.deviceId] = action.deviceName;
+    }
+
+    return [
+      const _SyncDeviceFilter(id: _allDevicesFilter, label: 'All devices'),
+      ...map.entries
+          .map(
+            (entry) => _SyncDeviceFilter(
+              id: entry.key,
+              label: entry.value,
+            ),
+          )
+          .toList()
+        ..sort((a, b) => a.label.compareTo(b.label)),
+    ];
+  }
+
+  bool _matchesSyncTimeRange(DateTime timestamp, SyncActionTimeRange range) {
+    if (range == SyncActionTimeRange.allTime) {
+      return true;
+    }
+    final now = DateTime.now();
+    switch (range) {
+      case SyncActionTimeRange.today:
+        return timestamp.year == now.year &&
+            timestamp.month == now.month &&
+            timestamp.day == now.day;
+      case SyncActionTimeRange.thisWeek:
+        final today = DateTime(now.year, now.month, now.day);
+        final weekStart = today.subtract(Duration(days: now.weekday - 1));
+        final weekEnd = weekStart.add(const Duration(days: 7));
+        return !timestamp.isBefore(weekStart) && timestamp.isBefore(weekEnd);
+      case SyncActionTimeRange.thisMonth:
+        return timestamp.year == now.year && timestamp.month == now.month;
+      case SyncActionTimeRange.thisYear:
+        return timestamp.year == now.year;
+      case SyncActionTimeRange.allTime:
+        return true;
+    }
+  }
+
+  String _syncTimeRangeLabel(SyncActionTimeRange range) {
+    switch (range) {
+      case SyncActionTimeRange.today:
+        return 'Today';
+      case SyncActionTimeRange.thisWeek:
+        return 'This week';
+      case SyncActionTimeRange.thisMonth:
+        return 'This month';
+      case SyncActionTimeRange.thisYear:
+        return 'This year';
+      case SyncActionTimeRange.allTime:
+        return 'All time';
+    }
+  }
+
+  String _formatSyncActionTimestamp(DateTime timestamp) {
+    return DateFormat('MMM d, yyyy h:mm a').format(timestamp);
   }
 
   double _saleCalculatedTotal(Sale sale) {
