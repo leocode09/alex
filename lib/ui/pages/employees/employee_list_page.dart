@@ -58,7 +58,7 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
                 if (!context.mounted) {
                   return;
                 }
-                context.push('/employee/${employee['id']}');
+                context.push('/employees/${employee['id']}');
               }
             },
             leading: CircleAvatar(

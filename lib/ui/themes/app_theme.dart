@@ -1,172 +1,320 @@
 import 'package:flutter/material.dart';
+import '../design_system/app_theme_extensions.dart';
+import '../design_system/app_tokens.dart';
 
 class AppTheme {
-  static const Color _orange = Color(0xFFFC8019);
+  const AppTheme._();
 
   static ThemeData get lightTheme {
-    const colorScheme = ColorScheme.light(
-      primary: _orange,
+    final scheme = ColorScheme(
+      brightness: Brightness.light,
+      primary: AppTokens.accent,
       onPrimary: Colors.white,
-      primaryContainer: Color(0xFFFFF3E0),
-      onPrimaryContainer: Color(0xFFE65100),
-      
-      secondary: Colors.black,
+      secondary: AppTokens.ink,
       onSecondary: Colors.white,
-      secondaryContainer: Color(0xFFEEEEEE),
-      onSecondaryContainer: Colors.black,
-      
-      error: Color(0xFFB00020),
+      error: AppTokens.danger,
       onError: Colors.white,
-      
-      surface: Colors.white,
-      onSurface: Colors.black,
-      surfaceContainerHighest: Color(0xFFF5F5F5),
-      onSurfaceVariant: Color(0xFF757575),
-      
-      outline: Color(0xFFE0E0E0),
+      surface: AppTokens.paper,
+      onSurface: AppTokens.ink,
+      tertiary: AppTokens.warning,
+      onTertiary: Colors.white,
+      primaryContainer: AppTokens.accentSoft,
+      onPrimaryContainer: AppTokens.accent,
+      secondaryContainer: AppTokens.paperAlt,
+      onSecondaryContainer: AppTokens.ink,
+      errorContainer: AppTokens.danger.withValues(alpha: 0.08),
+      onErrorContainer: AppTokens.danger,
+      surfaceContainerHighest: AppTokens.paperAlt,
+      onSurfaceVariant: AppTokens.mutedText,
+      outline: AppTokens.line,
+      outlineVariant: AppTokens.lineStrong,
+      shadow: Colors.transparent,
+      scrim: AppTokens.ink.withValues(alpha: 0.4),
+      inverseSurface: AppTokens.ink,
+      onInverseSurface: Colors.white,
+      inversePrimary: AppTokens.accentSoft,
+      surfaceTint: Colors.transparent,
     );
 
-    return ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
-      colorScheme: colorScheme,
-      scaffoldBackgroundColor: Colors.white,
-      fontFamily: 'Inter', // Assuming Inter or system font
-      
-      appBarTheme: const AppBarTheme(
+      colorScheme: scheme,
+      scaffoldBackgroundColor: AppTokens.paper,
+      fontFamily: 'SpaceGrotesk',
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+      splashFactory: InkRipple.splashFactory,
+      shadowColor: Colors.transparent,
+    );
+
+    final textTheme = base.textTheme.copyWith(
+      displayLarge: base.textTheme.displayLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -1.1,
+      ),
+      displayMedium: base.textTheme.displayMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.8,
+      ),
+      displaySmall: base.textTheme.displaySmall?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.6,
+      ),
+      headlineLarge: base.textTheme.headlineLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      headlineMedium: base.textTheme.headlineMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.4,
+      ),
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+      ),
+      titleLarge: base.textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+      titleSmall: base.textTheme.titleSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(
+        fontWeight: FontWeight.w500,
+      ),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        fontWeight: FontWeight.w500,
+      ),
+      bodySmall: base.textTheme.bodySmall?.copyWith(
+        color: AppTokens.mutedText,
+      ),
+      labelLarge: base.textTheme.labelLarge?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
+    return base.copyWith(
+      textTheme: textTheme,
+      extensions: const [AppThemeExtras.light],
+      appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppTokens.paper,
+        foregroundColor: AppTokens.ink,
         surfaceTintColor: Colors.transparent,
-        iconTheme: IconThemeData(color: Colors.black),
-        titleTextStyle: TextStyle(
-          color: Colors.black,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.5,
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          color: AppTokens.ink,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      
       cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Color(0xFFEEEEEE)),
-        ),
-        color: Colors.white,
+        color: AppTokens.paper,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
         margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          side: const BorderSide(color: AppTokens.line),
+        ),
       ),
-      
+      dividerTheme: const DividerThemeData(
+        color: AppTokens.line,
+        thickness: AppTokens.border,
+        space: AppTokens.border,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppTokens.paperAlt,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: AppTokens.mutedText),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: AppTokens.mutedText),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          borderSide: const BorderSide(color: AppTokens.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          borderSide: const BorderSide(color: AppTokens.line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          borderSide: const BorderSide(color: AppTokens.accent, width: AppTokens.borderStrong),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          borderSide: const BorderSide(color: AppTokens.danger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          borderSide: const BorderSide(color: AppTokens.danger, width: AppTokens.borderStrong),
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          backgroundColor: _orange,
+          shadowColor: Colors.transparent,
+          backgroundColor: AppTokens.accent,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
           ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
-      
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: _orange,
-          side: const BorderSide(color: Color(0xFFE0E0E0)),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          foregroundColor: AppTokens.ink,
+          side: const BorderSide(color: AppTokens.line),
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
           ),
-          textStyle: const TextStyle(
+          textStyle: textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w600,
-            fontSize: 14,
           ),
         ),
       ),
-
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: _orange,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          foregroundColor: AppTokens.accent,
+          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+            borderRadius: BorderRadius.circular(AppTokens.radiusS),
           ),
         ),
       ),
-
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: const Color(0xFFFAFAFA),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: _orange, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFB00020)),
-        ),
-        labelStyle: const TextStyle(color: Color(0xFF757575)),
-        hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
-      ),
-
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFFEEEEEE),
-        thickness: 1,
-        space: 1,
-      ),
-
-      listTileTheme: const ListTileThemeData(
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        minLeadingWidth: 24,
-      ),
-
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: _orange,
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        disabledElevation: 0,
+        backgroundColor: AppTokens.accent,
         foregroundColor: Colors.white,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppTokens.ink,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          side: const BorderSide(color: AppTokens.lineStrong),
+        ),
         elevation: 0,
       ),
-
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        iconColor: AppTokens.ink,
+        textColor: AppTokens.ink,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+        ),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppTokens.accent,
+        linearTrackColor: AppTokens.paperAlt,
+      ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return _orange;
-          return null;
+          if (states.contains(WidgetState.selected)) return AppTokens.accent;
+          return AppTokens.paper;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return _orange.withOpacity(0.5);
-          return null;
+          if (states.contains(WidgetState.selected)) return AppTokens.accentSoft;
+          return AppTokens.line;
         }),
       ),
-
       checkboxTheme: CheckboxThemeData(
+        side: const BorderSide(color: AppTokens.lineStrong),
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return _orange;
-          return null;
+          if (states.contains(WidgetState.selected)) return AppTokens.accent;
+          return AppTokens.paper;
         }),
       ),
-
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return _orange;
-          return null;
+          if (states.contains(WidgetState.selected)) return AppTokens.accent;
+          return AppTokens.lineStrong;
         }),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppTokens.paper,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          side: const BorderSide(color: AppTokens.line),
+        ),
+        textStyle: textTheme.bodyMedium,
+      ),
+      tabBarTheme: TabBarThemeData(
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: const UnderlineTabIndicator(
+          borderSide: BorderSide(color: AppTokens.accent, width: 2),
+        ),
+        labelColor: AppTokens.accent,
+        unselectedLabelColor: AppTokens.mutedText,
+        labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        unselectedLabelStyle: textTheme.labelLarge,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        backgroundColor: AppTokens.paper,
+        indicatorColor: AppTokens.accentSoft,
+        height: 68,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return textTheme.labelSmall?.copyWith(
+            color: selected ? AppTokens.accent : AppTokens.mutedText,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          );
+        }),
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        elevation: 0,
+        backgroundColor: AppTokens.paper,
+        indicatorColor: AppTokens.accentSoft,
+        selectedIconTheme: const IconThemeData(color: AppTokens.accent, size: 22),
+        unselectedIconTheme: const IconThemeData(color: AppTokens.mutedText, size: 21),
+        selectedLabelTextStyle: textTheme.labelMedium?.copyWith(
+          color: AppTokens.accent,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(
+          color: AppTokens.mutedText,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        backgroundColor: AppTokens.paper,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTokens.radiusL),
+          ),
+          side: BorderSide(color: AppTokens.line),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        backgroundColor: AppTokens.paper,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusL),
+          side: const BorderSide(color: AppTokens.line),
+        ),
       ),
     );
   }

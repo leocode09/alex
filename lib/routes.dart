@@ -330,6 +330,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ],
         ),
+        GoRoute(
+          path: '/customer/:id',
+          name: 'customer-profile-alt',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return CustomerProfilePage(customerId: id);
+          },
+        ),
 
         // Employees
         GoRoute(
@@ -347,6 +355,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ],
         ),
+        GoRoute(
+          path: '/employee/:id',
+          name: 'employee-profile-alt',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return EmployeeProfilePage(employeeId: id);
+          },
+        ),
 
         // Stores
         GoRoute(
@@ -363,6 +379,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               },
             ),
           ],
+        ),
+        GoRoute(
+          path: '/store/:id',
+          name: 'store-details-alt',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return StoreDetailsPage(storeId: id);
+          },
         ),
 
         // Hardware

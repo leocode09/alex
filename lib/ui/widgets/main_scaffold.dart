@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../helpers/pin_protection.dart';
 import '../../services/pin_service.dart';
+import '../design_system/app_tokens.dart';
 
 class MainScaffold extends StatelessWidget {
   final Widget child;
@@ -15,51 +16,137 @@ class MainScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 700) {
+          return _buildCompactScaffold(context);
+        }
+        return _buildWideScaffold(context, constraints.maxWidth >= 1100);
+      },
+    );
+  }
+
+  Widget _buildCompactScaffold(BuildContext context) {
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey[200]!, width: 1)),
-          color: Colors.white,
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppTokens.line, width: 1)),
+          color: AppTokens.paper,
         ),
         child: NavigationBar(
           selectedIndex: currentIndex,
           onDestinationSelected: (index) => _onTap(context, index),
           elevation: 0,
-          height: 65,
-          backgroundColor: Colors.white,
-          indicatorColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+          height: 68,
+          backgroundColor: AppTokens.paper,
+          indicatorColor: AppTokens.accentSoft,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard, color: Theme.of(context).colorScheme.primary),
-              label: 'Dashboard',
+          destinations: _destinations(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWideScaffold(BuildContext context, bool extendedRail) {
+    return Scaffold(
+      body: SafeArea(
+        child: Row(
+          children: [
+            Container(
+              width: extendedRail ? 224 : 88,
+              decoration: const BoxDecoration(
+                color: AppTokens.paper,
+                border: Border(right: BorderSide(color: AppTokens.line, width: 1)),
+              ),
+              child: NavigationRail(
+                selectedIndex: currentIndex,
+                extended: extendedRail,
+                onDestinationSelected: (index) => _onTap(context, index),
+                elevation: 0,
+                minWidth: 88,
+                minExtendedWidth: 224,
+                labelType: extendedRail ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+                useIndicator: true,
+                destinations: _railDestinations(),
+              ),
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.point_of_sale_outlined),
-              selectedIcon: Icon(Icons.point_of_sale, color: Theme.of(context).colorScheme.primary),
-              label: 'Sales',
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2, color: Theme.of(context).colorScheme.primary),
-              label: 'Products',
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.assessment_outlined),
-              selectedIcon: Icon(Icons.assessment, color: Theme.of(context).colorScheme.primary),
-              label: 'Reports',
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
-              label: 'More',
+            Expanded(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: extendedRail ? 1080 : double.infinity,
+                  ),
+                  child: child,
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  List<NavigationDestination> _destinations(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return [
+      NavigationDestination(
+        icon: const Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard, color: primary),
+        label: 'Dashboard',
+      ),
+      NavigationDestination(
+        icon: const Icon(Icons.point_of_sale_outlined),
+        selectedIcon: Icon(Icons.point_of_sale, color: primary),
+        label: 'Sales',
+      ),
+      NavigationDestination(
+        icon: const Icon(Icons.inventory_2_outlined),
+        selectedIcon: Icon(Icons.inventory_2, color: primary),
+        label: 'Products',
+      ),
+      NavigationDestination(
+        icon: const Icon(Icons.assessment_outlined),
+        selectedIcon: Icon(Icons.assessment, color: primary),
+        label: 'Reports',
+      ),
+      NavigationDestination(
+        icon: const Icon(Icons.settings_outlined),
+        selectedIcon: Icon(Icons.settings, color: primary),
+        label: 'More',
+      ),
+    ];
+  }
+
+  List<NavigationRailDestination> _railDestinations() {
+    return const [
+      NavigationRailDestination(
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard),
+        label: Text('Dashboard'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.point_of_sale_outlined),
+        selectedIcon: Icon(Icons.point_of_sale),
+        label: Text('Sales'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.inventory_2_outlined),
+        selectedIcon: Icon(Icons.inventory_2),
+        label: Text('Products'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.assessment_outlined),
+        selectedIcon: Icon(Icons.assessment),
+        label: Text('Reports'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.settings_outlined),
+        selectedIcon: Icon(Icons.settings),
+        label: Text('More'),
+      ),
+    ];
   }
 
   Future<void> _onTap(BuildContext context, int index) async {

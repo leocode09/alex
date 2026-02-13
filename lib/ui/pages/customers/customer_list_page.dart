@@ -84,7 +84,7 @@ class _CustomerListPageState extends State<CustomerListPage> {
                       if (!context.mounted) {
                         return;
                       }
-                      context.push('/customer/${customer['id']}');
+                      context.push('/customers/${customer['id']}');
                     }
                   },
                   leading: CircleAvatar(

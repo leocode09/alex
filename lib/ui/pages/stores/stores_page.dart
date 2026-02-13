@@ -54,7 +54,7 @@ class StoresPage extends StatelessWidget {
                 if (!context.mounted) {
                   return;
                 }
-                context.push('/store/${store['id']}');
+                context.push('/stores/${store['id']}');
               }
             },
             leading: Container(
