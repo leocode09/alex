@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../design_system/app_tokens.dart';
+import '../../design_system/widgets/app_badge.dart';
+import '../../design_system/widgets/app_page_scaffold.dart';
+import '../../design_system/widgets/app_panel.dart';
 
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Mock data
     final notifications = [
       {
         'title': 'Low Stock Alert',
@@ -30,79 +33,119 @@ class NotificationsPage extends StatelessWidget {
       },
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.done_all),
-            onPressed: () {
-              // TODO: Mark all as read
-            },
-          ),
-        ],
-      ),
-      body: ListView.separated(
+    return AppPageScaffold(
+      title: 'Notifications',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.done_all),
+          onPressed: () {},
+        ),
+        const SizedBox(width: 6),
+      ],
+      child: ListView.separated(
         itemCount: notifications.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
+        separatorBuilder: (_, __) => const SizedBox(height: AppTokens.space2),
         itemBuilder: (context, index) {
           final notification = notifications[index];
           final isRead = notification['read'] as bool;
-          
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            tileColor: isRead ? Colors.white : Theme.of(context).colorScheme.primary.withOpacity(0.05),
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _getIcon(notification['type'] as String),
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            title: Row(
+          return AppPanel(
+            emphasized: !isRead,
+            outlinedStrong: !isRead,
+            padding: const EdgeInsets.all(AppTokens.space3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    notification['title'] as String,
-                    style: TextStyle(
-                      fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
-                      fontSize: 15,
-                    ),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppTokens.paperAlt,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTokens.line),
+                  ),
+                  child: Icon(
+                    _getIcon(notification['type'] as String),
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
                   ),
                 ),
-                Text(
-                  notification['time'] as String,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                const SizedBox(width: AppTokens.space2),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              notification['title'] as String,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: isRead ? FontWeight.w600 : FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            notification['time'] as String,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification['message'] as String,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTokens.mutedText,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          AppBadge(
+                            label: _badgeLabel(notification['type'] as String),
+                            tone: _badgeTone(notification['type'] as String),
+                          ),
+                          if (!isRead) ...[
+                            const SizedBox(width: 8),
+                            const AppBadge(label: 'Unread', tone: AppBadgeTone.accent),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                notification['message'] as String,
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-            ),
-            trailing: !isRead
-                ? Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                : null,
-            onTap: () {},
           );
         },
       ),
     );
+  }
+
+  String _badgeLabel(String type) {
+    switch (type) {
+      case 'warning':
+        return 'Warning';
+      case 'success':
+        return 'Success';
+      case 'info':
+        return 'Info';
+      default:
+        return 'Notice';
+    }
+  }
+
+  AppBadgeTone _badgeTone(String type) {
+    switch (type) {
+      case 'warning':
+        return AppBadgeTone.warning;
+      case 'success':
+        return AppBadgeTone.success;
+      case 'info':
+        return AppBadgeTone.accent;
+      default:
+        return AppBadgeTone.neutral;
+    }
   }
 
   IconData _getIcon(String type) {
