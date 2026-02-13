@@ -589,6 +589,8 @@ class ProductDetailsPage extends ConsumerWidget {
         return 'Sale';
       case 'sale_receipt_edit':
         return 'Receipt Edit';
+      case 'sale_delete':
+        return 'Receipt Deleted';
       case 'restock':
         return 'Restock';
       case 'bulk_restock':

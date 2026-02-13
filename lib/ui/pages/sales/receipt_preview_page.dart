@@ -42,6 +42,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
             style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            tooltip: 'Delete Receipt',
+            onPressed: () => _deleteReceipt(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.edit),
             tooltip: 'Edit Sale Details',
             onPressed: () => _showEditSaleDialog(context),
@@ -622,6 +627,134 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Items updated successfully')),
       );
+    }
+  }
+
+  Future<void> _deleteReceipt(BuildContext context) async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForDeleteReceipt(),
+      title: 'Delete Receipt',
+      subtitle: 'Enter PIN to delete this receipt',
+    );
+    if (!allowed) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Receipt'),
+        content: const Text(
+          'Delete this receipt permanently? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final productRepo = ref.read(productRepositoryProvider);
+    final saleRepo = ref.read(saleRepositoryProvider);
+    final quantitiesToRestore = _buildItemQuantities(_sale.items);
+    final restockChanges = <String, int>{};
+    int missingProducts = 0;
+    bool stockApplied = false;
+
+    try {
+      final products = await productRepo.getAllProducts();
+      final existingProductIds = products.map((p) => p.id).toSet();
+
+      for (final entry in quantitiesToRestore.entries) {
+        if (existingProductIds.contains(entry.key)) {
+          restockChanges[entry.key] = entry.value;
+        } else {
+          missingProducts += 1;
+        }
+      }
+
+      if (restockChanges.isNotEmpty) {
+        await productRepo.applyStockChanges(
+          restockChanges,
+          reason: 'sale_delete',
+          referenceId: _sale.id,
+          note: 'Stock restored from deleted receipt',
+        );
+        stockApplied = true;
+      }
+
+      final deleted = await saleRepo.deleteSale(_sale.id);
+      if (!deleted) {
+        throw Exception('Failed to delete receipt.');
+      }
+
+      await DataSyncTriggers.trigger(reason: 'receipt_deleted');
+
+      ref.invalidate(productsProvider);
+      ref.invalidate(lowStockProductsProvider);
+      ref.invalidate(totalInventoryValueProvider);
+      ref.invalidate(salesProvider);
+      ref.invalidate(todaysSalesProvider);
+      ref.invalidate(todaysSalesCountProvider);
+      ref.invalidate(todaysRevenueProvider);
+      ref.invalidate(totalRevenueProvider);
+      ref.invalidate(totalSalesCountProvider);
+      ref.invalidate(weeklySalesProvider);
+      ref.invalidate(weeklyRevenueProvider);
+      ref.invalidate(yesterdaysSalesProvider);
+      ref.invalidate(yesterdaysSalesCountProvider);
+      ref.invalidate(yesterdaysRevenueProvider);
+      ref.invalidate(lastWeekRevenueProvider);
+
+      if (!mounted) {
+        return;
+      }
+
+      navigator.pop();
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            missingProducts > 0
+                ? 'Receipt deleted. $missingProducts removed product(s) were not restocked.'
+                : 'Receipt deleted successfully.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (stockApplied && restockChanges.isNotEmpty) {
+        try {
+          await productRepo.applyStockChanges(
+            _invertStockDeltas(restockChanges),
+            reason: 'rollback',
+            referenceId: _sale.id,
+            note: 'Rollback failed receipt delete stock restore',
+            recordMovement: false,
+          );
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Error deleting receipt: $e')),
+        );
+      }
     }
   }
 
