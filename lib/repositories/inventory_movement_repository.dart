@@ -35,10 +35,39 @@ class InventoryMovementRepository {
   }) async {
     final movements = await getAllMovements();
     final filtered = movements.where((m) => m.productId == productId).toList();
-    if (limit == null || limit <= 0 || filtered.length <= limit) {
-      return filtered;
-    }
-    return filtered.take(limit).toList();
+    return _applyLimit(filtered, limit: limit);
+  }
+
+  Future<List<InventoryMovement>> getVarianceMovements({
+    int? limit,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final movements = await getAllMovements();
+    final filtered = movements.where((movement) {
+      if (!movement.isVariance) {
+        return false;
+      }
+      if (from != null && movement.createdAt.isBefore(from)) {
+        return false;
+      }
+      if (to != null && movement.createdAt.isAfter(to)) {
+        return false;
+      }
+      return true;
+    }).toList();
+    return _applyLimit(filtered, limit: limit);
+  }
+
+  Future<List<InventoryMovement>> getVarianceMovementsByProduct(
+    String productId, {
+    int? limit,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final movements = await getVarianceMovements(from: from, to: to);
+    final filtered = movements.where((m) => m.productId == productId).toList();
+    return _applyLimit(filtered, limit: limit);
   }
 
   Future<bool> addMovement(InventoryMovement movement) async {
@@ -78,5 +107,15 @@ class InventoryMovementRepository {
       print('Stack trace: $stackTrace');
       return false;
     }
+  }
+
+  List<InventoryMovement> _applyLimit(
+    List<InventoryMovement> movements, {
+    int? limit,
+  }) {
+    if (limit == null || limit <= 0 || movements.length <= limit) {
+      return movements;
+    }
+    return movements.take(limit).toList();
   }
 }

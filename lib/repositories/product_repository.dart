@@ -254,6 +254,8 @@ class ProductRepository {
             reason: reason,
             referenceId: referenceId,
             note: note,
+            unitPrice: existing.price,
+            unitCost: existing.costPrice,
             createdAt: now,
           ),
         );
@@ -275,6 +277,83 @@ class ProductRepository {
             'Warning: stock changes were applied but movement logging failed.');
       }
     }
+  }
+
+  Future<void> recordProductVariance(
+    String productId, {
+    required int countedStock,
+    String reasonCode = 'count',
+    String? referenceId,
+    String? note,
+  }) async {
+    if (countedStock < 0) {
+      throw const StockOperationException('Counted stock cannot be negative.');
+    }
+
+    final product = await getProductById(productId);
+    if (product == null) {
+      throw StockOperationException('Product not found: $productId');
+    }
+
+    final normalizedReason = _normalizeVarianceReason(reasonCode);
+    final reason =
+        '${InventoryMovement.varianceReasonPrefix}$normalizedReason';
+    final delta = countedStock - product.stock;
+    final varianceNoteParts = <String>[
+      'Expected: ${product.stock}',
+      'Counted: $countedStock',
+      if (note != null && note.trim().isNotEmpty) note.trim(),
+    ];
+    final varianceNote = varianceNoteParts.join(' | ');
+
+    if (delta == 0) {
+      final movementSaved = await _inventoryMovementRepo.addMovement(
+        InventoryMovement(
+          id: _uuid.v4(),
+          productId: product.id,
+          productName: product.name,
+          delta: 0,
+          stockBefore: product.stock,
+          stockAfter: countedStock,
+          reason: reason,
+          referenceId: referenceId,
+          note: varianceNote,
+          unitPrice: product.price,
+          unitCost: product.costPrice,
+        ),
+      );
+
+      if (!movementSaved) {
+        throw const StockOperationException(
+          'Failed to save variance log.',
+        );
+      }
+      return;
+    }
+
+    await applyStockChanges(
+      {productId: delta},
+      reason: reason,
+      referenceId: referenceId,
+      note: varianceNote,
+      recordMovement: true,
+    );
+  }
+
+  String _normalizeVarianceReason(String reasonCode) {
+    var normalized = reasonCode.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return 'count';
+    }
+
+    normalized = normalized.replaceAll('-', '_').replaceAll(' ', '_');
+    if (normalized.startsWith(InventoryMovement.varianceReasonPrefix)) {
+      normalized =
+          normalized.substring(InventoryMovement.varianceReasonPrefix.length);
+    }
+
+    normalized = normalized.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    return normalized.isEmpty ? 'count' : normalized;
   }
 
   // Decrease stock (for sales)

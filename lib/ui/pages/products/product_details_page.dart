@@ -228,6 +228,16 @@ class ProductDetailsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        _showRecordVarianceDialog(context, ref, product),
+                    icon: const Icon(Icons.fact_check_outlined, size: 18),
+                    label: const Text('Record Variance'),
+                  ),
+                ),
                 const SizedBox(height: 32),
 
                 // Details
@@ -526,9 +536,16 @@ class ProductDetailsPage extends ConsumerWidget {
           final index = entry.key;
           final movement = entry.value;
           final isIn = movement.delta > 0;
-          final arrowIcon = isIn ? Icons.arrow_upward : Icons.arrow_downward;
-          final arrowColor = isIn ? Colors.green : Colors.red;
-          final deltaText = isIn ? '+${movement.delta}' : '${movement.delta}';
+          final isOut = movement.delta < 0;
+          final arrowIcon = isIn
+              ? Icons.arrow_upward
+              : isOut
+                  ? Icons.arrow_downward
+                  : Icons.horizontal_rule;
+          final arrowColor =
+              isIn ? Colors.green : isOut ? Colors.red : Colors.grey;
+          final deltaText =
+              movement.delta > 0 ? '+${movement.delta}' : '${movement.delta}';
           final reasonText = _formatMovementReason(movement.reason);
           final subtitle =
               '$reasonText - ${dateFormatter.format(movement.createdAt.toLocal())}\nStock: ${movement.stockBefore} -> ${movement.stockAfter}';
@@ -545,7 +562,7 @@ class ProductDetailsPage extends ConsumerWidget {
                   child: Icon(arrowIcon, size: 16, color: arrowColor),
                 ),
                 title: Text(
-                  '$deltaText units',
+                  movement.delta == 0 ? 'No stock change' : '$deltaText units',
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 14),
                 ),
@@ -584,6 +601,28 @@ class ProductDetailsPage extends ConsumerWidget {
   }
 
   String _formatMovementReason(String reason) {
+    if (InventoryMovement.isVarianceReason(reason)) {
+      final code = reason.substring(InventoryMovement.varianceReasonPrefix.length);
+      switch (code) {
+        case 'count':
+          return 'Cycle Count';
+        case 'damage':
+          return 'Variance - Damage';
+        case 'theft':
+          return 'Variance - Theft';
+        case 'expired':
+          return 'Variance - Expired';
+        case 'found':
+          return 'Variance - Found Stock';
+        case 'correction':
+          return 'Variance - Correction';
+        case 'other':
+          return 'Variance - Other';
+        default:
+          return 'Variance - ${_titleCaseWords(code)}';
+      }
+    }
+
     switch (reason) {
       case 'sale':
         return 'Sale';
@@ -600,13 +639,17 @@ class ProductDetailsPage extends ConsumerWidget {
       case 'stock_adjustment':
         return 'Stock Adjustment';
       default:
-        return reason
-            .split('_')
-            .map((word) => word.isEmpty
-                ? word
-                : '${word[0].toUpperCase()}${word.substring(1)}')
-            .join(' ');
+        return _titleCaseWords(reason);
     }
+  }
+
+  String _titleCaseWords(String value) {
+    return value
+        .split('_')
+        .map((word) => word.isEmpty
+            ? word
+            : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
 
   String _shortId(String id) {

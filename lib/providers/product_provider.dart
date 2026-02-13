@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product.dart';
 import '../repositories/product_repository.dart';
 import '../services/data_sync_triggers.dart';
+import 'inventory_movement_provider.dart';
 import 'sync_events_provider.dart';
 
 // Repository provider
@@ -133,6 +134,11 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
     ref.invalidate(categoriesProvider);
     ref.invalidate(productsCountByCategoryProvider);
     ref.invalidate(lowStockProductsProvider);
+    ref.invalidate(inventoryMovementsProvider);
+    ref.invalidate(inventoryVariancesProvider);
+    ref.invalidate(inventoryVarianceStatsProvider);
+    ref.invalidate(productInventoryMovementsProvider);
+    ref.invalidate(productInventoryVariancesProvider);
     if (productId != null) {
       ref.invalidate(productProvider(productId));
     }
@@ -236,6 +242,32 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       _invalidateProductCaches();
       await DataSyncTriggers.trigger(reason: syncReason);
+      return true;
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+      return false;
+    }
+  }
+
+  Future<bool> recordProductVariance(
+    String productId, {
+    required int countedStock,
+    String reasonCode = 'count',
+    String? referenceId,
+    String? note,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      await repository.recordProductVariance(
+        productId,
+        countedStock: countedStock,
+        reasonCode: reasonCode,
+        referenceId: referenceId,
+        note: note,
+      );
+      state = const AsyncValue.data(null);
+      _invalidateProductCaches(productId: productId);
+      await DataSyncTriggers.trigger(reason: 'product_variance_recorded');
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
