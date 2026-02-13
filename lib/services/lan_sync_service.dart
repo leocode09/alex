@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/sync_data.dart';
 import 'sync_service.dart';
@@ -19,6 +20,7 @@ class LanSyncService extends ChangeNotifier {
   static const int tcpPort = 42112;
   static const Duration announceInterval = Duration(seconds: 2);
   static const Duration peerTimeout = Duration(seconds: 6);
+  static const String _deviceNamePrefKey = 'lan_device_name';
 
   final SyncService _syncService = SyncService();
 
@@ -36,6 +38,7 @@ class LanSyncService extends ChangeNotifier {
   String? _lastError;
 
   final List<String> _logs = [];
+  final List<LanSyncAction> _actions = [];
   List<String> _localAddresses = [];
 
   final Duration _syncDebounce = const Duration(milliseconds: 800);
@@ -54,14 +57,54 @@ class LanSyncService extends ChangeNotifier {
   bool get isConnected => _connections.isNotEmpty;
   String get status => _status;
   String? get lastError => _lastError;
+  String get deviceName =>
+      (_deviceName != null && _deviceName!.trim().isNotEmpty)
+          ? _deviceName!.trim()
+          : 'Device';
+  String get deviceId =>
+      (_deviceId != null && _deviceId!.trim().isNotEmpty)
+          ? _deviceId!
+          : 'unknown_device';
   List<String> get localAddresses => List.unmodifiable(_localAddresses);
   List<String> get logs => List.unmodifiable(_logs);
+  List<LanSyncAction> get actions => List.unmodifiable(_actions);
   List<LanPeer> get peers =>
       List.unmodifiable(_peers.values.toList()..sort(_peerSort));
   Set<String> get connectedPeerIds => Set.unmodifiable(_connections.keys);
   List<String> get connectedPeers => _connections.values
       .map((connection) => connection.displayName)
       .toList();
+
+  Future<void> initialize() async {
+    if (kIsWeb) {
+      if (_deviceName == null || _deviceName!.trim().isEmpty) {
+        _deviceName = 'Device';
+      }
+      return;
+    }
+    await _ensureDeviceInfo();
+    notifyListeners();
+  }
+
+  Future<void> setDeviceName(String value) async {
+    final nextValue = value.trim();
+    final prefs = await SharedPreferences.getInstance();
+    final resolvedName =
+        nextValue.isEmpty ? await _getDefaultDeviceName() : nextValue;
+
+    if (nextValue.isEmpty) {
+      await prefs.remove(_deviceNamePrefKey);
+    } else {
+      await prefs.setString(_deviceNamePrefKey, nextValue);
+    }
+
+    _deviceName = resolvedName;
+    _addLog('Device name set to "$resolvedName".');
+    if (_running) {
+      _sendLanAnnounce();
+    }
+    notifyListeners();
+  }
 
   Future<void> start() async {
     if (kIsWeb) {
@@ -210,6 +253,7 @@ class LanSyncService extends ChangeNotifier {
     if (!_running) {
       await start();
     }
+    _addLog('Sync requested (${_formatReason(reason)}).');
     _pendingSync = true;
     _syncDebounceTimer?.cancel();
     _syncDebounceTimer = Timer(_syncDebounce, _flushPendingSync);
@@ -399,11 +443,23 @@ class LanSyncService extends ChangeNotifier {
       }
 
       if (connection.peerId != null) {
-        unawaited(_handleIncomingPayload(line));
+        unawaited(
+          _handleIncomingPayload(
+            line,
+            fallbackSourceId: connection.peerId,
+            fallbackSourceName: connection.peerName,
+          ),
+        );
       }
     } catch (_) {
       if (connection.peerId != null) {
-        unawaited(_handleIncomingPayload(line));
+        unawaited(
+          _handleIncomingPayload(
+            line,
+            fallbackSourceId: connection.peerId,
+            fallbackSourceName: connection.peerName,
+          ),
+        );
       }
     }
   }
@@ -433,7 +489,11 @@ class LanSyncService extends ChangeNotifier {
     connection.peerName = peerName;
     _connections[peerId] = connection;
 
-    _addLog('LAN connected: $peerName ($peerId).');
+    _addLog(
+      'LAN connected.',
+      deviceId: peerId,
+      deviceName: peerName,
+    );
     notifyListeners();
 
     unawaited(triggerSync(reason: 'lan_connected'));
@@ -444,7 +504,11 @@ class LanSyncService extends ChangeNotifier {
     if (peerId != null && _connections[peerId] == connection) {
       _connections.remove(peerId);
       final name = connection.peerName ?? peerId;
-      _addLog('LAN disconnected: $name.');
+      _addLog(
+        'LAN disconnected.',
+        deviceId: peerId,
+        deviceName: name,
+      );
     }
 
     if (error != null) {
@@ -454,7 +518,11 @@ class LanSyncService extends ChangeNotifier {
     unawaited(connection.close());
   }
 
-  Future<void> _handleIncomingPayload(String payload) async {
+  Future<void> _handleIncomingPayload(
+    String payload, {
+    String? fallbackSourceId,
+    String? fallbackSourceName,
+  }) async {
     await _ensureDeviceInfo();
     Map<String, dynamic>? json;
     try {
@@ -470,10 +538,14 @@ class LanSyncService extends ChangeNotifier {
 
     if (json != null) {
       if (json['type'] == 'sync_data') {
-        final fromId = json['fromId']?.toString();
+        final fromId = json['fromId']?.toString() ?? fallbackSourceId;
         if (fromId != null && fromId == _deviceId) {
           return;
         }
+        final sourceName = _resolveSourceDeviceName(
+          deviceId: fromId,
+          providedName: json['fromName']?.toString() ?? fallbackSourceName,
+        );
         final data = json['data'];
         SyncData? syncData;
         if (data is Map) {
@@ -482,7 +554,16 @@ class LanSyncService extends ChangeNotifier {
           syncData = _syncService.jsonToSyncData(data);
         }
         if (syncData != null) {
-          await _queueImport(syncData);
+          _addLog(
+            'Received sync data (${syncData.totalItems} items).',
+            deviceId: fromId,
+            deviceName: sourceName,
+          );
+          await _queueImport(
+            syncData,
+            sourceDeviceId: fromId,
+            sourceDeviceName: sourceName,
+          );
         }
         return;
       }
@@ -492,7 +573,20 @@ class LanSyncService extends ChangeNotifier {
         if (syncData.deviceId == _deviceId) {
           return;
         }
-        await _queueImport(syncData);
+        final sourceName = _resolveSourceDeviceName(
+          deviceId: syncData.deviceId,
+          providedName: fallbackSourceName,
+        );
+        _addLog(
+          'Received sync data (${syncData.totalItems} items).',
+          deviceId: syncData.deviceId,
+          deviceName: sourceName,
+        );
+        await _queueImport(
+          syncData,
+          sourceDeviceId: syncData.deviceId,
+          sourceDeviceName: sourceName,
+        );
         return;
       }
     }
@@ -502,7 +596,20 @@ class LanSyncService extends ChangeNotifier {
       if (syncData.deviceId == _deviceId) {
         return;
       }
-      await _queueImport(syncData);
+      final sourceName = _resolveSourceDeviceName(
+        deviceId: syncData.deviceId,
+        providedName: fallbackSourceName,
+      );
+      _addLog(
+        'Received sync data (${syncData.totalItems} items).',
+        deviceId: syncData.deviceId,
+        deviceName: sourceName,
+      );
+      await _queueImport(
+        syncData,
+        sourceDeviceId: syncData.deviceId,
+        sourceDeviceName: sourceName,
+      );
     } catch (_) {
       return;
     }
@@ -533,6 +640,9 @@ class LanSyncService extends ChangeNotifier {
         'data': data.toJson(),
       });
       _sendPayload(payload);
+      _addLog(
+        'Shared sync data (${data.totalItems} items) to ${_connections.length} peer(s).',
+      );
     } catch (e) {
       _lastError = e.toString();
       _addLog('Send failed: $e');
@@ -573,18 +683,39 @@ class LanSyncService extends ChangeNotifier {
     _lastSyncAt = DateTime.now();
   }
 
-  Future<void> _queueImport(SyncData data) async {
+  Future<void> _queueImport(
+    SyncData data, {
+    String? sourceDeviceId,
+    String? sourceDeviceName,
+  }) async {
     if (data.isEmpty) {
       return;
     }
     _importQueue = _importQueue.then((_) async {
       try {
-        await _syncService.importData(
+        final result = await _syncService.importData(
           data,
           strategy: SyncStrategy.merge,
         );
+        if (result.success) {
+          _addLog(
+            'Applied sync data (${result.totalImported} imported).',
+            deviceId: sourceDeviceId ?? data.deviceId,
+            deviceName: sourceDeviceName,
+          );
+        } else {
+          _addLog(
+            'Import failed: ${result.message}',
+            deviceId: sourceDeviceId ?? data.deviceId,
+            deviceName: sourceDeviceName,
+          );
+        }
       } catch (e) {
-        _addLog('Import failed: $e');
+        _addLog(
+          'Import failed: $e',
+          deviceId: sourceDeviceId ?? data.deviceId,
+          deviceName: sourceDeviceName,
+        );
       }
     });
     return _importQueue;
@@ -592,10 +723,19 @@ class LanSyncService extends ChangeNotifier {
 
   Future<void> _ensureDeviceInfo() async {
     _deviceId ??= await _syncService.getDeviceId();
-    _deviceName ??= await _getDeviceName();
+    _deviceName ??= await _getPreferredDeviceName() ?? await _getDefaultDeviceName();
   }
 
-  Future<String> _getDeviceName() async {
+  Future<String?> _getPreferredDeviceName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedName = prefs.getString(_deviceNamePrefKey)?.trim();
+    if (savedName == null || savedName.isEmpty) {
+      return null;
+    }
+    return savedName;
+  }
+
+  Future<String> _getDefaultDeviceName() async {
     if (!Platform.isAndroid) {
       final hostname = Platform.localHostname;
       return hostname.isNotEmpty ? hostname : 'Device';
@@ -608,9 +748,64 @@ class LanSyncService extends ChangeNotifier {
     }
   }
 
-  void _addLog(String message) {
+  String _resolveSourceDeviceName({
+    required String? deviceId,
+    String? providedName,
+  }) {
+    final name = providedName?.trim();
+    if (name != null && name.isNotEmpty) {
+      return name;
+    }
+    if (deviceId != null) {
+      final connectionName = _connections[deviceId]?.peerName?.trim();
+      if (connectionName != null && connectionName.isNotEmpty) {
+        return connectionName;
+      }
+      final peerName = _peers[deviceId]?.name.trim();
+      if (peerName != null && peerName.isNotEmpty) {
+        return peerName;
+      }
+      if (deviceId == _deviceId) {
+        return deviceName;
+      }
+      return deviceId;
+    }
+    return 'Unknown device';
+  }
+
+  String _formatReason(String reason) {
+    final value = reason.trim();
+    if (value.isEmpty) {
+      return 'update';
+    }
+    return value.replaceAll('_', ' ');
+  }
+
+  void _addLog(
+    String message, {
+    String? deviceId,
+    String? deviceName,
+  }) {
     const maxLogs = 50;
-    _logs.add(message);
+    const maxActions = 300;
+    final normalizedDeviceId = (deviceId != null && deviceId.trim().isNotEmpty)
+        ? deviceId.trim()
+        : this.deviceId;
+    final normalizedDeviceName =
+        _resolveSourceDeviceName(deviceId: normalizedDeviceId, providedName: deviceName);
+    final action = LanSyncAction(
+      timestamp: DateTime.now(),
+      message: message,
+      deviceId: normalizedDeviceId,
+      deviceName: normalizedDeviceName,
+    );
+
+    _actions.add(action);
+    if (_actions.length > maxActions) {
+      _actions.removeAt(0);
+    }
+
+    _logs.add('[${action.deviceName}] ${action.message}');
     if (_logs.length > maxLogs) {
       _logs.removeAt(0);
     }
@@ -624,6 +819,21 @@ class LanSyncService extends ChangeNotifier {
     }
     return a.id.compareTo(b.id);
   }
+}
+
+@immutable
+class LanSyncAction {
+  const LanSyncAction({
+    required this.timestamp,
+    required this.message,
+    required this.deviceId,
+    required this.deviceName,
+  });
+
+  final DateTime timestamp;
+  final String message;
+  final String deviceId;
+  final String deviceName;
 }
 
 @immutable

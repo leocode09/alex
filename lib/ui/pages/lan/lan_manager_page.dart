@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../services/wifi_direct_sync_service.dart';
 import '../../../services/lan_sync_service.dart';
+
+enum LanActionTimeRange {
+  today,
+  thisWeek,
+  thisMonth,
+  thisYear,
+  allTime,
+}
 
 class LanManagerPage extends StatefulWidget {
   const LanManagerPage({super.key});
@@ -10,13 +19,23 @@ class LanManagerPage extends StatefulWidget {
 }
 
 class _LanManagerPageState extends State<LanManagerPage> {
+  static const String _allDevicesFilter = '__all_devices__';
   final WifiDirectSyncService _service = WifiDirectSyncService();
   final LanSyncService _lanService = LanSyncService();
   final TextEditingController _hostController = TextEditingController();
+  final TextEditingController _deviceNameController = TextEditingController();
+  String _selectedDeviceFilter = _allDevicesFilter;
+  LanActionTimeRange _selectedTimeRange = LanActionTimeRange.allTime;
 
   @override
   void initState() {
     super.initState();
+    _lanService.initialize().then((_) {
+      if (!mounted) {
+        return;
+      }
+      _deviceNameController.text = _lanService.deviceName;
+    });
     _service.start();
     _lanService.start();
     _lanService.refreshLocalAddresses();
@@ -25,6 +44,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
   @override
   void dispose() {
     _hostController.dispose();
+    _deviceNameController.dispose();
     super.dispose();
   }
 
