@@ -25,7 +25,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
   final TextEditingController _hostController = TextEditingController();
   final TextEditingController _deviceNameController = TextEditingController();
   String _selectedDeviceFilter = _allDevicesFilter;
-  LanActionTimeRange _selectedTimeRange = LanActionTimeRange.allTime;
+  LanActionTimeRange _selectedTimeRange = LanActionTimeRange.today;
 
   @override
   void initState() {

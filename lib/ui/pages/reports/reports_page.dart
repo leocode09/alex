@@ -36,9 +36,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   late AnimationController _chartController;
   late Animation<double> _chartAnimation;
   final LanSyncService _lanSyncService = LanSyncService();
-  String _selectedPeriod = 'This Week';
+  String _selectedPeriod = 'Today';
   String _selectedSyncDeviceFilter = _allDevicesFilter;
-  SyncActionTimeRange _selectedSyncTimeRange = SyncActionTimeRange.allTime;
+  SyncActionTimeRange _selectedSyncTimeRange = SyncActionTimeRange.today;
   final NumberFormat _currencyFormat =
       NumberFormat.currency(symbol: '\$', decimalDigits: 2);
   final NumberFormat _countFormat = NumberFormat.decimalPattern();
