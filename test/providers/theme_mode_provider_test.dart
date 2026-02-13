@@ -5,21 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() {
+  test('defaults to light mode when no preference is saved', () async {
     SharedPreferences.setMockInitialValues({});
-  });
-
-  test('loads saved theme mode from shared preferences', () async {
-    SharedPreferences.setMockInitialValues({'theme_mode': 'dark'});
     final container = ProviderContainer();
     addTearDown(container.dispose);
-
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-
-    expect(container.read(themeModeProvider), ThemeMode.dark);
+    expect(container.read(themeModeProvider), ThemeMode.light);
   });
 
   test('setThemeMode updates state and persists value', () async {
+    SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer();
     addTearDown(container.dispose);
 

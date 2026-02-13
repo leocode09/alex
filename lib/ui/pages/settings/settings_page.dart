@@ -312,51 +312,52 @@ class SettingsPage extends ConsumerWidget {
                   ),
                 ),
               ),
-              RadioListTile<ThemeMode>(
+              _buildThemeModeOption(
+                context: sheetContext,
+                ref: ref,
                 value: ThemeMode.light,
-                groupValue: currentMode,
-                title: const Text('Light'),
-                onChanged: (value) async {
-                  if (value == null) return;
-                  await ref
-                      .read(themeModeProvider.notifier)
-                      .setThemeMode(value);
-                  if (sheetContext.mounted) {
-                    Navigator.pop(sheetContext);
-                  }
-                },
+                currentMode: currentMode,
+                label: 'Light',
               ),
-              RadioListTile<ThemeMode>(
+              _buildThemeModeOption(
+                context: sheetContext,
+                ref: ref,
                 value: ThemeMode.dark,
-                groupValue: currentMode,
-                title: const Text('Dark'),
-                onChanged: (value) async {
-                  if (value == null) return;
-                  await ref
-                      .read(themeModeProvider.notifier)
-                      .setThemeMode(value);
-                  if (sheetContext.mounted) {
-                    Navigator.pop(sheetContext);
-                  }
-                },
+                currentMode: currentMode,
+                label: 'Dark',
               ),
-              RadioListTile<ThemeMode>(
+              _buildThemeModeOption(
+                context: sheetContext,
+                ref: ref,
                 value: ThemeMode.system,
-                groupValue: currentMode,
-                title: const Text('System default'),
-                onChanged: (value) async {
-                  if (value == null) return;
-                  await ref
-                      .read(themeModeProvider.notifier)
-                      .setThemeMode(value);
-                  if (sheetContext.mounted) {
-                    Navigator.pop(sheetContext);
-                  }
-                },
+                currentMode: currentMode,
+                label: 'System default',
               ),
             ],
           ),
         );
+      },
+    );
+  }
+
+  Widget _buildThemeModeOption({
+    required BuildContext context,
+    required WidgetRef ref,
+    required ThemeMode value,
+    required ThemeMode currentMode,
+    required String label,
+  }) {
+    final selected = currentMode == value;
+    return ListTile(
+      title: Text(label),
+      trailing: selected
+          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+          : null,
+      onTap: () async {
+        await ref.read(themeModeProvider.notifier).setThemeMode(value);
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
       },
     );
   }
