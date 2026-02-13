@@ -37,6 +37,18 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
     accentSoft: AppTokens.accentSoft,
   );
 
+  static const AppThemeExtras dark = AppThemeExtras(
+    panel: Color(0xFF151515),
+    panelAlt: Color(0xFF1D1D1D),
+    border: Color(0xFF343434),
+    borderStrong: Color(0xFF5C5C5C),
+    muted: Color(0xFFB4B4B4),
+    success: Color(0xFF57B86D),
+    warning: Color(0xFFFFAE4C),
+    danger: Color(0xFFFF7878),
+    accentSoft: Color(0xFF4A2A10),
+  );
+
   @override
   AppThemeExtras copyWith({
     Color? panel,

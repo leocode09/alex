@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'providers/theme_mode_provider.dart';
 import 'routes.dart';
 import 'ui/themes/app_theme.dart';
 import 'ui/widgets/time_tamper_watcher.dart';
@@ -21,6 +22,7 @@ class POSApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return TimeTamperWatcher(
       child: WifiDirectSyncWatcher(
@@ -28,7 +30,8 @@ class POSApp extends ConsumerWidget {
           title: 'ALEX',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
-          themeMode: ThemeMode.light,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
           routerConfig: router,
         ),
       ),
