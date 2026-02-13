@@ -197,7 +197,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
               final subtitle = [
                 if (peer.address != null) peer.address!,
                 if (peer.status != null) 'Status: ${peer.status}',
-              ].join(' • ');
+              ].join(' - ');
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(peer.displayName),
@@ -506,7 +506,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(action.message),
                     subtitle: Text(
-                      '${action.deviceName} • ${_formatActionTimestamp(action.timestamp)}',
+                      '${action.deviceName} - ${_formatActionTimestamp(action.timestamp)}',
                     ),
                   ),
                 ),

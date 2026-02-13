@@ -25,7 +25,7 @@ class ProductDetailsPage extends ConsumerWidget {
     final salesAsync = ref.watch(salesProvider);
     final movementsAsync =
         ref.watch(productInventoryMovementsProvider(productId));
-    final dateFormatter = DateFormat('MMM d, yyyy • h:mm a');
+    final dateFormatter = DateFormat('MMM d, yyyy - h:mm a');
 
     return Scaffold(
       appBar: AppBar(
@@ -473,7 +473,7 @@ class ProductDetailsPage extends ConsumerWidget {
           final sale = saleEntry.sale;
           final item = saleEntry.item;
           final subtitle =
-              '${item.quantity} units • \$${item.price.toStringAsFixed(2)} each\n${dateFormatter.format(sale.createdAt.toLocal())} • Receipt #${_shortId(sale.id)}';
+              '${item.quantity} units - \$${item.price.toStringAsFixed(2)} each\n${dateFormatter.format(sale.createdAt.toLocal())} - Receipt #${_shortId(sale.id)}';
 
           return Column(
             children: [
@@ -531,7 +531,7 @@ class ProductDetailsPage extends ConsumerWidget {
           final deltaText = isIn ? '+${movement.delta}' : '${movement.delta}';
           final reasonText = _formatMovementReason(movement.reason);
           final subtitle =
-              '$reasonText • ${dateFormatter.format(movement.createdAt.toLocal())}\nStock: ${movement.stockBefore} → ${movement.stockAfter}';
+              '$reasonText - ${dateFormatter.format(movement.createdAt.toLocal())}\nStock: ${movement.stockBefore} -> ${movement.stockAfter}';
 
           return Column(
             children: [

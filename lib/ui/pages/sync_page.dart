@@ -129,7 +129,7 @@ class _SyncPageState extends State<SyncPage> {
                     syncProvider,
                     SyncStrategy.replace,
                     'Replace All',
-                    'Replace all data (⚠️ destructive)',
+                    'Replace all data (WARNING: destructive)',
                     Icons.swap_horiz,
                   ),
                 ],
@@ -904,7 +904,7 @@ class _SyncPageState extends State<SyncPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '💡 Recommended Solutions:',
+                  'Recommended Solutions:',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,

@@ -88,7 +88,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${sale.items.length} items • ${sale.paymentMethod}',
+                              '${sale.items.length} items - ${sale.paymentMethod}',
                               style: TextStyle(color: Colors.grey[600]),
                             ),
                             const SizedBox(height: 4),

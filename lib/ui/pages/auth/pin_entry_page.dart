@@ -176,7 +176,7 @@ class _PinEntryPageState extends State<PinEntryPage> {
           children: [
             const SizedBox(width: 80, height: 80), // Empty space
             _buildKeypadButton(_shuffledNumbers[9]),
-            _buildKeypadButton('⌫', isDelete: true),
+            _buildKeypadButton('DEL', isDelete: true),
           ],
         ),
       ],

@@ -5,18 +5,17 @@ import '../../../providers/pin_unlock_provider.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
+import '../../design_system/widgets/app_page_scaffold.dart';
+import '../../design_system/widgets/app_panel.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings',
-            style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
-      body: ListView(
+    return AppPageScaffold(
+      title: 'Settings',
+      child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _buildSectionHeader('General'),
@@ -245,13 +244,8 @@ class SettingsPage extends ConsumerWidget {
     IconData icon, {
     required VoidCallback onTap,
   }) {
-    return Container(
+    return AppPanel(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey[200]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
       child: ListTile(
         leading:
             Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
@@ -293,11 +287,11 @@ class SettingsPage extends ConsumerWidget {
         ),
         content: const Text(
           'This will permanently delete:\n\n'
-          '• All products\n'
-          '• All sales records\n'
-          '• All customers\n'
-          '• All settings\n'
-          '• Cart data\n\n'
+          '- All products\n'
+          '- All sales records\n'
+          '- All customers\n'
+          '- All settings\n'
+          '- Cart data\n\n'
           'This action cannot be undone!',
           style: TextStyle(height: 1.5),
         ),
@@ -398,4 +392,3 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 }
-
