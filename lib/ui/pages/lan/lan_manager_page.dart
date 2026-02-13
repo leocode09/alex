@@ -26,6 +26,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
   final TextEditingController _deviceNameController = TextEditingController();
   String _selectedDeviceFilter = _allDevicesFilter;
   LanActionTimeRange _selectedTimeRange = LanActionTimeRange.today;
+  bool _showAdvancedTools = false;
 
   @override
   void initState() {
@@ -55,30 +56,59 @@ class _LanManagerPageState extends State<LanManagerPage> {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('LAN Manager',
+            title: const Text('LAN Sharing',
                 style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildGroupTitle('Wi-Fi Direct'),
-              _buildStatusCard(context),
-              _buildPreferencesCard(context),
-              _buildControlsCard(context),
-              _buildPeersCard(context),
-              const SizedBox(height: 8),
-              _buildGroupTitle('Hotspot / LAN'),
+              _buildQuickStartCard(context),
               _buildLanStatusCard(context),
-              _buildLanDeviceNameCard(context),
-              _buildLanAddressesCard(context),
               _buildLanControlsCard(context),
               _buildLanPeersCard(context),
               _buildLanClientsCard(context),
-              _buildLanActionsCard(context),
+              _buildLanDeviceNameCard(context),
+              _buildAdvancedToggleCard(context),
+              if (_showAdvancedTools) ...[
+                _buildGroupTitle('Advanced Tools'),
+                _buildLanManualConnectCard(context),
+                _buildLanAddressesCard(context),
+                _buildLanActionsCard(context),
+                const SizedBox(height: 8),
+                _buildGroupTitle('Wi-Fi Direct (Advanced)'),
+                _buildStatusCard(context),
+                _buildPreferencesCard(context),
+                _buildControlsCard(context),
+                _buildPeersCard(context),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQuickStartCard(BuildContext context) {
+    return _card(
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick setup',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text('1. Connect both devices to the same Wi-Fi or hotspot.'),
+          SizedBox(height: 4),
+          Text('2. Tap "Start Sharing" on both devices.'),
+          SizedBox(height: 4),
+          Text('3. Wait for the device to appear, then sync.'),
+        ],
+      ),
     );
   }
 
@@ -217,23 +247,26 @@ class _LanManagerPageState extends State<LanManagerPage> {
 
   Widget _buildLanStatusCard(BuildContext context) {
     final status = _formatStatus(_lanService.status);
-    final running = _lanService.isRunning ? 'Running' : 'Stopped';
+    final running = _lanService.isRunning ? 'On' : 'Off';
     final connections = _lanService.connectedPeers.length;
+    final connectionSummary = connections == 1
+        ? '1 device connected'
+        : '$connections devices connected';
 
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('LAN Status'),
+          _sectionTitle('Connection Status'),
           const SizedBox(height: 8),
-          Text('State: $status'),
-          Text('LAN: $running'),
-          Text('Peers connected: $connections'),
+          Text('Sharing: $running'),
+          Text('Status: $status'),
+          Text(connectionSummary),
           if (_lanService.lastError != null) ...[
             const SizedBox(height: 8),
             Text(
-              _lanService.lastError!,
-              style: const TextStyle(color: Colors.red),
+              'Issue: ${_lanService.lastError!}',
+              style: const TextStyle(color: Colors.red, fontSize: 12),
             ),
           ],
         ],
@@ -246,16 +279,15 @@ class _LanManagerPageState extends State<LanManagerPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Device Name'),
+          _sectionTitle('Your Device Name'),
           const SizedBox(height: 8),
           TextField(
             controller: _deviceNameController,
             decoration: const InputDecoration(
-              labelText: 'Name this device',
-              hintText: 'Ex: Store Counter 1',
+              labelText: 'Device name',
+              hintText: 'Example: Counter 1',
               border: OutlineInputBorder(),
-              helperText:
-                  'Used to label sync actions on LAN and identify this device to peers.',
+              helperText: 'This is what other devices will see.',
             ),
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _saveDeviceName(context),
@@ -268,11 +300,11 @@ class _LanManagerPageState extends State<LanManagerPage> {
               ElevatedButton.icon(
                 onPressed: () => _saveDeviceName(context),
                 icon: const Icon(Icons.save),
-                label: const Text('Save Name'),
+                label: const Text('Save'),
               ),
               OutlinedButton(
                 onPressed: () => _resetDeviceName(context),
-                child: const Text('Reset Default'),
+                child: const Text('Use Default'),
               ),
             ],
           ),
@@ -287,17 +319,17 @@ class _LanManagerPageState extends State<LanManagerPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Local IP Addresses'),
+          _sectionTitle('Local IP Addresses (Advanced)'),
           const SizedBox(height: 8),
           if (addresses.isEmpty)
-            const Text('No IPs detected yet. Tap refresh.')
+            const Text('No IP addresses found yet.')
           else
             ...addresses.map((ip) => Text('$ip:${LanSyncService.tcpPort}')),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _lanService.refreshLocalAddresses,
             icon: const Icon(Icons.refresh),
-            label: const Text('Refresh IPs'),
+            label: const Text('Refresh'),
           ),
         ],
       ),
@@ -309,7 +341,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Controls'),
+          _sectionTitle('Main Actions'),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -319,12 +351,12 @@ class _LanManagerPageState extends State<LanManagerPage> {
                 onPressed:
                     _lanService.isRunning ? null : () => _lanService.start(),
                 icon: const Icon(Icons.wifi_tethering),
-                label: const Text('Start LAN'),
+                label: const Text('Start Sharing'),
               ),
               OutlinedButton.icon(
                 onPressed: _lanService.isRunning ? _lanService.stop : null,
                 icon: const Icon(Icons.stop),
-                label: const Text('Stop LAN'),
+                label: const Text('Stop'),
               ),
               OutlinedButton.icon(
                 onPressed: _lanService.isConnected
@@ -335,26 +367,69 @@ class _LanManagerPageState extends State<LanManagerPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _hostController,
-            decoration: const InputDecoration(
-              labelText: 'Host IP (optional)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: () => _lanService.connectToHost(_hostController.text),
-            icon: const Icon(Icons.link),
-            label: const Text('Connect'),
-          ),
           const SizedBox(height: 8),
           Text(
-            'Both devices must be on the same Wi-Fi or hotspot network.',
+            _lanService.isConnected
+                ? 'You can sync now.'
+                : 'Connect devices on the same Wi-Fi or hotspot, then wait for discovery.',
             style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLanManualConnectCard(BuildContext context) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('Manual Connect (Advanced)'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _hostController,
+            decoration: const InputDecoration(
+              labelText: 'Device IP address',
+              hintText: 'Example: 192.168.43.21',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _lanService.connectToHost(_hostController.text),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _lanService.connectToHost(_hostController.text),
+            icon: const Icon(Icons.link),
+            label: const Text('Connect by IP'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdvancedToggleCard(BuildContext context) {
+    return _card(
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.tune),
+        title: const Text('Advanced tools'),
+        subtitle: const Text(
+          'Show technical options like manual IP, logs, and Wi-Fi Direct.',
+        ),
+        trailing: IconButton(
+          onPressed: () {
+            setState(() {
+              _showAdvancedTools = !_showAdvancedTools;
+            });
+          },
+          icon: Icon(
+            _showAdvancedTools ? Icons.expand_less : Icons.expand_more,
+          ),
+          tooltip: _showAdvancedTools
+              ? 'Hide advanced tools'
+              : 'Show advanced tools',
+        ),
       ),
     );
   }
@@ -365,10 +440,10 @@ class _LanManagerPageState extends State<LanManagerPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Discovered Peers'),
+          _sectionTitle('Nearby Devices'),
           const SizedBox(height: 8),
           if (peers.isEmpty)
-            const Text('No LAN peers discovered yet.')
+            const Text('No nearby devices found yet.')
           else
             ...peers.map((peer) {
               final isConnected =
@@ -377,8 +452,15 @@ class _LanManagerPageState extends State<LanManagerPage> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(peer.name),
                 subtitle: Text('${peer.address.address}:${peer.port}'),
-                trailing:
-                    isConnected ? const Text('Connected') : const Text('Seen'),
+                trailing: isConnected
+                    ? const Text('Connected')
+                    : TextButton(
+                        onPressed: () => _lanService.connectToHost(
+                          peer.address.address,
+                          port: peer.port,
+                        ),
+                        child: const Text('Connect'),
+                      ),
               );
             }),
         ],
@@ -392,12 +474,19 @@ class _LanManagerPageState extends State<LanManagerPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Connected Peers'),
+          _sectionTitle('Connected Devices'),
           const SizedBox(height: 8),
           if (clients.isEmpty)
-            const Text('No LAN peers connected.')
+            const Text('No connected devices yet.')
           else
-            ...clients.map((client) => Text(client)),
+            ...clients.map(
+              (client) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: const Icon(Icons.devices, size: 18),
+                title: Text(client),
+              ),
+            ),
         ],
       ),
     );
@@ -423,7 +512,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Actions'),
+          _sectionTitle('Activity Log (Advanced)'),
           const SizedBox(height: 8),
           Wrap(
             spacing: 12,
@@ -461,7 +550,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
                 child: DropdownButtonFormField<LanActionTimeRange>(
                   initialValue: _selectedTimeRange,
                   decoration: const InputDecoration(
-                    labelText: 'Period',
+                    labelText: 'Time',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -496,7 +585,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
           const SizedBox(height: 8),
           if (filteredActions.isEmpty)
             Text(
-              'No actions match the selected filters.',
+              'No activity found for these filters.',
               style: TextStyle(color: Colors.grey[600]),
             )
           else
@@ -625,9 +714,9 @@ class _LanManagerPageState extends State<LanManagerPage> {
     return Text(
       title,
       style: const TextStyle(
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: FontWeight.bold,
-        letterSpacing: 0.8,
+        letterSpacing: 0.2,
       ),
     );
   }
