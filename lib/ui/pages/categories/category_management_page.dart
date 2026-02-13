@@ -10,17 +10,20 @@ class CategoryManagementPage extends ConsumerStatefulWidget {
   const CategoryManagementPage({super.key});
 
   @override
-  ConsumerState<CategoryManagementPage> createState() => _CategoryManagementPageState();
+  ConsumerState<CategoryManagementPage> createState() =>
+      _CategoryManagementPageState();
 }
 
-class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage> {
+class _CategoryManagementPageState
+    extends ConsumerState<CategoryManagementPage> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesListProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Categories', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Categories',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: false,
       ),
       floatingActionButton: FloatingActionButton(
@@ -48,7 +51,8 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: categories.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+            separatorBuilder: (_, __) =>
+                const Divider(height: 1, indent: 16, endIndent: 16),
             itemBuilder: (context, index) {
               final category = categories[index];
               return ListTile(
@@ -59,9 +63,11 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                     color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(_getIconData(category.icon), color: Colors.black87, size: 20),
+                  child: Icon(_getIconData(category.icon),
+                      color: Colors.black87, size: 20),
                 ),
-                title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                title: Text(category.name,
+                    style: const TextStyle(fontWeight: FontWeight.w500)),
                 subtitle: Text(
                   '${category.productCount} products',
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
@@ -70,13 +76,17 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                   icon: const Icon(Icons.more_vert, color: Colors.grey),
                   itemBuilder: (context) => [
                     const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                    const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete',
+                            style: TextStyle(color: Colors.red))),
                   ],
                   onSelected: (value) async {
                     if (value == 'edit') {
                       final allowed = await PinProtection.requirePinIfNeeded(
                         context,
-                        isRequired: () => PinService().isPinRequiredForEditCategory(),
+                        isRequired: () =>
+                            PinService().isPinRequiredForEditCategory(),
                         title: 'Edit Category',
                         subtitle: 'Enter PIN to edit a category',
                       );
@@ -86,7 +96,8 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                     } else if (value == 'delete') {
                       final allowed = await PinProtection.requirePinIfNeeded(
                         context,
-                        isRequired: () => PinService().isPinRequiredForDeleteCategory(),
+                        isRequired: () =>
+                            PinService().isPinRequiredForDeleteCategory(),
                         title: 'Delete Category',
                         subtitle: 'Enter PIN to delete a category',
                       );
@@ -108,29 +119,40 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
 
   IconData _getIconData(String? iconName) {
     switch (iconName) {
-      case 'local_cafe': return Icons.local_cafe;
-      case 'restaurant': return Icons.restaurant;
-      case 'home': return Icons.home;
-      case 'sports': return Icons.sports;
-      case 'devices': return Icons.devices;
-      case 'checkroom': return Icons.checkroom;
-      case 'local_grocery_store': return Icons.local_grocery_store;
-      case 'shopping_bag': return Icons.shopping_bag;
-      default: return Icons.category;
+      case 'local_cafe':
+        return Icons.local_cafe;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'home':
+        return Icons.home;
+      case 'sports':
+        return Icons.sports;
+      case 'devices':
+        return Icons.devices;
+      case 'checkroom':
+        return Icons.checkroom;
+      case 'local_grocery_store':
+        return Icons.local_grocery_store;
+      case 'shopping_bag':
+        return Icons.shopping_bag;
+      default:
+        return Icons.category;
     }
   }
 
   void _showAddEditDialog({Category? category}) {
     final isEditing = category != null;
     final nameController = TextEditingController(text: category?.name ?? '');
-    final descController = TextEditingController(text: category?.description ?? '');
+    final descController =
+        TextEditingController(text: category?.description ?? '');
     String selectedIcon = category?.icon ?? 'category';
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(isEditing ? 'Edit Category' : 'Add Category', style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(isEditing ? 'Edit Category' : 'Add Category',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -139,8 +161,10 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                   controller: nameController,
                   decoration: InputDecoration(
                     labelText: 'Name',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 16),
                   ),
                   textCapitalization: TextCapitalization.words,
                 ),
@@ -149,8 +173,10 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                   controller: descController,
                   decoration: InputDecoration(
                     labelText: 'Description (Optional)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 16),
                   ),
                   maxLines: 2,
                 ),
@@ -159,8 +185,10 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                   initialValue: selectedIcon,
                   decoration: InputDecoration(
                     labelText: 'Icon',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 16),
                   ),
                   items: [
                     _buildIconItem('category', 'Category', Icons.category),
@@ -170,8 +198,10 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                     _buildIconItem('checkroom', 'Clothing', Icons.checkroom),
                     _buildIconItem('devices', 'Electronics', Icons.devices),
                     _buildIconItem('sports', 'Sports', Icons.sports),
-                    _buildIconItem('local_grocery_store', 'Groceries', Icons.local_grocery_store),
-                    _buildIconItem('shopping_bag', 'Shopping', Icons.shopping_bag),
+                    _buildIconItem('local_grocery_store', 'Groceries',
+                        Icons.local_grocery_store),
+                    _buildIconItem(
+                        'shopping_bag', 'Shopping', Icons.shopping_bag),
                   ],
                   onChanged: (value) {
                     if (value != null) setState(() => selectedIcon = value);
@@ -190,14 +220,17 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
 
-                final exists = await ref.read(categoriesListProvider.notifier).categoryNameExists(
+                final exists = await ref
+                    .read(categoriesListProvider.notifier)
+                    .categoryNameExists(
                       name,
                       excludeId: category?.id,
                     );
                 if (exists) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Category name already exists')),
+                      const SnackBar(
+                          content: Text('Category name already exists')),
                     );
                   }
                   return;
@@ -206,7 +239,9 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                 final newCategory = Category(
                   id: category?.id ?? 'cat_${const Uuid().v4()}',
                   name: name,
-                  description: descController.text.trim().isEmpty ? null : descController.text.trim(),
+                  description: descController.text.trim().isEmpty
+                      ? null
+                      : descController.text.trim(),
                   icon: selectedIcon,
                   productCount: category?.productCount ?? 0,
                   createdAt: category?.createdAt,
@@ -214,20 +249,29 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
                 );
 
                 final success = isEditing
-                    ? await ref.read(categoriesListProvider.notifier).updateCategory(newCategory)
-                    : await ref.read(categoriesListProvider.notifier).addCategory(newCategory);
+                    ? await ref
+                        .read(categoriesListProvider.notifier)
+                        .updateCategory(newCategory)
+                    : await ref
+                        .read(categoriesListProvider.notifier)
+                        .addCategory(newCategory);
 
                 if (mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(success ? (isEditing ? 'Updated' : 'Added') : 'Failed'),
+                      content: Text(success
+                          ? (isEditing ? 'Updated' : 'Added')
+                          : 'Failed'),
                       backgroundColor: success ? Colors.green : Colors.red,
                     ),
                   );
                 }
               },
-              child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+              child: Text('Save',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary)),
             ),
           ],
         ),
@@ -235,7 +279,8 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
     );
   }
 
-  DropdownMenuItem<String> _buildIconItem(String value, String label, IconData icon) {
+  DropdownMenuItem<String> _buildIconItem(
+      String value, String label, IconData icon) {
     return DropdownMenuItem(
       value: value,
       child: Row(
@@ -251,7 +296,9 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
   void _confirmDelete(Category category) {
     if (category.productCount > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cannot delete category with ${category.productCount} products.')),
+        SnackBar(
+            content: Text(
+                'Cannot delete category with ${category.productCount} products.')),
       );
       return;
     }
@@ -268,11 +315,15 @@ class _CategoryManagementPageState extends ConsumerState<CategoryManagementPage>
           ),
           TextButton(
             onPressed: () async {
-              final success = await ref.read(categoriesListProvider.notifier).deleteCategory(category.id);
+              final success = await ref
+                  .read(categoriesListProvider.notifier)
+                  .deleteCategory(category.id);
               if (mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? 'Deleted' : 'Failed'), backgroundColor: success ? Colors.green : Colors.red),
+                  SnackBar(
+                      content: Text(success ? 'Deleted' : 'Failed'),
+                      backgroundColor: success ? Colors.green : Colors.red),
                 );
               }
             },

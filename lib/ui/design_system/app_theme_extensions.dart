@@ -75,7 +75,8 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
       panel: Color.lerp(panel, other.panel, t) ?? panel,
       panelAlt: Color.lerp(panelAlt, other.panelAlt, t) ?? panelAlt,
       border: Color.lerp(border, other.border, t) ?? border,
-      borderStrong: Color.lerp(borderStrong, other.borderStrong, t) ?? borderStrong,
+      borderStrong:
+          Color.lerp(borderStrong, other.borderStrong, t) ?? borderStrong,
       muted: Color.lerp(muted, other.muted, t) ?? muted,
       success: Color.lerp(success, other.success, t) ?? success,
       warning: Color.lerp(warning, other.warning, t) ?? warning,
@@ -86,5 +87,6 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
 }
 
 extension AppThemeExtrasX on BuildContext {
-  AppThemeExtras get appExtras => Theme.of(this).extension<AppThemeExtras>() ?? AppThemeExtras.light;
+  AppThemeExtras get appExtras =>
+      Theme.of(this).extension<AppThemeExtras>() ?? AppThemeExtras.light;
 }

@@ -127,7 +127,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppTokens.paperAlt,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         hintStyle: textTheme.bodyMedium?.copyWith(color: AppTokens.mutedText),
         labelStyle: textTheme.bodyMedium?.copyWith(color: AppTokens.mutedText),
         border: OutlineInputBorder(
@@ -140,7 +141,8 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTokens.radiusM),
-          borderSide: const BorderSide(color: AppTokens.accent, width: AppTokens.borderStrong),
+          borderSide: const BorderSide(
+              color: AppTokens.accent, width: AppTokens.borderStrong),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTokens.radiusM),
@@ -148,7 +150,8 @@ class AppTheme {
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTokens.radiusM),
-          borderSide: const BorderSide(color: AppTokens.danger, width: AppTokens.borderStrong),
+          borderSide: const BorderSide(
+              color: AppTokens.danger, width: AppTokens.borderStrong),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -184,7 +187,8 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppTokens.accent,
-          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          textStyle:
+              textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTokens.radiusS),
@@ -228,7 +232,8 @@ class AppTheme {
           return AppTokens.paper;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppTokens.accentSoft;
+          if (states.contains(WidgetState.selected))
+            return AppTokens.accentSoft;
           return AppTokens.line;
         }),
       ),
@@ -283,8 +288,10 @@ class AppTheme {
         elevation: 0,
         backgroundColor: AppTokens.paper,
         indicatorColor: AppTokens.accentSoft,
-        selectedIconTheme: const IconThemeData(color: AppTokens.accent, size: 22),
-        unselectedIconTheme: const IconThemeData(color: AppTokens.mutedText, size: 21),
+        selectedIconTheme:
+            const IconThemeData(color: AppTokens.accent, size: 22),
+        unselectedIconTheme:
+            const IconThemeData(color: AppTokens.mutedText, size: 21),
         selectedLabelTextStyle: textTheme.labelMedium?.copyWith(
           color: AppTokens.accent,
           fontWeight: FontWeight.w700,

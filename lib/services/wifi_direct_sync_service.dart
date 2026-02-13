@@ -18,8 +18,7 @@ class WifiDirectSyncService extends ChangeNotifier {
       WifiDirectSyncService._internal();
 
   static const MethodChannel _methodChannel = MethodChannel('wifi_direct');
-  static const EventChannel _eventChannel =
-      EventChannel('wifi_direct_events');
+  static const EventChannel _eventChannel = EventChannel('wifi_direct_events');
 
   final SyncService _syncService = SyncService();
   StreamSubscription? _subscription;
@@ -58,8 +57,7 @@ class WifiDirectSyncService extends ChangeNotifier {
   String get status => _status;
   String? get lastError => _lastError;
   List<WifiDirectPeer> get peers => List.unmodifiable(_peers);
-  List<WifiDirectPeer> get connectedPeers =>
-      List.unmodifiable(_connectedPeers);
+  List<WifiDirectPeer> get connectedPeers => List.unmodifiable(_connectedPeers);
   List<String> get logs => List.unmodifiable(_logs);
 
   Future<void> start({bool hostPreferred = false}) async {
@@ -89,10 +87,10 @@ class WifiDirectSyncService extends ChangeNotifier {
       _deviceName ??= await _getDeviceName();
 
       _subscription ??= _eventChannel.receiveBroadcastStream().listen(
-        _handleEvent,
-        onError: (err) =>
-            debugPrint('WifiDirect: event stream error: $err'),
-      );
+            _handleEvent,
+            onError: (err) =>
+                debugPrint('WifiDirect: event stream error: $err'),
+          );
 
       await _methodChannel.invokeMethod('startWifiDirect', {
         'host': hostPreferred,
@@ -310,7 +308,8 @@ class WifiDirectSyncService extends ChangeNotifier {
     final peerName = event['peerName']?.toString();
     if (peerId != null || peerName != null) {
       final exists = _connectedPeers.any(
-        (peer) => (peerId != null && peer.id == peerId) ||
+        (peer) =>
+            (peerId != null && peer.id == peerId) ||
             (peerName != null && peer.name == peerName),
       );
       if (!exists) {
@@ -323,8 +322,7 @@ class WifiDirectSyncService extends ChangeNotifier {
     }
     if (peerId != null) {
       final last = _peerSyncTimes[peerId];
-      if (last != null &&
-          DateTime.now().difference(last) < _peerSyncCooldown) {
+      if (last != null && DateTime.now().difference(last) < _peerSyncCooldown) {
         return;
       }
     }
@@ -361,8 +359,7 @@ class WifiDirectSyncService extends ChangeNotifier {
         final data = json['data'];
         SyncData? syncData;
         if (data is Map) {
-          syncData =
-              SyncData.fromJson(Map<String, dynamic>.from(data));
+          syncData = SyncData.fromJson(Map<String, dynamic>.from(data));
         } else if (data is String) {
           syncData = _syncService.jsonToSyncData(data);
         }

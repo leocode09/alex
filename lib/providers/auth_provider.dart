@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final authProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
+final authProvider =
+    StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
   return AuthNotifier();
 });
 
@@ -25,12 +26,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     try {
       // Simulate API call
       await Future.delayed(const Duration(seconds: 1));
-      
+
       // Save login status
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('userEmail', email);
-      
+
       state = const AsyncValue.data(true);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

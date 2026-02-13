@@ -46,12 +46,14 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                 itemBuilder: (context, index) {
                   final sale = sales[index];
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: InkWell(
                       onTap: () async {
                         final allowed = await PinProtection.requirePinIfNeeded(
                           context,
-                          isRequired: () => PinService().isPinRequiredForViewSalesHistory(),
+                          isRequired: () =>
+                              PinService().isPinRequiredForViewSalesHistory(),
                           title: 'Sales History',
                           subtitle: 'Enter PIN to view receipt',
                         );
@@ -64,7 +66,8 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ReceiptPreviewPage(sale: sale),
+                            builder: (context) =>
+                                ReceiptPreviewPage(sale: sale),
                           ),
                         );
                       },
@@ -78,11 +81,15 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                               children: [
                                 Text(
                                   '\$${sale.total.toStringAsFixed(2)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
                                 ),
                                 Text(
-                                  DateFormat('MMM d, HH:mm').format(sale.createdAt),
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                  DateFormat('MMM d, HH:mm')
+                                      .format(sale.createdAt),
+                                  style: TextStyle(
+                                      color: Colors.grey[600], fontSize: 12),
                                 ),
                               ],
                             ),
@@ -169,7 +176,7 @@ class _PrinterDialogState extends ConsumerState<PrinterDialog> {
   @override
   Widget build(BuildContext context) {
     final printerService = ref.watch(printerServiceProvider);
-    
+
     return AlertDialog(
       title: const Text('Select Printer'),
       content: SizedBox(
@@ -195,9 +202,11 @@ class _PrinterDialogState extends ConsumerState<PrinterDialog> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.bluetooth_disabled, size: 48, color: Colors.grey),
+                            const Icon(Icons.bluetooth_disabled,
+                                size: 48, color: Colors.grey),
                             const SizedBox(height: 16),
-                            Text('Bluetooth is ${stateSnapshot.data?.name ?? "unknown"}'),
+                            Text(
+                                'Bluetooth is ${stateSnapshot.data?.name ?? "unknown"}'),
                             if (stateSnapshot.data == BluetoothAdapterState.off)
                               TextButton(
                                 onPressed: _startScan,
@@ -212,13 +221,14 @@ class _PrinterDialogState extends ConsumerState<PrinterDialog> {
                       stream: printerService.scanResults,
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
-                          return const Center(child: CircularProgressIndicator());
+                          return const Center(
+                              child: CircularProgressIndicator());
                         }
-                        
+
                         final results = snapshot.data!
                             .where((r) => r.device.platformName.isNotEmpty)
                             .toList();
-                            
+
                         if (results.isEmpty) {
                           return Center(
                             child: Column(
@@ -250,7 +260,9 @@ class _PrinterDialogState extends ConsumerState<PrinterDialog> {
                                   if (mounted) Navigator.pop(context);
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Connected to ${device.platformName}')),
+                                      SnackBar(
+                                          content: Text(
+                                              'Connected to ${device.platformName}')),
                                     );
                                   }
                                 } catch (e) {

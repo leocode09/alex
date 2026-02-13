@@ -12,12 +12,13 @@ class PinService {
     return prefs.getBool(_pinSetKey) ?? false;
   }
 
-  Future<void> setPin(String pin, {
+  Future<void> setPin(
+    String pin, {
     // Auth & General
     bool requireOnLogin = true,
     bool requireOnSettings = false,
     bool requireOnDashboard = false,
-    
+
     // Products
     bool requireOnAddProduct = false,
     bool requireOnEditProduct = false,
@@ -25,7 +26,7 @@ class PinService {
     bool requireOnViewProductDetails = false,
     bool requireOnScanBarcode = false,
     bool requireOnAdjustStock = false,
-    
+
     // Sales
     bool requireOnCreateSale = false,
     bool requireOnViewSalesHistory = false,
@@ -33,44 +34,44 @@ class PinService {
     bool requireOnDeleteReceipt = false,
     bool requireOnApplyDiscount = false,
     bool requireOnIssueRefund = false,
-    
+
     // Categories
     bool requireOnAddCategory = false,
     bool requireOnEditCategory = false,
     bool requireOnDeleteCategory = false,
     bool requireOnViewCategories = false,
-    
+
     // Customers
     bool requireOnViewCustomers = false,
     bool requireOnAddCustomer = false,
     bool requireOnEditCustomer = false,
     bool requireOnDeleteCustomer = false,
-    
+
     // Employees
     bool requireOnViewEmployees = false,
     bool requireOnAddEmployee = false,
     bool requireOnEditEmployee = false,
     bool requireOnDeleteEmployee = false,
-    
+
     // Stores
     bool requireOnViewStores = false,
     bool requireOnAddStore = false,
     bool requireOnEditStore = false,
     bool requireOnDeleteStore = false,
-    
+
     // Reports & Analytics
     bool requireOnReports = false,
     bool requireOnViewFinancialReports = false,
     bool requireOnViewInventoryReports = false,
     bool requireOnExportReports = false,
-    
+
     // System & Data Management
     bool requireOnHardwareSetup = false,
     bool requireOnDataSync = false,
     bool requireOnClearAllData = true,
     bool requireOnManagePromotions = false,
     bool requireOnViewNotifications = false,
-    
+
     // Settings Subsections
     bool requireOnTaxSettings = false,
     bool requireOnReceiptSettings = false,
@@ -79,7 +80,7 @@ class PinService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pinKey, pin);
     await prefs.setBool(_pinSetKey, true);
-    
+
     // Store all preferences in a single JSON key
     final preferences = {
       'login': requireOnLogin,
@@ -126,7 +127,7 @@ class PinService {
       'receiptSettings': requireOnReceiptSettings,
       'changePin': requireOnChangePin,
     };
-    
+
     await prefs.setString(_pinPreferencesKey, jsonEncode(preferences));
   }
 
@@ -156,11 +157,11 @@ class PinService {
   Future<Map<String, bool>> _getPreferencesMap() async {
     final prefs = await SharedPreferences.getInstance();
     final prefsString = prefs.getString(_pinPreferencesKey);
-    
+
     if (prefsString == null) {
       return _getDefaultPreferences();
     }
-    
+
     try {
       final decoded = jsonDecode(prefsString) as Map<String, dynamic>;
       return decoded.map((key, value) => MapEntry(key, value as bool));
@@ -168,7 +169,7 @@ class PinService {
       return _getDefaultPreferences();
     }
   }
-  
+
   Map<String, bool> _getDefaultPreferences() {
     return {
       'login': true,

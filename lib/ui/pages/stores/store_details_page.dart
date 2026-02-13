@@ -64,7 +64,8 @@ class StoreDetailsPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppTokens.line),
                   ),
-                  child: const Icon(Icons.store_outlined, color: AppTokens.mutedText),
+                  child: const Icon(Icons.store_outlined,
+                      color: AppTokens.mutedText),
                 ),
                 const SizedBox(width: AppTokens.space2),
                 Expanded(
@@ -73,7 +74,10 @@ class StoreDetailsPage extends StatelessWidget {
                     children: [
                       Text(
                         store['name'] as String,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 6),
                       AppBadge(
@@ -114,7 +118,8 @@ class StoreDetailsPage extends StatelessWidget {
                 _buildDetailRow('Location', store['location'] as String),
                 _buildDetailRow('Address', store['address'] as String),
                 _buildDetailRow('Phone', store['phone'] as String),
-                _buildDetailRow('Manager', store['manager'] as String, isLast: true),
+                _buildDetailRow('Manager', store['manager'] as String,
+                    isLast: true),
               ],
             ),
           ),
@@ -123,9 +128,12 @@ class StoreDetailsPage extends StatelessWidget {
           AppPanel(
             child: Column(
               children: [
-                _buildActionTile(context, 'View Inventory', Icons.inventory_2_outlined),
-                _buildActionTile(context, 'View Employees', Icons.people_outline),
-                _buildActionTile(context, 'Sales History', Icons.history, isLast: true),
+                _buildActionTile(
+                    context, 'View Inventory', Icons.inventory_2_outlined),
+                _buildActionTile(
+                    context, 'View Employees', Icons.people_outline),
+                _buildActionTile(context, 'Sales History', Icons.history,
+                    isLast: true),
               ],
             ),
           ),
@@ -142,11 +150,13 @@ class StoreDetailsPage extends StatelessWidget {
           children: [
             SizedBox(
               width: 90,
-              child: Text(label, style: const TextStyle(color: AppTokens.mutedText)),
+              child: Text(label,
+                  style: const TextStyle(color: AppTokens.mutedText)),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(value,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -159,13 +169,15 @@ class StoreDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildActionTile(BuildContext context, String title, IconData icon, {bool isLast = false}) {
+  Widget _buildActionTile(BuildContext context, String title, IconData icon,
+      {bool isLast = false}) {
     return Column(
       children: [
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {},
         ),

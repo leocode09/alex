@@ -76,10 +76,13 @@ class CustomerProfilePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(customer['name'] as String, style: Theme.of(context).textTheme.titleLarge),
+                      Text(customer['name'] as String,
+                          style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 4),
-                      Text(customer['phone'] as String, style: const TextStyle(color: AppTokens.mutedText)),
-                      Text(customer['email'] as String, style: const TextStyle(color: AppTokens.mutedText)),
+                      Text(customer['phone'] as String,
+                          style: const TextStyle(color: AppTokens.mutedText)),
+                      Text(customer['email'] as String,
+                          style: const TextStyle(color: AppTokens.mutedText)),
                     ],
                   ),
                 ),
@@ -117,11 +120,17 @@ class CustomerProfilePage extends StatelessWidget {
                   children: [
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text('\$${purchase['amount']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('${purchase['items']} items', style: const TextStyle(color: AppTokens.mutedText, fontSize: 12)),
-                      trailing: Text(purchase['date'] as String, style: const TextStyle(color: AppTokens.mutedText, fontSize: 12)),
+                      title: Text('\$${purchase['amount']}',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text('${purchase['items']} items',
+                          style: const TextStyle(
+                              color: AppTokens.mutedText, fontSize: 12)),
+                      trailing: Text(purchase['date'] as String,
+                          style: const TextStyle(
+                              color: AppTokens.mutedText, fontSize: 12)),
                     ),
-                    if (index < recentPurchases.length - 1) const Divider(height: 1),
+                    if (index < recentPurchases.length - 1)
+                      const Divider(height: 1),
                   ],
                 );
               }).toList(),

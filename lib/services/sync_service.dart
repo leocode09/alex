@@ -20,8 +20,8 @@ import 'sync_event_bus.dart';
 
 enum SyncStrategy {
   replace, // Replace all data with incoming data
-  merge,   // Merge data, keeping newer items based on timestamp
-  append,  // Add new items without removing existing ones
+  merge, // Merge data, keeping newer items based on timestamp
+  append, // Add new items without removing existing ones
 }
 
 class SyncService {
@@ -38,7 +38,7 @@ class SyncService {
     try {
       final deviceInfo = DeviceInfoPlugin();
       String? deviceId;
-      
+
       // Try to get Android device ID
       try {
         final androidInfo = await deviceInfo.androidInfo;
@@ -53,7 +53,7 @@ class SyncService {
           deviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
         }
       }
-      
+
       return deviceId ?? 'unknown_device';
     } catch (e) {
       print('Error getting device ID: $e');
@@ -65,7 +65,7 @@ class SyncService {
   Future<SyncData> exportAllData() async {
     try {
       final deviceId = await getDeviceId();
-      
+
       final products = await _productRepo.getAllProducts();
       final categories = await _categoryRepo.getAllCategories();
       final customers = await _customerRepo.getAllCustomers();
@@ -96,7 +96,8 @@ class SyncService {
       final jsonString = jsonEncode(syncData.toJson());
       // Validate size (QR codes have limits)
       if (jsonString.length > 4000) {
-        print('Warning: QR data size is ${jsonString.length} bytes. May be too large for QR code.');
+        print(
+            'Warning: QR data size is ${jsonString.length} bytes. May be too large for QR code.');
       }
       return jsonString;
     } catch (e) {
@@ -149,31 +150,46 @@ class SyncService {
 
       switch (strategy) {
         case SyncStrategy.replace:
-          syncResult.productsImported = await _replaceProducts(incomingData.products);
-          syncResult.categoriesImported = await _replaceCategories(incomingData.categories);
-          syncResult.customersImported = await _replaceCustomers(incomingData.customers);
-          syncResult.employeesImported = await _replaceEmployees(incomingData.employees);
-          syncResult.expensesImported = await _replaceExpenses(incomingData.expenses);
+          syncResult.productsImported =
+              await _replaceProducts(incomingData.products);
+          syncResult.categoriesImported =
+              await _replaceCategories(incomingData.categories);
+          syncResult.customersImported =
+              await _replaceCustomers(incomingData.customers);
+          syncResult.employeesImported =
+              await _replaceEmployees(incomingData.employees);
+          syncResult.expensesImported =
+              await _replaceExpenses(incomingData.expenses);
           syncResult.salesImported = await _replaceSales(incomingData.sales);
           syncResult.storesImported = await _replaceStores(incomingData.stores);
           break;
 
         case SyncStrategy.merge:
-          syncResult.productsImported = await _mergeProducts(incomingData.products);
-          syncResult.categoriesImported = await _mergeCategories(incomingData.categories);
-          syncResult.customersImported = await _mergeCustomers(incomingData.customers);
-          syncResult.employeesImported = await _mergeEmployees(incomingData.employees);
-          syncResult.expensesImported = await _mergeExpenses(incomingData.expenses);
+          syncResult.productsImported =
+              await _mergeProducts(incomingData.products);
+          syncResult.categoriesImported =
+              await _mergeCategories(incomingData.categories);
+          syncResult.customersImported =
+              await _mergeCustomers(incomingData.customers);
+          syncResult.employeesImported =
+              await _mergeEmployees(incomingData.employees);
+          syncResult.expensesImported =
+              await _mergeExpenses(incomingData.expenses);
           syncResult.salesImported = await _mergeSales(incomingData.sales);
           syncResult.storesImported = await _mergeStores(incomingData.stores);
           break;
 
         case SyncStrategy.append:
-          syncResult.productsImported = await _appendProducts(incomingData.products);
-          syncResult.categoriesImported = await _appendCategories(incomingData.categories);
-          syncResult.customersImported = await _appendCustomers(incomingData.customers);
-          syncResult.employeesImported = await _appendEmployees(incomingData.employees);
-          syncResult.expensesImported = await _appendExpenses(incomingData.expenses);
+          syncResult.productsImported =
+              await _appendProducts(incomingData.products);
+          syncResult.categoriesImported =
+              await _appendCategories(incomingData.categories);
+          syncResult.customersImported =
+              await _appendCustomers(incomingData.customers);
+          syncResult.employeesImported =
+              await _appendEmployees(incomingData.employees);
+          syncResult.expensesImported =
+              await _appendExpenses(incomingData.expenses);
           syncResult.salesImported = await _appendSales(incomingData.sales);
           syncResult.storesImported = await _appendStores(incomingData.stores);
           break;
@@ -326,9 +342,7 @@ class SyncService {
 
   Future<int> _mergeSales(List<Sale> incomingSales) async {
     final existingSales = await _saleRepo.getAllSales();
-    final Map<String, Sale> saleMap = {
-      for (var s in existingSales) s.id: s
-    };
+    final Map<String, Sale> saleMap = {for (var s in existingSales) s.id: s};
 
     int imported = 0;
     for (var incoming in incomingSales) {
@@ -344,9 +358,7 @@ class SyncService {
 
   Future<int> _mergeStores(List<Store> incomingStores) async {
     final existingStores = await _storeRepo.getAllStores();
-    final Map<String, Store> storeMap = {
-      for (var s in existingStores) s.id: s
-    };
+    final Map<String, Store> storeMap = {for (var s in existingStores) s.id: s};
 
     int imported = 0;
     for (var incoming in incomingStores) {
@@ -366,8 +378,9 @@ class SyncService {
     final existingProducts = await _productRepo.getAllProducts();
     final existingIds = existingProducts.map((p) => p.id).toSet();
 
-    final newProducts = incomingProducts.where((p) => !existingIds.contains(p.id)).toList();
-    
+    final newProducts =
+        incomingProducts.where((p) => !existingIds.contains(p.id)).toList();
+
     if (newProducts.isNotEmpty) {
       existingProducts.addAll(newProducts);
       await _productRepo.replaceAllProducts(existingProducts);
@@ -380,8 +393,9 @@ class SyncService {
     final existingCategories = await _categoryRepo.getAllCategories();
     final existingIds = existingCategories.map((c) => c.id).toSet();
 
-    final newCategories = incomingCategories.where((c) => !existingIds.contains(c.id)).toList();
-    
+    final newCategories =
+        incomingCategories.where((c) => !existingIds.contains(c.id)).toList();
+
     if (newCategories.isNotEmpty) {
       existingCategories.addAll(newCategories);
       await _categoryRepo.replaceAllCategories(existingCategories);
@@ -394,8 +408,9 @@ class SyncService {
     final existingCustomers = await _customerRepo.getAllCustomers();
     final existingIds = existingCustomers.map((c) => c.id).toSet();
 
-    final newCustomers = incomingCustomers.where((c) => !existingIds.contains(c.id)).toList();
-    
+    final newCustomers =
+        incomingCustomers.where((c) => !existingIds.contains(c.id)).toList();
+
     if (newCustomers.isNotEmpty) {
       existingCustomers.addAll(newCustomers);
       await _customerRepo.replaceAllCustomers(existingCustomers);
@@ -408,8 +423,9 @@ class SyncService {
     final existingEmployees = await _employeeRepo.getAllEmployees();
     final existingIds = existingEmployees.map((e) => e.id).toSet();
 
-    final newEmployees = incomingEmployees.where((e) => !existingIds.contains(e.id)).toList();
-    
+    final newEmployees =
+        incomingEmployees.where((e) => !existingIds.contains(e.id)).toList();
+
     if (newEmployees.isNotEmpty) {
       existingEmployees.addAll(newEmployees);
       await _employeeRepo.replaceAllEmployees(existingEmployees);
@@ -422,9 +438,8 @@ class SyncService {
     final existingExpenses = await _expenseRepo.getAllExpenses();
     final existingIds = existingExpenses.map((e) => e.id).toSet();
 
-    final newExpenses = incomingExpenses
-        .where((e) => !existingIds.contains(e.id))
-        .toList();
+    final newExpenses =
+        incomingExpenses.where((e) => !existingIds.contains(e.id)).toList();
 
     if (newExpenses.isNotEmpty) {
       existingExpenses.addAll(newExpenses);
@@ -438,8 +453,9 @@ class SyncService {
     final existingSales = await _saleRepo.getAllSales();
     final existingIds = existingSales.map((s) => s.id).toSet();
 
-    final newSales = incomingSales.where((s) => !existingIds.contains(s.id)).toList();
-    
+    final newSales =
+        incomingSales.where((s) => !existingIds.contains(s.id)).toList();
+
     if (newSales.isNotEmpty) {
       existingSales.addAll(newSales);
       await _saleRepo.replaceAllSales(existingSales);
@@ -452,8 +468,9 @@ class SyncService {
     final existingStores = await _storeRepo.getAllStores();
     final existingIds = existingStores.map((s) => s.id).toSet();
 
-    final newStores = incomingStores.where((s) => !existingIds.contains(s.id)).toList();
-    
+    final newStores =
+        incomingStores.where((s) => !existingIds.contains(s.id)).toList();
+
     if (newStores.isNotEmpty) {
       existingStores.addAll(newStores);
       await _storeRepo.replaceAllStores(existingStores);

@@ -10,7 +10,9 @@ final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
 });
 
 // Categories list provider
-final categoriesListProvider = StateNotifierProvider<CategoriesNotifier, AsyncValue<List<Category>>>((ref) {
+final categoriesListProvider =
+    StateNotifierProvider<CategoriesNotifier, AsyncValue<List<Category>>>(
+        (ref) {
   return CategoriesNotifier(ref);
 });
 
@@ -31,16 +33,16 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<List<Category>>> {
     try {
       final repository = _ref.read(categoryRepositoryProvider);
       final productRepository = _ref.read(productRepositoryProvider);
-      
+
       final categories = await repository.getAllCategories();
       final products = await productRepository.getAllProducts();
-      
+
       // Update product count for each category
       final updatedCategories = categories.map((category) {
         final count = products.where((p) => p.category == category.name).length;
         return category.copyWith(productCount: count);
       }).toList();
-      
+
       state = AsyncValue.data(updatedCategories);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -103,7 +105,8 @@ final categoryNamesProvider = FutureProvider<List<String>>((ref) async {
 });
 
 // Single category provider
-final categoryProvider = FutureProvider.family<Category?, String>((ref, id) async {
+final categoryProvider =
+    FutureProvider.family<Category?, String>((ref, id) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(categoryRepositoryProvider);
   return await repository.getCategoryById(id);

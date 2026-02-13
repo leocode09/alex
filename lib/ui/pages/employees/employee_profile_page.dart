@@ -73,15 +73,18 @@ class EmployeeProfilePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(employee['name'] as String, style: Theme.of(context).textTheme.titleLarge),
+                      Text(employee['name'] as String,
+                          style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 4),
                       AppBadge(
                         label: employee['role'] as String,
                         tone: AppBadgeTone.accent,
                       ),
                       const SizedBox(height: 6),
-                      Text(employee['email'] as String, style: const TextStyle(color: AppTokens.mutedText)),
-                      Text(employee['phone'] as String, style: const TextStyle(color: AppTokens.mutedText)),
+                      Text(employee['email'] as String,
+                          style: const TextStyle(color: AppTokens.mutedText)),
+                      Text(employee['phone'] as String,
+                          style: const TextStyle(color: AppTokens.mutedText)),
                     ],
                   ),
                 ),
@@ -113,11 +116,14 @@ class EmployeeProfilePage extends StatelessWidget {
           AppPanel(
             child: Column(
               children: [
-                _buildPerformanceRow('Total Sales', '${employee['salesCount']}'),
+                _buildPerformanceRow(
+                    'Total Sales', '${employee['salesCount']}'),
                 const Divider(height: 1),
-                _buildPerformanceRow('Total Revenue', '\$${employee['totalSales']}'),
+                _buildPerformanceRow(
+                    'Total Revenue', '\$${employee['totalSales']}'),
                 const Divider(height: 1),
-                _buildPerformanceRow('Average/Day', '${(employee['salesCount'] as int) ~/ 30} sales'),
+                _buildPerformanceRow('Average/Day',
+                    '${(employee['salesCount'] as int) ~/ 30} sales'),
                 const Divider(height: 1),
                 _buildPerformanceRow('Joined', employee['joinDate'] as String),
               ],

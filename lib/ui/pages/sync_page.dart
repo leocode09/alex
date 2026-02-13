@@ -51,7 +51,7 @@ class _SyncPageState extends State<SyncPage> {
             } else if (syncProvider.isBusy) {
               return _buildLoadingView(context, syncProvider);
             }
-            
+
             return _buildInitialView(context, syncProvider);
           },
         ),
@@ -89,7 +89,7 @@ class _SyncPageState extends State<SyncPage> {
               ),
             ),
             const SizedBox(height: 48),
-            
+
             // Sync Strategy Selection
             Container(
               padding: const EdgeInsets.all(16),
@@ -135,9 +135,9 @@ class _SyncPageState extends State<SyncPage> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Generate QR Code Button
             SizedBox(
               width: double.infinity,
@@ -159,7 +159,7 @@ class _SyncPageState extends State<SyncPage> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Scan QR Code Button
             SizedBox(
               width: double.infinity,
@@ -195,7 +195,7 @@ class _SyncPageState extends State<SyncPage> {
     IconData icon,
   ) {
     final isSelected = syncProvider.selectedStrategy == strategy;
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -253,10 +253,11 @@ class _SyncPageState extends State<SyncPage> {
   }
 
   Widget _buildQRCodeView(BuildContext context, SyncProvider syncProvider) {
-    const int maxQrDataSize = 1200; // Safe limit for QR codes with L error correction
-    final bool isDataTooLarge = syncProvider.qrData != null && 
-                                syncProvider.qrData!.length > maxQrDataSize && 
-                                !syncProvider.hasMultipleChunks;
+    const int maxQrDataSize =
+        1200; // Safe limit for QR codes with L error correction
+    final bool isDataTooLarge = syncProvider.qrData != null &&
+        syncProvider.qrData!.length > maxQrDataSize &&
+        !syncProvider.hasMultipleChunks;
 
     return Center(
       child: SingleChildScrollView(
@@ -282,7 +283,7 @@ class _SyncPageState extends State<SyncPage> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Chunk Progress (if multiple chunks)
             if (syncProvider.hasMultipleChunks) ...[
               Text(
@@ -295,13 +296,14 @@ class _SyncPageState extends State<SyncPage> {
               ),
               const SizedBox(height: 8),
               LinearProgressIndicator(
-                value: (syncProvider.currentChunkIndex + 1) / syncProvider.totalChunks,
+                value: (syncProvider.currentChunkIndex + 1) /
+                    syncProvider.totalChunks,
                 backgroundColor: Colors.grey[300],
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
               ),
               const SizedBox(height: 24),
             ],
-            
+
             // QR Code or Error Message
             if (isDataTooLarge)
               _buildDataTooLargeWarning(context, syncProvider)
@@ -329,9 +331,9 @@ class _SyncPageState extends State<SyncPage> {
                   ),
                 ),
               ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Navigation buttons for multiple chunks
             if (syncProvider.hasMultipleChunks)
               Row(
@@ -366,15 +368,14 @@ class _SyncPageState extends State<SyncPage> {
                   ),
                 ],
               ),
-            
-            if (syncProvider.hasMultipleChunks)
-              const SizedBox(height: 24),
-            
+
+            if (syncProvider.hasMultipleChunks) const SizedBox(height: 24),
+
             // Stats
             _buildStatsCard(context, syncProvider),
-            
+
             const SizedBox(height: 24),
-            
+
             // Back Button
             SizedBox(
               width: double.infinity,
@@ -414,7 +415,7 @@ class _SyncPageState extends State<SyncPage> {
           controller: _scannerController,
           onDetect: (capture) {
             if (_isProcessingScan) return;
-            
+
             final List<Barcode> barcodes = capture.barcodes;
             for (final barcode in barcodes) {
               if (barcode.rawValue != null && !_isProcessingScan) {
@@ -425,7 +426,7 @@ class _SyncPageState extends State<SyncPage> {
             }
           },
         ),
-        
+
         // Overlay
         Container(
           decoration: BoxDecoration(
@@ -493,7 +494,8 @@ class _SyncPageState extends State<SyncPage> {
                             LinearProgressIndicator(
                               value: progress,
                               backgroundColor: Colors.white.withOpacity(0.3),
-                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.white),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -544,7 +546,7 @@ class _SyncPageState extends State<SyncPage> {
 
   Widget _buildSuccessView(BuildContext context, SyncProvider syncProvider) {
     final result = syncProvider.lastSyncResult!;
-    
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -573,7 +575,7 @@ class _SyncPageState extends State<SyncPage> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Import Details
             Container(
               padding: const EdgeInsets.all(16),
@@ -595,7 +597,7 @@ class _SyncPageState extends State<SyncPage> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -604,7 +606,8 @@ class _SyncPageState extends State<SyncPage> {
                 onPressed: () {
                   // Refresh product providers
                   if (context.mounted) {
-                    final container = riverpod.ProviderScope.containerOf(context);
+                    final container =
+                        riverpod.ProviderScope.containerOf(context);
                     container.invalidate(productsProvider);
                     container.invalidate(categoriesProvider);
                     container.invalidate(filteredProductsProvider);
@@ -709,7 +712,7 @@ class _SyncPageState extends State<SyncPage> {
 
   Widget _buildStatsCard(BuildContext context, SyncProvider syncProvider) {
     final stats = syncProvider.getSyncStats();
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -823,16 +826,18 @@ class _SyncPageState extends State<SyncPage> {
     );
   }
 
-  Future<void> _exportData(BuildContext context, SyncProvider syncProvider) async {
+  Future<void> _exportData(
+      BuildContext context, SyncProvider syncProvider) async {
     try {
       await syncProvider.exportData();
-      
+
       // Check if QR data size is reasonable
       if (syncProvider.dataSize > 4000) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Warning: Data size is large. QR code may be hard to scan. Consider syncing in smaller batches.'),
+              content: Text(
+                  'Warning: Data size is large. QR code may be hard to scan. Consider syncing in smaller batches.'),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 5),
             ),
@@ -857,9 +862,10 @@ class _SyncPageState extends State<SyncPage> {
     syncProvider.startScanning();
   }
 
-  Widget _buildDataTooLargeWarning(BuildContext context, SyncProvider syncProvider) {
+  Widget _buildDataTooLargeWarning(
+      BuildContext context, SyncProvider syncProvider) {
     final stats = syncProvider.getSyncStats();
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -927,7 +933,9 @@ class _SyncPageState extends State<SyncPage> {
                     'Remove unnecessary items or sync categories separately.',
                   ),
                 _buildSuggestion(
-                  stats['products'] > 50 || stats['sales'] > 100 ? '3. Use selective sync' : '2. Use selective sync',
+                  stats['products'] > 50 || stats['sales'] > 100
+                      ? '3. Use selective sync'
+                      : '2. Use selective sync',
                   'Sync only essential data like products and categories first.',
                 ),
               ],
@@ -949,7 +957,8 @@ class _SyncPageState extends State<SyncPage> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _showDataReductionDialog(context, syncProvider),
+                  onPressed: () =>
+                      _showDataReductionDialog(context, syncProvider),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade700,
                     foregroundColor: Colors.white,
@@ -1002,9 +1011,10 @@ class _SyncPageState extends State<SyncPage> {
     );
   }
 
-  void _showDataReductionDialog(BuildContext context, SyncProvider syncProvider) {
+  void _showDataReductionDialog(
+      BuildContext context, SyncProvider syncProvider) {
     final stats = syncProvider.getSyncStats();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1041,7 +1051,8 @@ class _SyncPageState extends State<SyncPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                        Icon(Icons.info_outline,
+                            size: 20, color: Colors.blue.shade700),
                         const SizedBox(width: 8),
                         const Text(
                           'Tip',
@@ -1116,7 +1127,7 @@ class _SyncPageState extends State<SyncPage> {
 
       // Import the data
       await syncProvider.importData(code);
-      
+
       // If still in scanning mode (collecting chunks), restart scanner
       if (mounted && syncProvider.isScanning) {
         _isProcessingScan = false;
@@ -1127,7 +1138,8 @@ class _SyncPageState extends State<SyncPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to import data: ${e.toString().contains('FormatException') ? 'Invalid QR code format' : e.toString()}'),
+            content: Text(
+                'Failed to import data: ${e.toString().contains('FormatException') ? 'Invalid QR code format' : e.toString()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),

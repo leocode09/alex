@@ -7,7 +7,7 @@ import 'ui/widgets/wifi_direct_sync_watcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   runApp(
     const ProviderScope(
       child: POSApp(),
@@ -21,7 +21,7 @@ class POSApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    
+
     return TimeTamperWatcher(
       child: WifiDirectSyncWatcher(
         child: MaterialApp.router(

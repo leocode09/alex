@@ -99,7 +99,8 @@ class _PromotionsPageState extends State<PromotionsPage> {
                   const SizedBox(height: 4),
                   Text(
                     promo['description'] as String,
-                    style: const TextStyle(color: AppTokens.mutedText, fontSize: 12),
+                    style: const TextStyle(
+                        color: AppTokens.mutedText, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                   Wrap(

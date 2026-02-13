@@ -11,12 +11,12 @@ class CategoryRepository {
     try {
       final jsonData = await _storage.getData(_categoriesKey);
       if (jsonData == null) return _getDefaultCategories();
-      
+
       final List<dynamic> decoded = jsonDecode(jsonData);
       if (decoded.isEmpty) return _getDefaultCategories();
-      
+
       final categories = decoded.map((json) => Category.fromMap(json)).toList();
-      
+
       // Sort by name
       categories.sort((a, b) => a.name.compareTo(b.name));
       return categories;
@@ -110,9 +110,9 @@ class CategoryRepository {
   Future<bool> updateCategory(Category category) async {
     final categories = await getAllCategories();
     final index = categories.indexWhere((c) => c.id == category.id);
-    
+
     if (index == -1) return false;
-    
+
     categories[index] = category;
     return await _saveCategories(categories);
   }

@@ -3,7 +3,8 @@ import '../services/pin_service.dart';
 import '../ui/pages/auth/pin_entry_page.dart';
 
 class PinProtection {
-  static Future<bool> requirePin(BuildContext context, {
+  static Future<bool> requirePin(
+    BuildContext context, {
     String title = 'Authentication Required',
     String subtitle = 'Enter your PIN to continue',
   }) async {

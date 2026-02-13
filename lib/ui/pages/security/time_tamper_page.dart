@@ -126,7 +126,8 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
                         decoration: BoxDecoration(
                           color: AppTokens.accentSoft,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Theme.of(context).colorScheme.primary),
+                          border: Border.all(
+                              color: Theme.of(context).colorScheme.primary),
                         ),
                         child: Text(
                           'DANGER',

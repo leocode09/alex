@@ -24,7 +24,7 @@ class SyncProvider extends ChangeNotifier {
   String? _qrData;
   int _dataSize = 0;
   SyncStrategy _selectedStrategy = SyncStrategy.merge;
-  
+
   // Chunking support
   List<SyncChunk> _chunks = [];
   int _currentChunkIndex = 0;
@@ -40,18 +40,21 @@ class SyncProvider extends ChangeNotifier {
   int get dataSize => _dataSize;
   SyncStrategy get selectedStrategy => _selectedStrategy;
   String get dataSizeFormatted => _syncService.formatDataSize(_dataSize);
-  
+
   // Chunking getters
   List<SyncChunk> get chunks => _chunks;
   int get currentChunkIndex => _currentChunkIndex;
   int get totalChunks => _chunks.length;
   bool get hasMultipleChunks => _chunks.length > 1;
   List<SyncChunk> get receivedChunks => _receivedChunks;
-  double get scanProgress => _currentSessionId != null && _receivedChunks.isNotEmpty
-      ? _chunkingService.getProgress(_receivedChunks, _receivedChunks.first.totalChunks)
+  double get scanProgress => _currentSessionId != null &&
+          _receivedChunks.isNotEmpty
+      ? _chunkingService.getProgress(
+          _receivedChunks, _receivedChunks.first.totalChunks)
       : 0.0;
   int get receivedChunkCount => _receivedChunks.length;
-  int get expectedChunkCount => _receivedChunks.isNotEmpty ? _receivedChunks.first.totalChunks : 0;
+  int get expectedChunkCount =>
+      _receivedChunks.isNotEmpty ? _receivedChunks.first.totalChunks : 0;
 
   bool get isIdle => _mode == SyncMode.idle;
   bool get isExporting => _mode == SyncMode.exporting;
@@ -79,22 +82,23 @@ class SyncProvider extends ChangeNotifier {
 
       // Export all data
       _currentSyncData = await _syncService.exportAllData();
-      
+
       // Check if data is empty
       if (_currentSyncData!.isEmpty) {
         _mode = SyncMode.error;
-        _errorMessage = 'No data to sync. Please add some products, sales, or other data first.';
+        _errorMessage =
+            'No data to sync. Please add some products, sales, or other data first.';
         notifyListeners();
         return;
       }
-      
+
       // Convert to JSON
       final jsonString = _syncService.syncDataToJson(_currentSyncData!);
       _dataSize = _syncService.calculateDataSize(_currentSyncData!);
 
       // Chunk the data
       _chunks = _chunkingService.chunkData(jsonString);
-      
+
       // Set current QR data to first chunk
       if (_chunks.isNotEmpty) {
         _qrData = _chunks[0].toJsonString();
@@ -182,7 +186,7 @@ class SyncProvider extends ChangeNotifier {
 
     // Parse the scanned data
     final syncData = _syncService.jsonToSyncData(qrDataString);
-    
+
     // Validate parsed data
     if (syncData.isEmpty) {
       _mode = SyncMode.error;
@@ -190,7 +194,7 @@ class SyncProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    
+
     // Import with selected strategy
     final result = await _syncService.importData(
       syncData,
@@ -207,21 +211,21 @@ class SyncProvider extends ChangeNotifier {
       _mode = SyncMode.error;
       _errorMessage = result.message;
     }
-    
+
     notifyListeners();
   }
 
   /// Import merged chunk data
   Future<void> _importMergedData(String mergedData) async {
     final syncData = _syncService.jsonToSyncData(mergedData);
-    
+
     if (syncData.isEmpty) {
       _mode = SyncMode.error;
       _errorMessage = 'The merged data contains no items to import.';
       notifyListeners();
       return;
     }
-    
+
     final result = await _syncService.importData(
       syncData,
       strategy: _selectedStrategy,
@@ -237,7 +241,7 @@ class SyncProvider extends ChangeNotifier {
       _mode = SyncMode.error;
       _errorMessage = result.message;
     }
-      
+
     notifyListeners();
   }
 

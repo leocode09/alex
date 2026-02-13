@@ -11,10 +11,10 @@ class StoreRepository {
     try {
       final jsonData = await _storage.getData(_storesKey);
       if (jsonData == null) return [];
-      
+
       final List<dynamic> decoded = jsonDecode(jsonData);
       final stores = decoded.map((json) => Store.fromMap(json)).toList();
-      
+
       // Sort by name
       stores.sort((a, b) => a.name.compareTo(b.name));
       return stores;

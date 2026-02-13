@@ -25,7 +25,8 @@ class DashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Dashboard',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: false,
         actions: [
           IconButton(
@@ -33,7 +34,8 @@ class DashboardPage extends ConsumerWidget {
             onPressed: () async {
               if (await PinProtection.requirePinIfNeeded(
                 context,
-                isRequired: () => PinService().isPinRequiredForViewNotifications(),
+                isRequired: () =>
+                    PinService().isPinRequiredForViewNotifications(),
                 title: 'Notifications',
                 subtitle: 'Enter PIN to view notifications',
               )) {
@@ -72,16 +74,20 @@ class DashboardPage extends ConsumerWidget {
                   Expanded(
                     child: todaysRevenueAsync.when(
                       data: (todaysRevenue) {
-                        final yesterdaysRevenue = yesterdaysRevenueAsync.value ?? 0.0;
+                        final yesterdaysRevenue =
+                            yesterdaysRevenueAsync.value ?? 0.0;
                         final trend = yesterdaysRevenue > 0
-                            ? ((todaysRevenue - yesterdaysRevenue) / yesterdaysRevenue * 100)
+                            ? ((todaysRevenue - yesterdaysRevenue) /
+                                yesterdaysRevenue *
+                                100)
                             : 0.0;
                         return _buildMetricCard(
                           context,
                           title: 'Today\'s Sales',
                           value: '\$${_formatNumber(todaysRevenue)}',
                           unit: '',
-                          trend: '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
+                          trend:
+                              '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
                           trendPositive: trend >= 0,
                         );
                       },
@@ -107,7 +113,8 @@ class DashboardPage extends ConsumerWidget {
                   Expanded(
                     child: todaysSalesCountAsync.when(
                       data: (todaysSalesCount) {
-                        final yesterdaysSalesCount = yesterdaysSalesCountAsync.value ?? 0;
+                        final yesterdaysSalesCount =
+                            yesterdaysSalesCountAsync.value ?? 0;
                         final diff = todaysSalesCount - yesterdaysSalesCount;
                         final trend = yesterdaysSalesCount > 0
                             ? ((diff / yesterdaysSalesCount) * 100)
@@ -117,7 +124,8 @@ class DashboardPage extends ConsumerWidget {
                           title: 'Transactions',
                           value: '$todaysSalesCount',
                           unit: '',
-                          trend: '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
+                          trend:
+                              '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
                           trendPositive: trend >= 0,
                         );
                       },
@@ -147,16 +155,20 @@ class DashboardPage extends ConsumerWidget {
                   Expanded(
                     child: weeklyRevenueAsync.when(
                       data: (weeklyRevenue) {
-                        final lastWeekRevenue = lastWeekRevenueAsync.value ?? 0.0;
+                        final lastWeekRevenue =
+                            lastWeekRevenueAsync.value ?? 0.0;
                         final trend = lastWeekRevenue > 0
-                            ? ((weeklyRevenue - lastWeekRevenue) / lastWeekRevenue * 100)
+                            ? ((weeklyRevenue - lastWeekRevenue) /
+                                lastWeekRevenue *
+                                100)
                             : 0.0;
                         return _buildMetricCard(
                           context,
                           title: 'Weekly Sales',
                           value: '\$${_formatNumber(weeklyRevenue)}',
                           unit: '',
-                          trend: '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
+                          trend:
+                              '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(0)}%',
                           trendPositive: trend >= 0,
                         );
                       },
@@ -234,7 +246,8 @@ class DashboardPage extends ConsumerWidget {
                       onTap: () async {
                         if (await PinProtection.requirePinIfNeeded(
                           context,
-                          isRequired: () => PinService().isPinRequiredForCreateSale(),
+                          isRequired: () =>
+                              PinService().isPinRequiredForCreateSale(),
                           title: 'New Sale',
                           subtitle: 'Enter PIN to create a sale',
                         )) {
@@ -252,7 +265,8 @@ class DashboardPage extends ConsumerWidget {
                       onTap: () async {
                         if (await PinProtection.requirePinIfNeeded(
                           context,
-                          isRequired: () => PinService().isPinRequiredForAddProduct(),
+                          isRequired: () =>
+                              PinService().isPinRequiredForAddProduct(),
                           title: 'Add Product',
                           subtitle: 'Enter PIN to add a product',
                         )) {
@@ -270,7 +284,8 @@ class DashboardPage extends ConsumerWidget {
                       onTap: () async {
                         if (await PinProtection.requirePinIfNeeded(
                           context,
-                          isRequired: () => PinService().isPinRequiredForViewCustomers(),
+                          isRequired: () =>
+                              PinService().isPinRequiredForViewCustomers(),
                           title: 'Customers',
                           subtitle: 'Enter PIN to view customers',
                         )) {
@@ -288,7 +303,8 @@ class DashboardPage extends ConsumerWidget {
                       onTap: () async {
                         if (await PinProtection.requirePinIfNeeded(
                           context,
-                          isRequired: () => PinService().isPinRequiredForReports(),
+                          isRequired: () =>
+                              PinService().isPinRequiredForReports(),
                           title: 'Reports Access',
                           subtitle: 'Enter PIN to view reports',
                         )) {
@@ -323,18 +339,23 @@ class DashboardPage extends ConsumerWidget {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.warning_amber_rounded, color: Colors.orange[800], size: 20),
+                              Icon(Icons.warning_amber_rounded,
+                                  color: Colors.orange[800], size: 20),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'Low Stock: ${lowStockProducts.length} items need restocking',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
                                         color: Colors.orange[800],
                                         fontWeight: FontWeight.w500,
                                       ),
                                 ),
                               ),
-                              Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orange[800]),
+                              Icon(Icons.arrow_forward_ios,
+                                  size: 14, color: Colors.orange[800]),
                             ],
                           ),
                         ),
@@ -348,7 +369,8 @@ class DashboardPage extends ConsumerWidget {
               ),
 
               // Top Products
-              _buildSectionHeader(context, 'Top Selling Products', () => context.push('/products')),
+              _buildSectionHeader(context, 'Top Selling Products',
+                  () => context.push('/products')),
               const SizedBox(height: 12),
               topSellingProductsAsync.when(
                 data: (topProducts) {
@@ -377,7 +399,7 @@ class DashboardPage extends ConsumerWidget {
                   }
 
                   final topProductsList = topProducts.entries.take(3).toList();
-                  
+
                   return Container(
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey[200]!),
@@ -533,7 +555,8 @@ class DashboardPage extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey[200]!),
               ),
-              child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
+              child: Icon(icon,
+                  color: Theme.of(context).colorScheme.primary, size: 24),
             ),
             const SizedBox(height: 8),
             Text(
@@ -548,7 +571,8 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  static Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
+  static Widget _buildSectionHeader(
+      BuildContext context, String title, VoidCallback onViewAll) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -599,7 +623,10 @@ class DashboardPage extends ConsumerWidget {
                 Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
                 Text(
                   '$sales sales',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Colors.grey[500]),
                 ),
               ],
             ),

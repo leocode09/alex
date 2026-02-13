@@ -18,9 +18,24 @@ class _CustomerListPageState extends State<CustomerListPage> {
   final _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> _customers = [
-    {'id': '1', 'name': 'John Doe', 'purchases': 12, 'phone': '+250 788 123 456'},
-    {'id': '2', 'name': 'Mary Jane', 'purchases': 4, 'phone': '+250 788 234 567'},
-    {'id': '3', 'name': 'Peter Smith', 'purchases': 8, 'phone': '+250 788 345 678'},
+    {
+      'id': '1',
+      'name': 'John Doe',
+      'purchases': 12,
+      'phone': '+250 788 123 456'
+    },
+    {
+      'id': '2',
+      'name': 'Mary Jane',
+      'purchases': 4,
+      'phone': '+250 788 234 567'
+    },
+    {
+      'id': '3',
+      'name': 'Peter Smith',
+      'purchases': 8,
+      'phone': '+250 788 345 678'
+    },
   ];
 
   @override
@@ -55,7 +70,8 @@ class _CustomerListPageState extends State<CustomerListPage> {
             child: ListView.separated(
               padding: const EdgeInsets.only(bottom: 80),
               itemCount: _customers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: AppTokens.space2),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppTokens.space2),
               itemBuilder: (context, index) {
                 final customer = _customers[index];
                 return AppPanel(
@@ -63,7 +79,8 @@ class _CustomerListPageState extends State<CustomerListPage> {
                     onTap: () async {
                       if (await PinProtection.requirePinIfNeeded(
                         context,
-                        isRequired: () => PinService().isPinRequiredForViewCustomers(),
+                        isRequired: () =>
+                            PinService().isPinRequiredForViewCustomers(),
                         title: 'Customer Details',
                         subtitle: 'Enter PIN to view customer details',
                       )) {
@@ -83,10 +100,12 @@ class _CustomerListPageState extends State<CustomerListPage> {
                         ),
                       ),
                     ),
-                    title: Text(customer['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(customer['name'] as String,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
                       '${customer['purchases']} purchases - ${customer['phone']}',
-                      style: const TextStyle(color: AppTokens.mutedText, fontSize: 12),
+                      style: const TextStyle(
+                          color: AppTokens.mutedText, fontSize: 12),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                   ),
@@ -106,7 +125,8 @@ class _CustomerListPageState extends State<CustomerListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Customer', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Add Customer',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -138,7 +158,10 @@ class _CustomerListPageState extends State<CustomerListPage> {
                 const SnackBar(content: Text('Customer added')),
               );
             },
-            child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+            child: Text('Save',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),

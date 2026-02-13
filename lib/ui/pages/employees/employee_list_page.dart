@@ -18,7 +18,12 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
   final List<Map<String, dynamic>> _employees = [
     {'id': '1', 'name': 'Alice Johnson', 'role': 'Cashier', 'status': 'Active'},
     {'id': '2', 'name': 'Bob Smith', 'role': 'Manager', 'status': 'Active'},
-    {'id': '3', 'name': 'Charlie Brown', 'role': 'Stock Clerk', 'status': 'Active'},
+    {
+      'id': '3',
+      'name': 'Charlie Brown',
+      'role': 'Stock Clerk',
+      'status': 'Active'
+    },
   ];
 
   @override
@@ -52,7 +57,8 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
               onTap: () async {
                 if (await PinProtection.requirePinIfNeeded(
                   context,
-                  isRequired: () => PinService().isPinRequiredForViewEmployees(),
+                  isRequired: () =>
+                      PinService().isPinRequiredForViewEmployees(),
                   title: 'Employee Details',
                   subtitle: 'Enter PIN to view employee details',
                 )) {
@@ -66,11 +72,16 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
                 backgroundColor: AppTokens.paperAlt,
                 child: Text(
                   employee['name'].toString().substring(0, 1),
-                  style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
-              title: Text(employee['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(employee['role'] as String, style: const TextStyle(color: AppTokens.mutedText, fontSize: 12)),
+              title: Text(employee['name'] as String,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(employee['role'] as String,
+                  style: const TextStyle(
+                      color: AppTokens.mutedText, fontSize: 12)),
               trailing: AppBadge(
                 label: employee['status'] as String,
                 tone: AppBadgeTone.success,
@@ -90,7 +101,8 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Employee', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Add Employee',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         content: StatefulBuilder(
           builder: (context, setState) {
             return Column(
@@ -111,7 +123,8 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
                   initialValue: selectedRole,
                   decoration: const InputDecoration(labelText: 'Role'),
                   items: ['Cashier', 'Manager', 'Stock Clerk', 'Admin']
-                      .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                      .map((role) =>
+                          DropdownMenuItem(value: role, child: Text(role)))
                       .toList(),
                   onChanged: (value) {
                     if (value != null) setState(() => selectedRole = value);
@@ -133,7 +146,10 @@ class _EmployeeListPageState extends State<EmployeeListPage> {
                 const SnackBar(content: Text('Employee added')),
               );
             },
-            child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+            child: Text('Save',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),

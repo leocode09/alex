@@ -57,7 +57,8 @@ class MainScaffold extends StatelessWidget {
               width: extendedRail ? 224 : 88,
               decoration: const BoxDecoration(
                 color: AppTokens.paper,
-                border: Border(right: BorderSide(color: AppTokens.line, width: 1)),
+                border:
+                    Border(right: BorderSide(color: AppTokens.line, width: 1)),
               ),
               child: NavigationRail(
                 selectedIndex: currentIndex,
@@ -66,7 +67,9 @@ class MainScaffold extends StatelessWidget {
                 elevation: 0,
                 minWidth: 88,
                 minExtendedWidth: 224,
-                labelType: extendedRail ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+                labelType: extendedRail
+                    ? NavigationRailLabelType.none
+                    : NavigationRailLabelType.all,
                 useIndicator: true,
                 destinations: _railDestinations(),
               ),

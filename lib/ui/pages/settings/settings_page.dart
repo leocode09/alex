@@ -103,7 +103,8 @@ class SettingsPage extends ConsumerWidget {
             onTap: () async {
               if (await PinProtection.requirePinIfNeeded(
                 context,
-                isRequired: () => PinService().isPinRequiredForManagePromotions(),
+                isRequired: () =>
+                    PinService().isPinRequiredForManagePromotions(),
                 title: 'Promotions',
                 subtitle: 'Enter PIN to manage promotions',
               )) {
@@ -166,7 +167,8 @@ class SettingsPage extends ConsumerWidget {
             onTap: () async {
               if (await PinProtection.requirePinIfNeeded(
                 context,
-                isRequired: () => PinService().isPinRequiredForViewNotifications(),
+                isRequired: () =>
+                    PinService().isPinRequiredForViewNotifications(),
                 title: 'Notifications',
                 subtitle: 'Enter PIN to view notifications',
               )) {
@@ -278,76 +280,76 @@ class SettingsPage extends ConsumerWidget {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Clear All Data?'),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Clear All Data?'),
+            ],
+          ),
+          content: const Text(
+            'This will permanently delete:\n\n'
+            '- All products\n'
+            '- All sales records\n'
+            '- All customers\n'
+            '- All settings\n'
+            '- Cart data\n\n'
+            'This action cannot be undone!',
+            style: TextStyle(height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                // Show loading
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+
+                try {
+                  final storage = StorageHelper();
+                  await storage.clearAll();
+
+                  if (context.mounted) {
+                    Navigator.pop(context); // Close loading
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('All data cleared successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    // Navigate to home to refresh
+                    context.go('/');
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Navigator.pop(context); // Close loading
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error clearing data: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Clear All Data'),
+            ),
           ],
         ),
-        content: const Text(
-          'This will permanently delete:\n\n'
-          '- All products\n'
-          '- All sales records\n'
-          '- All customers\n'
-          '- All settings\n'
-          '- Cart data\n\n'
-          'This action cannot be undone!',
-          style: TextStyle(height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // Show loading
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-
-              try {
-                final storage = StorageHelper();
-                await storage.clearAll();
-
-                if (context.mounted) {
-                  Navigator.pop(context); // Close loading
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('All data cleared successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  // Navigate to home to refresh
-                  context.go('/');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.pop(context); // Close loading
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error clearing data: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Clear All Data'),
-          ),
-        ],
-      ),
-    );
+      );
     });
   }
 

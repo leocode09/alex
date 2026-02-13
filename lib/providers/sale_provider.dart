@@ -54,7 +54,8 @@ final totalSalesCountProvider = FutureProvider<int>((ref) async {
 });
 
 // Top selling products provider
-final topSellingProductsProvider = FutureProvider<Map<String, int>>((ref) async {
+final topSellingProductsProvider =
+    FutureProvider<Map<String, int>>((ref) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(saleRepositoryProvider);
   return await repository.getTopSellingProducts(limit: 10);

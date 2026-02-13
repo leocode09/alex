@@ -79,8 +79,13 @@ class NotificationsPage extends StatelessWidget {
                           Expanded(
                             child: Text(
                               notification['title'] as String,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: isRead ? FontWeight.w600 : FontWeight.w700,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: isRead
+                                        ? FontWeight.w600
+                                        : FontWeight.w700,
                                   ),
                             ),
                           ),
@@ -107,7 +112,8 @@ class NotificationsPage extends StatelessWidget {
                           ),
                           if (!isRead) ...[
                             const SizedBox(width: 8),
-                            const AppBadge(label: 'Unread', tone: AppBadgeTone.accent),
+                            const AppBadge(
+                                label: 'Unread', tone: AppBadgeTone.accent),
                           ],
                         ],
                       ),

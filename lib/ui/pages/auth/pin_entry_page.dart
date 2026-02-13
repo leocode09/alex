@@ -109,7 +109,9 @@ class _PinEntryPageState extends State<PinEntryPage> {
               Icon(
                 Icons.lock_outline,
                 size: 80,
-                color: _isError ? Colors.red : Theme.of(context).colorScheme.primary,
+                color: _isError
+                    ? Colors.red
+                    : Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 24),
               Text(
@@ -143,7 +145,9 @@ class _PinEntryPageState extends State<PinEntryPage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: index < _pin.length
-                            ? (_isError ? Colors.red : Theme.of(context).colorScheme.primary)
+                            ? (_isError
+                                ? Colors.red
+                                : Theme.of(context).colorScheme.primary)
                             : Colors.grey[300],
                       ),
                     ),

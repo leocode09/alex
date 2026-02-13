@@ -14,10 +14,30 @@ class HardwareSetupPage extends StatefulWidget {
 
 class _HardwareSetupPageState extends State<HardwareSetupPage> {
   final List<Map<String, dynamic>> _devices = [
-    {'name': 'Epson TM-T88V', 'type': 'Printer', 'status': 'Connected', 'icon': Icons.print_outlined},
-    {'name': 'Socket Mobile S700', 'type': 'Scanner', 'status': 'Disconnected', 'icon': Icons.qr_code_scanner},
-    {'name': 'Star Micronics', 'type': 'Cash Drawer', 'status': 'Connected', 'icon': Icons.point_of_sale_outlined},
-    {'name': 'Verifone P400', 'type': 'Terminal', 'status': 'Disconnected', 'icon': Icons.credit_card},
+    {
+      'name': 'Epson TM-T88V',
+      'type': 'Printer',
+      'status': 'Connected',
+      'icon': Icons.print_outlined
+    },
+    {
+      'name': 'Socket Mobile S700',
+      'type': 'Scanner',
+      'status': 'Disconnected',
+      'icon': Icons.qr_code_scanner
+    },
+    {
+      'name': 'Star Micronics',
+      'type': 'Cash Drawer',
+      'status': 'Connected',
+      'icon': Icons.point_of_sale_outlined
+    },
+    {
+      'name': 'Verifone P400',
+      'type': 'Terminal',
+      'status': 'Disconnected',
+      'icon': Icons.credit_card
+    },
   ];
 
   @override
@@ -36,10 +56,14 @@ class _HardwareSetupPageState extends State<HardwareSetupPage> {
               .map(_buildDeviceTile),
           const SizedBox(height: AppTokens.space4),
           const AppSectionHeader(title: 'Payment Terminals'),
-          ..._devices.where((d) => d['type'] == 'Terminal').map(_buildDeviceTile),
+          ..._devices
+              .where((d) => d['type'] == 'Terminal')
+              .map(_buildDeviceTile),
           const SizedBox(height: AppTokens.space4),
           const AppSectionHeader(title: 'Other Devices'),
-          ..._devices.where((d) => d['type'] == 'Cash Drawer').map(_buildDeviceTile),
+          ..._devices
+              .where((d) => d['type'] == 'Cash Drawer')
+              .map(_buildDeviceTile),
           const SizedBox(height: AppTokens.space4),
           OutlinedButton.icon(
             onPressed: () {},
@@ -73,8 +97,10 @@ class _HardwareSetupPageState extends State<HardwareSetupPage> {
               color: isConnected ? AppTokens.accent : AppTokens.mutedText,
             ),
           ),
-          title: Text(device['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(device['type'] as String, style: const TextStyle(fontSize: 12, color: AppTokens.mutedText)),
+          title: Text(device['name'] as String,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(device['type'] as String,
+              style: const TextStyle(fontSize: 12, color: AppTokens.mutedText)),
           trailing: AppBadge(
             label: device['status'] as String,
             tone: isConnected ? AppBadgeTone.success : AppBadgeTone.neutral,

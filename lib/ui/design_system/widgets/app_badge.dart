@@ -35,17 +35,30 @@ class AppBadge extends StatelessWidget {
     );
   }
 
-  (Color, Color, Color) _resolveColors(BuildContext context, AppThemeExtras extras) {
+  (Color, Color, Color) _resolveColors(
+      BuildContext context, AppThemeExtras extras) {
     final accent = Theme.of(context).colorScheme.primary;
     switch (tone) {
       case AppBadgeTone.accent:
         return (extras.accentSoft, accent, accent);
       case AppBadgeTone.success:
-        return (extras.success.withValues(alpha: 0.1), extras.success, extras.success);
+        return (
+          extras.success.withValues(alpha: 0.1),
+          extras.success,
+          extras.success
+        );
       case AppBadgeTone.warning:
-        return (extras.warning.withValues(alpha: 0.1), extras.warning, extras.warning);
+        return (
+          extras.warning.withValues(alpha: 0.1),
+          extras.warning,
+          extras.warning
+        );
       case AppBadgeTone.danger:
-        return (extras.danger.withValues(alpha: 0.1), extras.danger, extras.danger);
+        return (
+          extras.danger.withValues(alpha: 0.1),
+          extras.danger,
+          extras.danger
+        );
       case AppBadgeTone.neutral:
         return (extras.panelAlt, extras.border, extras.muted);
     }

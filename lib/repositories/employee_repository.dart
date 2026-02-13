@@ -11,10 +11,10 @@ class EmployeeRepository {
     try {
       final jsonData = await _storage.getData(_employeesKey);
       if (jsonData == null) return [];
-      
+
       final List<dynamic> decoded = jsonDecode(jsonData);
       final employees = decoded.map((json) => Employee.fromMap(json)).toList();
-      
+
       // Sort by name
       employees.sort((a, b) => a.name.compareTo(b.name));
       return employees;

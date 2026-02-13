@@ -11,10 +11,10 @@ class SaleRepository {
     try {
       final jsonData = await _storage.getData(_salesKey);
       if (jsonData == null) return [];
-      
+
       final List<dynamic> decoded = jsonDecode(jsonData);
       final sales = decoded.map((json) => Sale.fromMap(json)).toList();
-      
+
       // Sort by date (newest first)
       sales.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return sales;
@@ -131,7 +131,8 @@ class SaleRepository {
   Future<List<Sale>> getYesterdaysSales() async {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final startOfDay = DateTime(yesterday.year, yesterday.month, yesterday.day);
-    final endOfDay = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+    final endOfDay =
+        DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
     return getSalesByDateRange(startOfDay, endOfDay);
   }
 
@@ -150,7 +151,8 @@ class SaleRepository {
   // Get weekly sales (last 7 days)
   Future<List<Sale>> getWeeklySales() async {
     final now = DateTime.now();
-    final startOfWeek = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 6));
     final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
     return getSalesByDateRange(startOfWeek, endOfDay);
   }
@@ -164,9 +166,12 @@ class SaleRepository {
   // Get last week's revenue (7-13 days ago)
   Future<double> getLastWeekRevenue() async {
     final now = DateTime.now();
-    final startOfLastWeek = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 13));
-    final endOfLastWeek = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7));
-    final lastWeekSales = await getSalesByDateRange(startOfLastWeek, endOfLastWeek);
+    final startOfLastWeek = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 13));
+    final endOfLastWeek = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 7));
+    final lastWeekSales =
+        await getSalesByDateRange(startOfLastWeek, endOfLastWeek);
     return lastWeekSales.fold<double>(0.0, (sum, sale) => sum + sale.total);
   }
 
@@ -192,17 +197,17 @@ class SaleRepository {
   Future<Map<String, int>> getTopSellingProducts({int limit = 10}) async {
     final sales = await getAllSales();
     final Map<String, int> productCounts = {};
-    
+
     for (var sale in sales) {
       for (var item in sale.items) {
-        productCounts[item.productName] = 
+        productCounts[item.productName] =
             (productCounts[item.productName] ?? 0) + item.quantity;
       }
     }
-    
+
     final sortedEntries = productCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    
+
     return Map.fromEntries(sortedEntries.take(limit));
   }
 

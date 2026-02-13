@@ -59,7 +59,8 @@ class ExpenseRepository {
   Future<bool> updateExpense(Expense updatedExpense) async {
     try {
       final expenses = await getAllExpenses();
-      final index = expenses.indexWhere((expense) => expense.id == updatedExpense.id);
+      final index =
+          expenses.indexWhere((expense) => expense.id == updatedExpense.id);
       if (index == -1) {
         return false;
       }
@@ -82,7 +83,8 @@ class ExpenseRepository {
     }
   }
 
-  Future<List<Expense>> getExpensesByDateRange(DateTime start, DateTime end) async {
+  Future<List<Expense>> getExpensesByDateRange(
+      DateTime start, DateTime end) async {
     final expenses = await getAllExpenses();
     return expenses.where((expense) {
       return !expense.createdAt.isBefore(start) &&

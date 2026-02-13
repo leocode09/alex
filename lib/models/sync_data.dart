@@ -73,7 +73,7 @@ class SyncData {
         stores: (json['stores'] as List? ?? [])
             .map((s) => Store.fromMap(s as Map<String, dynamic>))
             .toList(),
-        syncTimestamp: json['syncTimestamp'] != null 
+        syncTimestamp: json['syncTimestamp'] != null
             ? DateTime.parse(json['syncTimestamp'] as String)
             : DateTime.now(),
         deviceId: json['deviceId'] as String? ?? 'unknown',

@@ -71,9 +71,10 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 int _getCurrentIndex(String location) {
   if (location.startsWith('/dashboard')) return 0;
   if (location.startsWith('/sales')) return 1;
-  if (location.startsWith('/products') || location.startsWith('/product')) return 2;
+  if (location.startsWith('/products') || location.startsWith('/product'))
+    return 2;
   if (location.startsWith('/reports')) return 3;
-  if (location.startsWith('/settings') || 
+  if (location.startsWith('/settings') ||
       location.startsWith('/lan') ||
       location.startsWith('/inventory') ||
       location.startsWith('/customers') ||
@@ -204,220 +205,220 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
 
-        // Sales
-        GoRoute(
-          path: '/sales',
-          name: 'sales',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: SalesPage(),
+          // Sales
+          GoRoute(
+            path: '/sales',
+            name: 'sales',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SalesPage(),
+            ),
           ),
-        ),
 
-        // Products
-        GoRoute(
-          path: '/products',
-          name: 'products',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: ProductCatalogPage(),
+          // Products
+          GoRoute(
+            path: '/products',
+            name: 'products',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ProductCatalogPage(),
+            ),
+            routes: [
+              GoRoute(
+                path: 'add',
+                name: 'add-product',
+                builder: (context, state) {
+                  final initialName = state.uri.queryParameters['name'];
+                  return AddEditProductPage(initialName: initialName);
+                },
+              ),
+              GoRoute(
+                path: ':id',
+                name: 'product-details',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return ProductDetailsPage(productId: id);
+                },
+              ),
+              GoRoute(
+                path: 'edit/:id',
+                name: 'edit-product',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return AddEditProductPage(productId: id);
+                },
+              ),
+            ],
           ),
-          routes: [
-            GoRoute(
-              path: 'add',
-              name: 'add-product',
-              builder: (context, state) {
-                final initialName = state.uri.queryParameters['name'];
-                return AddEditProductPage(initialName: initialName);
-              },
-            ),
-            GoRoute(
-              path: ':id',
-              name: 'product-details',
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return ProductDetailsPage(productId: id);
-              },
-            ),
-            GoRoute(
-              path: 'edit/:id',
-              name: 'edit-product',
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return AddEditProductPage(productId: id);
-              },
-            ),
-          ],
-        ),
 
-        // Product routes (singular for compatibility)
-        // Note: Literal paths must come before parameterized paths
-        GoRoute(
-          path: '/product/add',
-          name: 'add-product-alt',
-          builder: (context, state) {
-            final initialName = state.uri.queryParameters['name'];
-            return AddEditProductPage(initialName: initialName);
-          },
-        ),
-        GoRoute(
-          path: '/product/edit/:id',
-          name: 'edit-product-alt',
-          builder: (context, state) {
-            final id = state.pathParameters['id']!;
-            return AddEditProductPage(productId: id);
-          },
-        ),
-        GoRoute(
-          path: '/product/:id',
-          name: 'product-details-alt',
-          builder: (context, state) {
-            final id = state.pathParameters['id']!;
-            return ProductDetailsPage(productId: id);
-          },
-        ),
-
-        // Reports
-        GoRoute(
-          path: '/reports',
-          name: 'reports',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: ReportsPage(),
+          // Product routes (singular for compatibility)
+          // Note: Literal paths must come before parameterized paths
+          GoRoute(
+            path: '/product/add',
+            name: 'add-product-alt',
+            builder: (context, state) {
+              final initialName = state.uri.queryParameters['name'];
+              return AddEditProductPage(initialName: initialName);
+            },
           ),
-        ),
-
-        // Settings & More
-        GoRoute(
-          path: '/settings',
-          name: 'settings',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: SettingsPage(),
+          GoRoute(
+            path: '/product/edit/:id',
+            name: 'edit-product-alt',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return AddEditProductPage(productId: id);
+            },
           ),
-        ),
+          GoRoute(
+            path: '/product/:id',
+            name: 'product-details-alt',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return ProductDetailsPage(productId: id);
+            },
+          ),
 
-        // LAN Manager
-        GoRoute(
-          path: '/lan',
-          name: 'lan',
-          builder: (context, state) => const LanManagerPage(),
-        ),
-
-        // Inventory
-        GoRoute(
-          path: '/inventory',
-          name: 'inventory',
-          builder: (context, state) => const InventoryPage(),
-        ),
-
-        // Categories Management
-        GoRoute(
-          path: '/categories',
-          name: 'categories',
-          builder: (context, state) => const CategoryManagementPage(),
-        ),
-
-        // Customers
-        GoRoute(
-          path: '/customers',
-          name: 'customers',
-          builder: (context, state) => const CustomerListPage(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              name: 'customer-profile',
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return CustomerProfilePage(customerId: id);
-              },
+          // Reports
+          GoRoute(
+            path: '/reports',
+            name: 'reports',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ReportsPage(),
             ),
-          ],
-        ),
-        GoRoute(
-          path: '/customer/:id',
-          name: 'customer-profile-alt',
-          builder: (context, state) {
-            final id = state.pathParameters['id']!;
-            return CustomerProfilePage(customerId: id);
-          },
-        ),
+          ),
 
-        // Employees
-        GoRoute(
-          path: '/employees',
-          name: 'employees',
-          builder: (context, state) => const EmployeeListPage(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              name: 'employee-profile',
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return EmployeeProfilePage(employeeId: id);
-              },
+          // Settings & More
+          GoRoute(
+            path: '/settings',
+            name: 'settings',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsPage(),
             ),
-          ],
-        ),
-        GoRoute(
-          path: '/employee/:id',
-          name: 'employee-profile-alt',
-          builder: (context, state) {
-            final id = state.pathParameters['id']!;
-            return EmployeeProfilePage(employeeId: id);
-          },
-        ),
+          ),
 
-        // Stores
-        GoRoute(
-          path: '/stores',
-          name: 'stores',
-          builder: (context, state) => const StoresPage(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              name: 'store-details',
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return StoreDetailsPage(storeId: id);
-              },
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/store/:id',
-          name: 'store-details-alt',
-          builder: (context, state) {
-            final id = state.pathParameters['id']!;
-            return StoreDetailsPage(storeId: id);
-          },
-        ),
+          // LAN Manager
+          GoRoute(
+            path: '/lan',
+            name: 'lan',
+            builder: (context, state) => const LanManagerPage(),
+          ),
 
-        // Hardware
-        GoRoute(
-          path: '/hardware',
-          name: 'hardware',
-          builder: (context, state) => const HardwareSetupPage(),
-        ),
+          // Inventory
+          GoRoute(
+            path: '/inventory',
+            name: 'inventory',
+            builder: (context, state) => const InventoryPage(),
+          ),
 
-        // Promotions
-        GoRoute(
-          path: '/promotions',
-          name: 'promotions',
-          builder: (context, state) => const PromotionsPage(),
-        ),
+          // Categories Management
+          GoRoute(
+            path: '/categories',
+            name: 'categories',
+            builder: (context, state) => const CategoryManagementPage(),
+          ),
 
-        // Notifications
-        GoRoute(
-          path: '/notifications',
-          name: 'notifications',
-          builder: (context, state) => const NotificationsPage(),
-        ),
+          // Customers
+          GoRoute(
+            path: '/customers',
+            name: 'customers',
+            builder: (context, state) => const CustomerListPage(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'customer-profile',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return CustomerProfilePage(customerId: id);
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/customer/:id',
+            name: 'customer-profile-alt',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return CustomerProfilePage(customerId: id);
+            },
+          ),
 
-        // Sync
-        GoRoute(
-          path: '/sync',
-          name: 'sync',
-          builder: (context, state) => const SyncPage(),
-        ),
-      ],
-    ),
-  ],
+          // Employees
+          GoRoute(
+            path: '/employees',
+            name: 'employees',
+            builder: (context, state) => const EmployeeListPage(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'employee-profile',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return EmployeeProfilePage(employeeId: id);
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/employee/:id',
+            name: 'employee-profile-alt',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return EmployeeProfilePage(employeeId: id);
+            },
+          ),
+
+          // Stores
+          GoRoute(
+            path: '/stores',
+            name: 'stores',
+            builder: (context, state) => const StoresPage(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'store-details',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return StoreDetailsPage(storeId: id);
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/store/:id',
+            name: 'store-details-alt',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return StoreDetailsPage(storeId: id);
+            },
+          ),
+
+          // Hardware
+          GoRoute(
+            path: '/hardware',
+            name: 'hardware',
+            builder: (context, state) => const HardwareSetupPage(),
+          ),
+
+          // Promotions
+          GoRoute(
+            path: '/promotions',
+            name: 'promotions',
+            builder: (context, state) => const PromotionsPage(),
+          ),
+
+          // Notifications
+          GoRoute(
+            path: '/notifications',
+            name: 'notifications',
+            builder: (context, state) => const NotificationsPage(),
+          ),
+
+          // Sync
+          GoRoute(
+            path: '/sync',
+            name: 'sync',
+            builder: (context, state) => const SyncPage(),
+          ),
+        ],
+      ),
+    ],
   );
 });

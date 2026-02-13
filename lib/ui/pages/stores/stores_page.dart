@@ -13,8 +13,18 @@ class StoresPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stores = [
-      {'id': '1', 'name': 'Store A (Main)', 'location': 'Kigali Downtown', 'status': 'Active'},
-      {'id': '2', 'name': 'Store B (Kigali)', 'location': 'Kimironko', 'status': 'Active'},
+      {
+        'id': '1',
+        'name': 'Store A (Main)',
+        'location': 'Kigali Downtown',
+        'status': 'Active'
+      },
+      {
+        'id': '2',
+        'name': 'Store B (Kigali)',
+        'location': 'Kimironko',
+        'status': 'Active'
+      },
     ];
 
     return AppPageScaffold(
@@ -65,10 +75,14 @@ class StoresPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTokens.line),
                 ),
-                child: Icon(Icons.store_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
+                child: Icon(Icons.store_outlined,
+                    color: Theme.of(context).colorScheme.primary, size: 20),
               ),
-              title: Text(store['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(store['location'] as String, style: const TextStyle(color: AppTokens.mutedText, fontSize: 12)),
+              title: Text(store['name'] as String,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(store['location'] as String,
+                  style: const TextStyle(
+                      color: AppTokens.mutedText, fontSize: 12)),
               trailing: AppBadge(
                 label: store['status'] as String,
                 tone: AppBadgeTone.success,

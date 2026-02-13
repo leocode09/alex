@@ -74,6 +74,7 @@ class ReceiptSettingsNotifier extends StateNotifier<ReceiptSettings> {
   }
 }
 
-final receiptSettingsProvider = StateNotifierProvider<ReceiptSettingsNotifier, ReceiptSettings>((ref) {
+final receiptSettingsProvider =
+    StateNotifierProvider<ReceiptSettingsNotifier, ReceiptSettings>((ref) {
   return ReceiptSettingsNotifier();
 });

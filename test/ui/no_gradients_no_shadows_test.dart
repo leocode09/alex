@@ -7,7 +7,8 @@ void main() {
     expect(uiDir.existsSync(), isTrue);
 
     final forbidden = <String, List<String>>{};
-    final pattern = RegExp(r'LinearGradient|RadialGradient|SweepGradient|BoxShadow');
+    final pattern =
+        RegExp(r'LinearGradient|RadialGradient|SweepGradient|BoxShadow');
 
     for (final file in uiDir.listSync(recursive: true).whereType<File>()) {
       if (!file.path.endsWith('.dart')) {
