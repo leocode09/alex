@@ -33,3 +33,4 @@ split-commit-line-32
 split-commit-line-33
 split-commit-line-34
 split-commit-line-35
+split-commit-line-36
