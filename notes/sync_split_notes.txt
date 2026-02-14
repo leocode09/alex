@@ -4,3 +4,4 @@ split-commit-line-03
 split-commit-line-04
 split-commit-line-05
 split-commit-line-06
+split-commit-line-07
