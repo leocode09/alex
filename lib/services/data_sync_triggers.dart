@@ -7,14 +7,16 @@ class DataSyncTriggers {
   static const Duration _triggerTimeout = Duration(seconds: 6);
 
   static Future<void> trigger({required String reason}) async {
+    final normalizedReason = reason.trim().isEmpty ? 'update' : reason.trim();
     await Future.wait([
       _safeTrigger(
         label: 'wifi_direct',
-        run: () => WifiDirectSyncService().triggerSync(reason: reason),
+        run: () =>
+            WifiDirectSyncService().triggerSync(reason: normalizedReason),
       ),
       _safeTrigger(
         label: 'lan',
-        run: () => LanSyncService().triggerSync(reason: reason),
+        run: () => LanSyncService().triggerSync(reason: normalizedReason),
       ),
     ]);
   }
