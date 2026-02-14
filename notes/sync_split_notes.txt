@@ -22,3 +22,4 @@ split-commit-line-21
 split-commit-line-22
 split-commit-line-23
 split-commit-line-24
+split-commit-line-25
