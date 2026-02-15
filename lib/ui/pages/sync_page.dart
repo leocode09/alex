@@ -1,29 +1,4 @@
-﻿                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Scan QR Code Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: OutlinedButton.icon(
-                onPressed: () => _startScanning(context, syncProvider),
-                icon: const Icon(Icons.qr_code_scanner, size: 28),
-                label: const Text(
-                  'Scan QR Code',
-                  style: TextStyle(fontSize: 18),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                  side: const BorderSide(color: Colors.blue, width: 2),
+﻿                  side: const BorderSide(color: Colors.blue, width: 2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
