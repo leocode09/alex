@@ -1,29 +1,4 @@
-﻿                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Try Again'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingView(BuildContext context, SyncProvider syncProvider) {
-    String message = 'Processing...';
-    if (syncProvider.isExporting) {
-      message = 'Exporting data...';
-    } else if (syncProvider.isImporting) {
-      message = 'Importing data...';
-    }
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
-          Text(
+﻿          Text(
             message,
             style: const TextStyle(
               fontSize: 18,
