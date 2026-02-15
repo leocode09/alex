@@ -1,29 +1,4 @@
-﻿                    color: Colors.black,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 24),
-
-            // Navigation buttons for multiple chunks
-            if (syncProvider.hasMultipleChunks)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: syncProvider.canGoPrevious
-                        ? () => syncProvider.previousChunk()
-                        : null,
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Previous'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey[300],
+﻿                      disabledBackgroundColor: Colors.grey[300],
                       disabledForegroundColor: Colors.grey[500],
                     ),
                   ),
