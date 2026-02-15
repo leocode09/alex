@@ -1,29 +1,4 @@
-﻿            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Refresh product providers
-                  if (context.mounted) {
-                    final container =
-                        riverpod.ProviderScope.containerOf(context);
-                    container.invalidate(productsProvider);
-                    container.invalidate(categoriesProvider);
-                    container.invalidate(filteredProductsProvider);
-                    container.invalidate(totalProductsCountProvider);
-                  }
-                  syncProvider.reset();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Done'),
-              ),
-            ),
-          ],
-        ),
+﻿        ),
       ),
     );
   }
