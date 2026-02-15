@@ -1,29 +1,4 @@
-﻿                backgroundColor: Colors.grey[300],
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
-              const SizedBox(height: 24),
-            ],
-
-            // QR Code or Error Message
-            if (isDataTooLarge)
-              _buildDataTooLargeWarning(context, syncProvider)
-            else if (syncProvider.qrData != null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: QrImageView(
-                  data: syncProvider.qrData!,
-                  version: QrVersions.auto,
-                  size: 280,
-                  backgroundColor: Colors.white,
-                  errorCorrectionLevel: QrErrorCorrectLevel.L,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: Colors.black,
+﻿                    color: Colors.black,
                   ),
                   dataModuleStyle: const QrDataModuleStyle(
                     dataModuleShape: QrDataModuleShape.square,
