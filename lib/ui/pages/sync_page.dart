@@ -1,29 +1,4 @@
-﻿
-            const SizedBox(height: 24),
-
-            // Back Button
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: () => syncProvider.reset(),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Back'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildScannerView(BuildContext context, SyncProvider syncProvider) {
-    if (_scannerController == null) {
-      _scannerController = MobileScannerController(
-        detectionSpeed: DetectionSpeed.normal,
+﻿        detectionSpeed: DetectionSpeed.normal,
         facing: CameraFacing.back,
       );
     }
