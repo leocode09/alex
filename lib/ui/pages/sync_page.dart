@@ -1,29 +1,4 @@
-﻿            ),
-            const SizedBox(height: 32),
-
-            // Import Details
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  _buildResultRow('Products', result.productsImported),
-                  _buildResultRow('Categories', result.categoriesImported),
-                  _buildResultRow('Customers', result.customersImported),
-                  _buildResultRow('Employees', result.employeesImported),
-                  _buildResultRow('Expenses', result.expensesImported),
-                  _buildResultRow('Sales', result.salesImported),
-                  _buildResultRow('Stores', result.storesImported),
-                  const Divider(height: 24),
-                  _buildResultRow('Total', result.totalImported, isTotal: true),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
+﻿            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               height: 48,
