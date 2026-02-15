@@ -1,29 +1,4 @@
-﻿                      disabledBackgroundColor: Colors.grey[300],
-                      disabledForegroundColor: Colors.grey[500],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: syncProvider.canGoNext
-                        ? () => syncProvider.nextChunk()
-                        : null,
-                    icon: const Icon(Icons.arrow_forward),
-                    label: const Text('Next'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey[300],
-                      disabledForegroundColor: Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-
-            if (syncProvider.hasMultipleChunks) const SizedBox(height: 24),
-
-            // Stats
-            _buildStatsCard(context, syncProvider),
-
+﻿
             const SizedBox(height: 24),
 
             // Back Button
