@@ -1,29 +1,4 @@
-﻿                  _buildSuggestion(
-                    '2. Sync recent sales only',
-                    'You have ${stats['sales']} sales. Consider syncing last 50-100 transactions.',
-                  ),
-                if (stats['products'] <= 50 && stats['sales'] <= 100)
-                  _buildSuggestion(
-                    '1. Reduce data volume',
-                    'Remove unnecessary items or sync categories separately.',
-                  ),
-                _buildSuggestion(
-                  stats['products'] > 50 || stats['sales'] > 100
-                      ? '3. Use selective sync'
-                      : '2. Use selective sync',
-                  'Sync only essential data like products and categories first.',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => syncProvider.reset(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.orange.shade700,
+﻿                    foregroundColor: Colors.orange.shade700,
                     side: BorderSide(color: Colors.orange.shade300),
                   ),
                   child: const Text('Back'),
