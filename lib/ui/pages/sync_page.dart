@@ -1,29 +1,4 @@
-﻿            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Text(
-                syncProvider.errorMessage ?? 'An unknown error occurred',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.red.shade900,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () => syncProvider.reset(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
+﻿                  foregroundColor: Colors.white,
                 ),
                 child: const Text('Try Again'),
               ),
