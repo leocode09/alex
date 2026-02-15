@@ -1,29 +1,4 @@
-﻿            } else if (syncProvider.isBusy) {
-              return _buildLoadingView(context, syncProvider);
-            }
-
-            return _buildInitialView(context, syncProvider);
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInitialView(BuildContext context, SyncProvider syncProvider) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.sync,
-              size: 100,
-              color: Colors.blue.shade300,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Sync Your Data',
+﻿              'Sync Your Data',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
