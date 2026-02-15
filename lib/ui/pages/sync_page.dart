@@ -1,29 +1,4 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
-import 'package:qr_flutter/qr_flutter.dart';
-import '../../providers/sync_provider.dart';
-import '../../providers/product_provider.dart';
-import '../../services/sync_service.dart';
-
-class SyncPage extends StatefulWidget {
-  const SyncPage({Key? key}) : super(key: key);
-
-  @override
-  State<SyncPage> createState() => _SyncPageState();
-}
-
-class _SyncPageState extends State<SyncPage> {
-  MobileScannerController? _scannerController;
-  bool _isProcessingScan = false;
-
-  @override
-  void dispose() {
-    _scannerController?.dispose();
-    _scannerController = null;
-    super.dispose();
+﻿    super.dispose();
   }
 
   @override
