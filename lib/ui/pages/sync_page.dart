@@ -1,29 +1,4 @@
-﻿                    foregroundColor: Colors.orange.shade700,
-                    side: BorderSide(color: Colors.orange.shade300),
-                  ),
-                  child: const Text('Back'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () =>
-                      _showDataReductionDialog(context, syncProvider),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade700,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('View Data'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuggestion(String title, String description) {
+﻿  Widget _buildSuggestion(String title, String description) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
