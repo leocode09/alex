@@ -1,29 +1,4 @@
-﻿            content: Text('Failed to export data: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
-  }
-
-  void _startScanning(BuildContext context, SyncProvider syncProvider) {
-    _isProcessingScan = false;
-    syncProvider.startScanning();
-  }
-
-  Widget _buildDataTooLargeWarning(
-      BuildContext context, SyncProvider syncProvider) {
-    final stats = syncProvider.getSyncStats();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.shade300, width: 2),
-      ),
-      child: Column(
+﻿      child: Column(
         children: [
           Icon(
             Icons.warning_amber_rounded,
