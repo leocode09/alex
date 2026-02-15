@@ -1,29 +1,4 @@
-﻿      child: InkWell(
-        onTap: () => syncProvider.setStrategy(strategy),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.blue.shade50 : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? Colors.blue : Colors.grey.shade300,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.blue : Colors.grey,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+﻿                    Text(
                       title,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
