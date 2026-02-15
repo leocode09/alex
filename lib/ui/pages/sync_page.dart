@@ -1,29 +1,4 @@
-﻿                        textAlign: TextAlign.center,
-                      ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () => _scannerController?.toggleTorch(),
-                      icon: const Icon(Icons.flash_on),
-                      label: const Text('Toggle Flash'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSuccessView(BuildContext context, SyncProvider syncProvider) {
-    final result = syncProvider.lastSyncResult!;
-
-    return Center(
-      child: SingleChildScrollView(
+﻿      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
