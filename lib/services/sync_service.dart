@@ -90,15 +90,10 @@ class SyncService {
     }
   }
 
-  /// Convert SyncData to JSON string for QR code
+  /// Convert SyncData to JSON string for transport
   String syncDataToJson(SyncData syncData) {
     try {
       final jsonString = jsonEncode(syncData.toJson());
-      // Validate size (QR codes have limits)
-      if (jsonString.length > 4000) {
-        print(
-            'Warning: QR data size is ${jsonString.length} bytes. May be too large for QR code.');
-      }
       return jsonString;
     } catch (e) {
       print('Error converting sync data to JSON: $e');
@@ -117,7 +112,7 @@ class SyncService {
     }
   }
 
-  /// Compress JSON for QR code efficiency (placeholder for future implementation)
+  /// Compress JSON for transport efficiency (placeholder for future implementation)
   Uint8List compressData(String jsonString) {
     try {
       // Convert string to bytes
@@ -129,7 +124,7 @@ class SyncService {
     }
   }
 
-  /// Decompress data from QR code (placeholder for future implementation)
+  /// Decompress data payload (placeholder for future implementation)
   String decompressData(Uint8List compressedData) {
     try {
       // For now, just decode the bytes. Could add gzip decompression later if needed

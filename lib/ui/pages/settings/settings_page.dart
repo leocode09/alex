@@ -62,25 +62,6 @@ class SettingsPage extends ConsumerWidget {
           ),
           _buildSettingTile(
             context,
-            'Data Sync',
-            'Sync data between devices via QR code',
-            Icons.sync,
-            onTap: () async {
-              if (await PinProtection.requirePinIfNeeded(
-                context,
-                isRequired: () => PinService().isPinRequiredForDataSync(),
-                title: 'Data Sync',
-                subtitle: 'Enter PIN to sync data',
-              )) {
-                if (!context.mounted) {
-                  return;
-                }
-                context.push('/sync');
-              }
-            },
-          ),
-          _buildSettingTile(
-            context,
             'LAN Manager',
             'Manage Wi-Fi Direct peers and sync',
             Icons.wifi_tethering,
