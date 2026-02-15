@@ -1,29 +1,4 @@
-﻿        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorView(BuildContext context, SyncProvider syncProvider) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 100,
-              color: Colors.red,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Sync Failed',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
+﻿            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
