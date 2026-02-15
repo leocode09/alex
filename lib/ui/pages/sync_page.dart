@@ -1,29 +1,4 @@
-﻿            'Data to Sync',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildStatRow('Products', stats['products']),
-          _buildStatRow('Categories', stats['categories']),
-          _buildStatRow('Customers', stats['customers']),
-          _buildStatRow('Employees', stats['employees']),
-          _buildStatRow('Expenses', stats['expenses']),
-          _buildStatRow('Sales', stats['sales']),
-          _buildStatRow('Stores', stats['stores']),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Total Items:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
+﻿              Text(
                 '${stats['total']}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
