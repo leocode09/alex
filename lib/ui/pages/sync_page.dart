@@ -1,29 +1,4 @@
-﻿    );
-  }
-
-  Future<void> _exportData(
-      BuildContext context, SyncProvider syncProvider) async {
-    try {
-      await syncProvider.exportData();
-
-      // Check if QR data size is reasonable
-      if (syncProvider.dataSize > 4000) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Warning: Data size is large. QR code may be hard to scan. Consider syncing in smaller batches.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 5),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to export data: $e'),
+﻿            content: Text('Failed to export data: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
