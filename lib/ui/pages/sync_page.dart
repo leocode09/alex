@@ -1,29 +1,4 @@
-﻿      child: Column(
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 64,
-            color: Colors.orange.shade700,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Data Too Large for QR Code',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.orange.shade900,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Your data (${syncProvider.dataSizeFormatted}) exceeds the QR code limit (2.9 KB)',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.orange.shade800,
-            ),
-            textAlign: TextAlign.center,
-          ),
+﻿          ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(12),
