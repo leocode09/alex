@@ -1,29 +1,4 @@
-﻿                  ),
-                  _buildStrategyOption(
-                    context,
-                    syncProvider,
-                    SyncStrategy.replace,
-                    'Replace All',
-                    'Replace all data (WARNING: destructive)',
-                    Icons.swap_horiz,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Generate QR Code Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton.icon(
-                onPressed: () => _exportData(context, syncProvider),
-                icon: const Icon(Icons.qr_code, size: 28),
-                label: const Text(
-                  'Generate QR Code',
-                  style: TextStyle(fontSize: 18),
-                ),
+﻿                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
