@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/sync_data.dart';
+import 'sync_message_utils.dart';
 import 'sync_service.dart';
 
 class LanSyncService extends ChangeNotifier {
@@ -22,16 +23,28 @@ class LanSyncService extends ChangeNotifier {
   static const Duration peerTimeout = Duration(seconds: 6);
   static const String _deviceNamePrefKey = 'lan_device_name';
 
+  static const int _maxPayloadBytes = 1024 * 1024;
+  static const Duration _healthCheckInterval = Duration(seconds: 10);
+  static const Duration _handshakeTimeout = Duration(seconds: 6);
+  static const Duration _connectionIdleTimeout = Duration(seconds: 35);
+  static const Duration _pingInterval = Duration(seconds: 12);
+  static const int _maxSyncRetryAttempts = 5;
+
   final SyncService _syncService = SyncService();
+  final RecentMessageCache _messageCache =
+      RecentMessageCache(ttl: const Duration(minutes: 3));
 
   bool _running = false;
   RawDatagramSocket? _discoverySocket;
   ServerSocket? _server;
   Timer? _announceTimer;
+  Timer? _connectionHealthTimer;
+  Timer? _retryTimer;
 
   final Map<String, LanPeer> _peers = <String, LanPeer>{};
   final Map<String, _LanConnection> _connections = <String, _LanConnection>{};
   final Set<String> _pendingConnections = <String>{};
+  final Set<_LanConnection> _handshakingConnections = <_LanConnection>{};
 
   String _status = 'stopped';
   String? _lastError;
@@ -46,6 +59,7 @@ class LanSyncService extends ChangeNotifier {
   bool _pendingSync = false;
   DateTime? _lastSyncAt;
   bool _sending = false;
+  int _retryAttempts = 0;
 
   Future<void> _importQueue = Future.value();
 
@@ -123,12 +137,7 @@ class LanSyncService extends ChangeNotifier {
         onError: (error) => _addLog('LAN server error: $error'),
       );
 
-      _discoverySocket = await RawDatagramSocket.bind(
-        InternetAddress.anyIPv4,
-        discoveryPort,
-        reuseAddress: true,
-        reusePort: true,
-      );
+      _discoverySocket = await _openDiscoverySocket();
       _discoverySocket!.broadcastEnabled = true;
       _discoverySocket!.listen(
         _handleLanDatagram,
@@ -140,10 +149,17 @@ class LanSyncService extends ChangeNotifier {
         announceInterval,
         (_) => _sendLanAnnounce(),
       );
-      _sendLanAnnounce();
+
+      _connectionHealthTimer?.cancel();
+      _connectionHealthTimer = Timer.periodic(
+        _healthCheckInterval,
+        (_) => _runConnectionHealthCheck(),
+      );
 
       _running = true;
       _status = 'running';
+      _retryAttempts = 0;
+      _sendLanAnnounce();
       await refreshLocalAddresses();
       notifyListeners();
       _addLog(
@@ -160,6 +176,12 @@ class LanSyncService extends ChangeNotifier {
     _announceTimer?.cancel();
     _announceTimer = null;
 
+    _connectionHealthTimer?.cancel();
+    _connectionHealthTimer = null;
+
+    _retryTimer?.cancel();
+    _retryTimer = null;
+
     _discoverySocket?.close();
     _discoverySocket = null;
 
@@ -169,11 +191,18 @@ class LanSyncService extends ChangeNotifier {
       await server.close();
     }
 
-    final connections = _connections.values.toList();
+    final connections = _connections.values.toSet().toList();
     _connections.clear();
     for (final connection in connections) {
       await connection.close();
     }
+
+    final handshakes = _handshakingConnections.toList();
+    _handshakingConnections.clear();
+    for (final connection in handshakes) {
+      await connection.close();
+    }
+
     _pendingConnections.clear();
     _peers.clear();
 
@@ -183,6 +212,9 @@ class LanSyncService extends ChangeNotifier {
     _lastSyncAt = null;
     _syncDebounceTimer?.cancel();
     _syncDebounceTimer = null;
+    _sending = false;
+    _retryAttempts = 0;
+    _messageCache.clear();
     notifyListeners();
   }
 
@@ -268,7 +300,7 @@ class LanSyncService extends ChangeNotifier {
 
     Datagram? datagram;
     while ((datagram = socket.receive()) != null) {
-      final message = utf8.decode(datagram!.data);
+      final message = utf8.decode(datagram!.data, allowMalformed: true);
       try {
         final data = jsonDecode(message);
         if (data is! Map<String, dynamic>) {
@@ -297,7 +329,12 @@ class LanSyncService extends ChangeNotifier {
 
         final existing = _peers[peerId];
         _peers[peerId] = peer;
-        if (existing == null) {
+
+        final changed = existing == null ||
+            existing.name != peer.name ||
+            existing.address.address != peer.address.address ||
+            existing.port != peer.port;
+        if (changed) {
           notifyListeners();
         }
 
@@ -320,6 +357,7 @@ class LanSyncService extends ChangeNotifier {
       'name': _deviceName,
       'port': tcpPort,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'protocolVersion': 2,
     };
     final bytes = utf8.encode(jsonEncode(data));
     try {
@@ -394,6 +432,7 @@ class LanSyncService extends ChangeNotifier {
   void _handleLanSocket(Socket socket, {required bool outbound}) {
     socket.setOption(SocketOption.tcpNoDelay, true);
     final connection = _LanConnection(socket: socket, outbound: outbound);
+    _handshakingConnections.add(connection);
     connection.subscription = socket
         .cast<List<int>>()
         .transform(utf8.decoder)
@@ -413,11 +452,13 @@ class LanSyncService extends ChangeNotifier {
       'type': 'lan_hello',
       'id': _deviceId,
       'name': _deviceName,
+      'protocolVersion': 2,
     };
     connection.sendJson(jsonEncode(data));
   }
 
   void _onLanLine(_LanConnection connection, String line) {
+    connection.touch();
     try {
       final data = jsonDecode(line);
       if (data is! Map<String, dynamic>) {
@@ -435,6 +476,22 @@ class LanSyncService extends ChangeNotifier {
             peerName: peerName is String ? peerName : peerId,
           );
         }
+        return;
+      }
+
+      if (type == 'lan_ping') {
+        connection.sendJson(
+          jsonEncode({
+            'type': 'lan_pong',
+            'id': _deviceId,
+            'name': _deviceName,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          }),
+        );
+        return;
+      }
+
+      if (type == 'lan_pong') {
         return;
       }
 
@@ -466,6 +523,7 @@ class LanSyncService extends ChangeNotifier {
     required String peerName,
   }) {
     if (peerId == _deviceId) {
+      _handshakingConnections.remove(connection);
       unawaited(connection.close());
       return;
     }
@@ -476,6 +534,7 @@ class LanSyncService extends ChangeNotifier {
       final keepNew =
           preferOutbound ? connection.outbound : !connection.outbound;
       if (!keepNew) {
+        _handshakingConnections.remove(connection);
         unawaited(connection.close());
         return;
       }
@@ -484,20 +543,39 @@ class LanSyncService extends ChangeNotifier {
 
     connection.peerId = peerId;
     connection.peerName = peerName;
+    connection.markHandshakeComplete();
+    _handshakingConnections.remove(connection);
     _connections[peerId] = connection;
+    _pendingConnections.remove(peerId);
+
+    final remoteAddress = connection.socket.remoteAddress;
+    final existingPeer = _peers[peerId];
+    _peers[peerId] = LanPeer(
+      id: peerId,
+      name: peerName,
+      address: remoteAddress,
+      port: connection.socket.remotePort,
+      lastSeen: DateTime.now(),
+    );
 
     _addLog(
       'LAN connected.',
       deviceId: peerId,
       deviceName: peerName,
     );
-    notifyListeners();
+    if (existingPeer == null) {
+      notifyListeners();
+    } else {
+      notifyListeners();
+    }
 
     unawaited(triggerSync(reason: 'lan_connected'));
   }
 
   void _removeLanConnection(_LanConnection connection, {Object? error}) {
     final peerId = connection.peerId;
+    _handshakingConnections.remove(connection);
+
     if (peerId != null && _connections[peerId] == connection) {
       _connections.remove(peerId);
       final name = connection.peerName ?? peerId;
@@ -511,6 +589,7 @@ class LanSyncService extends ChangeNotifier {
     if (error != null) {
       _addLog('LAN socket error: $error');
     }
+
     notifyListeners();
     unawaited(connection.close());
   }
@@ -520,6 +599,11 @@ class LanSyncService extends ChangeNotifier {
     String? fallbackSourceId,
     String? fallbackSourceName,
   }) async {
+    if (payload.isEmpty || SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
+      _addLog('Dropped payload that exceeded size limits.');
+      return;
+    }
+
     await _ensureDeviceInfo();
     Map<String, dynamic>? json;
     try {
@@ -539,6 +623,15 @@ class LanSyncService extends ChangeNotifier {
         if (fromId != null && fromId == _deviceId) {
           return;
         }
+
+        final messageKey = SyncMessageUtils.buildMessageKey(
+          messageId: json['messageId']?.toString(),
+          payload: payload,
+        );
+        if (_messageCache.isDuplicate(messageKey)) {
+          return;
+        }
+
         final sourceName = _resolveSourceDeviceName(
           deviceId: fromId,
           providedName: json['fromName']?.toString() ?? fallbackSourceName,
@@ -551,6 +644,7 @@ class LanSyncService extends ChangeNotifier {
           syncData = _syncService.jsonToSyncData(data);
         }
         if (syncData != null) {
+          _messageCache.remember(messageKey);
           _addLog(
             'Received sync data (${syncData.totalItems} items).',
             deviceId: fromId,
@@ -570,6 +664,16 @@ class LanSyncService extends ChangeNotifier {
         if (syncData.deviceId == _deviceId) {
           return;
         }
+
+        final messageKey = SyncMessageUtils.buildMessageKey(
+          messageId: json['messageId']?.toString(),
+          payload: payload,
+        );
+        if (_messageCache.isDuplicate(messageKey)) {
+          return;
+        }
+        _messageCache.remember(messageKey);
+
         final sourceName = _resolveSourceDeviceName(
           deviceId: syncData.deviceId,
           providedName: fallbackSourceName,
@@ -593,6 +697,16 @@ class LanSyncService extends ChangeNotifier {
       if (syncData.deviceId == _deviceId) {
         return;
       }
+
+      final messageKey = SyncMessageUtils.buildMessageKey(
+        messageId: null,
+        payload: payload,
+      );
+      if (_messageCache.isDuplicate(messageKey)) {
+        return;
+      }
+      _messageCache.remember(messageKey);
+
       final sourceName = _resolveSourceDeviceName(
         deviceId: syncData.deviceId,
         providedName: fallbackSourceName,
@@ -618,53 +732,100 @@ class LanSyncService extends ChangeNotifier {
         json.containsKey('deviceId');
   }
 
-  Future<void> _sendSyncData() async {
+  Future<bool> _sendSyncData() async {
     if (_sending) {
-      return;
+      return false;
     }
+    if (_connections.isEmpty) {
+      return false;
+    }
+
     _sending = true;
     try {
       await _ensureDeviceInfo();
       final data = await _syncService.exportAllData();
       if (data.isEmpty) {
-        return;
+        return true;
       }
+
+      final messageId = SyncMessageUtils.nextMessageId(data.deviceId);
       final payload = jsonEncode({
         'type': 'sync_data',
+        'messageId': messageId,
+        'protocolVersion': 2,
         'fromId': data.deviceId,
         'fromName': _deviceName ?? 'Device',
         'sentAt': DateTime.now().toIso8601String(),
         'data': data.toJson(),
       });
-      _sendPayload(payload);
-      _addLog(
-        'Shared sync data (${data.totalItems} items) to ${_connections.length} peer(s).',
+
+      if (SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
+        _lastError = 'Sync payload exceeded 1 MB and was not sent.';
+        _addLog(_lastError!);
+        notifyListeners();
+        return false;
+      }
+
+      final delivered = _sendPayload(payload);
+      if (delivered == 0) {
+        _addLog('No active peers were available to receive sync payload.');
+        return false;
+      }
+
+      final key = SyncMessageUtils.buildMessageKey(
+        messageId: messageId,
+        payload: payload,
       );
+      _messageCache.remember(key);
+      _addLog(
+        'Shared sync data (${data.totalItems} items) to $delivered peer(s).',
+      );
+      return true;
     } catch (e) {
       _lastError = e.toString();
       _addLog('Send failed: $e');
       notifyListeners();
+      return false;
     } finally {
       _sending = false;
     }
   }
 
-  void _sendPayload(String payload) {
+  int _sendPayload(String payload) {
     if (payload.isEmpty) {
-      return;
+      return 0;
     }
-    for (final connection in _connections.values) {
-      connection.sendJson(payload);
+
+    var delivered = 0;
+    final snapshot = _connections.values.toList();
+    for (final connection in snapshot) {
+      final sent = connection.sendJson(payload);
+      if (sent) {
+        delivered++;
+      } else {
+        _removeLanConnection(
+          connection,
+          error: 'Failed to send sync payload.',
+        );
+      }
     }
+    return delivered;
   }
 
   Future<void> _flushPendingSync() async {
     if (!_pendingSync) {
       return;
     }
-    if (!isConnected || _sending) {
+
+    if (!isConnected) {
+      _scheduleSyncRetry(reason: 'not_connected');
       return;
     }
+
+    if (_sending) {
+      return;
+    }
+
     final now = DateTime.now();
     if (_lastSyncAt != null) {
       final elapsed = now.difference(_lastSyncAt!);
@@ -675,9 +836,42 @@ class LanSyncService extends ChangeNotifier {
         return;
       }
     }
-    _pendingSync = false;
-    await _sendSyncData();
-    _lastSyncAt = DateTime.now();
+
+    final sent = await _sendSyncData();
+    if (sent) {
+      _pendingSync = false;
+      _lastSyncAt = DateTime.now();
+      _retryAttempts = 0;
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      return;
+    }
+
+    _scheduleSyncRetry(reason: 'send_failed');
+  }
+
+  void _scheduleSyncRetry({required String reason}) {
+    if (!_pendingSync) {
+      return;
+    }
+
+    if (_retryAttempts >= _maxSyncRetryAttempts) {
+      _addLog('Sync retry paused after $_maxSyncRetryAttempts attempts.');
+      _retryAttempts = 0;
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      return;
+    }
+
+    _retryAttempts += 1;
+    var seconds = 1 << (_retryAttempts - 1);
+    if (seconds > 30) {
+      seconds = 30;
+    }
+
+    _retryTimer?.cancel();
+    _retryTimer = Timer(Duration(seconds: seconds), _flushPendingSync);
+    _addLog('Retrying sync in ${seconds}s (${_formatReason(reason)}).');
   }
 
   Future<void> _queueImport(
@@ -716,6 +910,65 @@ class LanSyncService extends ChangeNotifier {
       }
     });
     return _importQueue;
+  }
+
+  void _runConnectionHealthCheck() {
+    if (!_running) {
+      return;
+    }
+
+    final now = DateTime.now();
+    _messageCache.prune(now);
+    _pruneLanPeers();
+
+    final allConnections = <_LanConnection>{
+      ..._handshakingConnections,
+      ..._connections.values,
+    };
+
+    for (final connection in allConnections) {
+      if (connection.isClosed) {
+        continue;
+      }
+
+      final connectedFor = now.difference(connection.connectedAt);
+      if (!connection.handshakeComplete && connectedFor > _handshakeTimeout) {
+        _removeLanConnection(connection, error: 'LAN handshake timed out.');
+        continue;
+      }
+
+      final idleFor = now.difference(connection.lastSeenAt);
+      if (idleFor > _connectionIdleTimeout) {
+        _removeLanConnection(connection, error: 'LAN connection became idle.');
+        continue;
+      }
+
+      if (connection.handshakeComplete &&
+          now.difference(connection.lastPingAt) >= _pingInterval) {
+        connection.sendPing(_deviceId, _deviceName);
+      }
+    }
+
+    if (_pendingSync && isConnected && !_sending && _retryTimer == null) {
+      unawaited(_flushPendingSync());
+    }
+  }
+
+  Future<RawDatagramSocket> _openDiscoverySocket() async {
+    try {
+      return await RawDatagramSocket.bind(
+        InternetAddress.anyIPv4,
+        discoveryPort,
+        reuseAddress: true,
+        reusePort: true,
+      );
+    } catch (_) {
+      return RawDatagramSocket.bind(
+        InternetAddress.anyIPv4,
+        discoveryPort,
+        reuseAddress: true,
+      );
+    }
   }
 
   Future<void> _ensureDeviceInfo() async {
@@ -790,7 +1043,9 @@ class LanSyncService extends ChangeNotifier {
         ? deviceId.trim()
         : this.deviceId;
     final normalizedDeviceName = _resolveSourceDeviceName(
-        deviceId: normalizedDeviceId, providedName: deviceName);
+      deviceId: normalizedDeviceId,
+      providedName: deviceName,
+    );
     final action = LanSyncAction(
       timestamp: DateTime.now(),
       message: message,
@@ -854,25 +1109,73 @@ class LanPeer {
 }
 
 class _LanConnection {
-  _LanConnection({required this.socket, required this.outbound});
+  _LanConnection({required this.socket, required this.outbound})
+      : connectedAt = DateTime.now(),
+        lastSeenAt = DateTime.now(),
+        lastPingAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   final Socket socket;
   final bool outbound;
+  final DateTime connectedAt;
+
   String? peerId;
   String? peerName;
   StreamSubscription<String>? subscription;
+
+  bool handshakeComplete = false;
+  DateTime lastSeenAt;
+  DateTime lastPingAt;
+  bool _closed = false;
 
   String get displayName =>
       peerName ??
       peerId ??
       '${socket.remoteAddress.address}:${socket.remotePort}';
 
-  void sendJson(String jsonMessage) {
-    socket.add(utf8.encode(jsonMessage));
-    socket.add(const [10]);
+  bool get isClosed => _closed;
+
+  void markHandshakeComplete() {
+    handshakeComplete = true;
+    touch();
+  }
+
+  void touch() {
+    lastSeenAt = DateTime.now();
+  }
+
+  bool sendJson(String jsonMessage) {
+    if (_closed) {
+      return false;
+    }
+    try {
+      socket.add(utf8.encode(jsonMessage));
+      socket.add(const [10]);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void sendPing(String? deviceId, String? deviceName) {
+    if (_closed) {
+      return;
+    }
+    lastPingAt = DateTime.now();
+    sendJson(
+      jsonEncode({
+        'type': 'lan_ping',
+        'id': deviceId,
+        'name': deviceName,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      }),
+    );
   }
 
   Future<void> close() async {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
     await subscription?.cancel();
     socket.destroy();
   }
