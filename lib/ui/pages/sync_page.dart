@@ -1,29 +1,4 @@
-﻿                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Sync Strategy',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildStrategyOption(
-                    context,
-                    syncProvider,
-                    SyncStrategy.merge,
-                    'Merge (Recommended)',
-                    'Keep most recent data',
-                    Icons.merge,
-                  ),
-                  _buildStrategyOption(
-                    context,
-                    syncProvider,
-                    SyncStrategy.append,
-                    'Append Only',
-                    'Add new items only',
-                    Icons.add_circle_outline,
-                  ),
+﻿                  ),
                   _buildStrategyOption(
                     context,
                     syncProvider,
