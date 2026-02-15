@@ -1,29 +1,4 @@
-﻿                  side: const BorderSide(color: Colors.blue, width: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStrategyOption(
-    BuildContext context,
-    SyncProvider syncProvider,
-    SyncStrategy strategy,
-    String title,
-    String description,
-    IconData icon,
-  ) {
-    final isSelected = syncProvider.selectedStrategy == strategy;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
+﻿      child: InkWell(
         onTap: () => syncProvider.setStrategy(strategy),
         borderRadius: BorderRadius.circular(8),
         child: Container(
