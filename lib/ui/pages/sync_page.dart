@@ -1,29 +1,4 @@
-﻿            Text(
-              syncProvider.hasMultipleChunks
-                  ? 'Scan all QR codes in sequence'
-                  : 'Use another device to scan this code',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Chunk Progress (if multiple chunks)
-            if (syncProvider.hasMultipleChunks) ...[
-              Text(
-                'QR Code ${syncProvider.currentChunkIndex + 1} of ${syncProvider.totalChunks}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: (syncProvider.currentChunkIndex + 1) /
-                    syncProvider.totalChunks,
-                backgroundColor: Colors.grey[300],
+﻿                backgroundColor: Colors.grey[300],
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
               ),
               const SizedBox(height: 24),
