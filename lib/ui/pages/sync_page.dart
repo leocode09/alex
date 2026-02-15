@@ -1,29 +1,4 @@
-﻿          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Recommended Solutions:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (stats['products'] > 50)
-                  _buildSuggestion(
-                    '1. Sync products in batches',
-                    'You have ${stats['products']} products. Try syncing 30-50 at a time.',
-                  ),
-                if (stats['sales'] > 100)
-                  _buildSuggestion(
+﻿                  _buildSuggestion(
                     '2. Sync recent sales only',
                     'You have ${stats['sales']} sales. Consider syncing last 50-100 transactions.',
                   ),
