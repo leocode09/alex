@@ -1,29 +1,4 @@
-﻿                          children: [
-                            Text(
-                              'Collecting Chunks',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '$receivedCount of $expectedCount received',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            LinearProgressIndicator(
-                              value: progress,
-                              backgroundColor: Colors.white.withOpacity(0.3),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Colors.white),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
+﻿                            Text(
                               '${(progress * 100).toStringAsFixed(0)}% Complete',
                               style: const TextStyle(
                                 color: Colors.white,
