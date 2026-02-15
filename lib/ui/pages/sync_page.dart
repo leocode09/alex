@@ -1,29 +1,4 @@
-﻿              Text(
-                '${stats['total']}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: Colors.blue,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Size:',
-                style: TextStyle(
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                syncProvider.dataSizeFormatted,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
+﻿                ),
               ),
             ],
           ),
