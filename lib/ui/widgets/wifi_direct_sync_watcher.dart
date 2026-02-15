@@ -22,6 +22,7 @@ class _WifiDirectSyncWatcherState extends State<WifiDirectSyncWatcher>
   final WifiDirectSyncService _service = WifiDirectSyncService();
   bool _starting = false;
   bool _didTriggerInitialSync = false;
+  DateTime? _lastResumeSyncAt;
 
   @override
   void initState() {
@@ -40,11 +41,11 @@ class _WifiDirectSyncWatcherState extends State<WifiDirectSyncWatcher>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _start();
+      _start(triggerReason: 'app_resumed');
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _start({String? triggerReason}) async {
     if (_starting) {
       return;
     }
@@ -54,7 +55,16 @@ class _WifiDirectSyncWatcherState extends State<WifiDirectSyncWatcher>
       if (!_didTriggerInitialSync) {
         _didTriggerInitialSync = true;
         await DataSyncTriggers.trigger(reason: 'app_start');
+      } else if (triggerReason != null) {
+        final now = DateTime.now();
+        final last = _lastResumeSyncAt;
+        if (last == null || now.difference(last) > const Duration(seconds: 5)) {
+          _lastResumeSyncAt = now;
+          await DataSyncTriggers.trigger(reason: triggerReason);
+        }
       }
+    } catch (_) {
+      // Background sync should never crash app startup flow.
     } finally {
       _starting = false;
     }

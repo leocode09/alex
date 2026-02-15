@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -599,7 +599,8 @@ class LanSyncService extends ChangeNotifier {
     String? fallbackSourceId,
     String? fallbackSourceName,
   }) async {
-    if (payload.isEmpty || SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
+    if (payload.isEmpty ||
+        SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
       _addLog('Dropped payload that exceeded size limits.');
       return;
     }
