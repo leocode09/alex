@@ -1,29 +1,4 @@
-﻿        detectionSpeed: DetectionSpeed.normal,
-        facing: CameraFacing.back,
-      );
-    }
-
-    // Check if we're collecting chunks
-    final isCollectingChunks = syncProvider.receivedChunks.isNotEmpty;
-    final progress = isCollectingChunks ? syncProvider.scanProgress : 0.0;
-    final receivedCount = syncProvider.receivedChunkCount;
-    final expectedCount = syncProvider.expectedChunkCount;
-
-    return Stack(
-      children: [
-        MobileScanner(
-          controller: _scannerController,
-          onDetect: (capture) {
-            if (_isProcessingScan) return;
-
-            final List<Barcode> barcodes = capture.barcodes;
-            for (final barcode in barcodes) {
-              if (barcode.rawValue != null && !_isProcessingScan) {
-                _isProcessingScan = true;
-                _handleScannedCode(context, syncProvider, barcode.rawValue!);
-                break;
-              }
-            }
+﻿            }
           },
         ),
 
