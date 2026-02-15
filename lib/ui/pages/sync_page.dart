@@ -1,29 +1,4 @@
-﻿  Widget _buildSuggestion(String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.check_circle_outline,
-            size: 20,
-            color: Colors.green.shade700,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  description,
-                  style: TextStyle(
+﻿                  style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
                   ),
