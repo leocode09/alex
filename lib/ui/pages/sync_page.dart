@@ -1,29 +1,4 @@
-﻿  }
-
-  Widget _buildResultRow(String label, int count, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 16 : 14,
-            ),
-          ),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: isTotal ? 16 : 14,
-              color: isTotal ? Colors.blue : Colors.black,
-            ),
-          ),
-        ],
-      ),
-    );
+﻿    );
   }
 
   Future<void> _exportData(
