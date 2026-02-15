@@ -1,29 +1,4 @@
-﻿            }
-          },
-        ),
-
-        // Overlay
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.5),
-          ),
-          child: Column(
-            children: [
-              AppBar(
-                title: const Text('Scan QR Code'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => syncProvider.reset(),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Container(
-                    width: 250,
-                    height: 250,
-                    decoration: BoxDecoration(
+﻿                    decoration: BoxDecoration(
                       border: Border.all(
                         color: Colors.white,
                         width: 3,
