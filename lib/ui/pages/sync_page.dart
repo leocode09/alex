@@ -1,29 +1,4 @@
-﻿                            Text(
-                              '${(progress * 100).toStringAsFixed(0)}% Complete',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Text(
-                        'Continue scanning all QR codes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ] else
-                      const Text(
-                        'Position the QR code within the frame',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
+﻿                        textAlign: TextAlign.center,
                       ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
