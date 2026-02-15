@@ -1,29 +1,4 @@
-﻿          Text(
-            message,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsCard(BuildContext context, SyncProvider syncProvider) {
-    final stats = syncProvider.getSyncStats();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Data to Sync',
+﻿            'Data to Sync',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
