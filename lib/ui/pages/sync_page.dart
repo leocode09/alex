@@ -1,29 +1,4 @@
-﻿              'Sync Your Data',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Synchronize all your products, sales, and other data between devices using QR codes',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 48),
-
-            // Sync Strategy Selection
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+﻿                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'Sync Strategy',
