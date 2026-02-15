@@ -1,29 +1,4 @@
-﻿      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.check_circle,
-              size: 100,
-              color: Colors.green,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Sync Successful!',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Successfully imported ${result.totalImported} items',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
+﻿            ),
             const SizedBox(height: 32),
 
             // Import Details
