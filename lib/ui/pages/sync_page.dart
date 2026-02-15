@@ -1,29 +1,4 @@
-﻿      ),
-    );
-  }
-
-  Widget _buildQRCodeView(BuildContext context, SyncProvider syncProvider) {
-    const int maxQrDataSize =
-        1200; // Safe limit for QR codes with L error correction
-    final bool isDataTooLarge = syncProvider.qrData != null &&
-        syncProvider.qrData!.length > maxQrDataSize &&
-        !syncProvider.hasMultipleChunks;
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Scan this QR Code',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
+﻿            Text(
               syncProvider.hasMultipleChunks
                   ? 'Scan all QR codes in sequence'
                   : 'Use another device to scan this code',
