@@ -1,29 +1,4 @@
-﻿                    Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.blue : Colors.black,
-                      ),
-                    ),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isSelected)
-                Icon(
-                  Icons.check_circle,
-                  color: Colors.blue,
-                ),
-            ],
-          ),
-        ),
-      ),
+﻿      ),
     );
   }
 
