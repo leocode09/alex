@@ -1,29 +1,4 @@
-﻿    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => SyncProvider(),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Sync Data'),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-        ),
-        body: Consumer<SyncProvider>(
-          builder: (context, syncProvider, _) {
-            if (syncProvider.isIdle) {
-              return _buildInitialView(context, syncProvider);
-            } else if (syncProvider.isGenerating) {
-              return _buildQRCodeView(context, syncProvider);
-            } else if (syncProvider.isScanning) {
-              return _buildScannerView(context, syncProvider);
-            } else if (syncProvider.isSuccess) {
-              return _buildSuccessView(context, syncProvider);
-            } else if (syncProvider.hasError) {
-              return _buildErrorView(context, syncProvider);
-            } else if (syncProvider.isBusy) {
+﻿            } else if (syncProvider.isBusy) {
               return _buildLoadingView(context, syncProvider);
             }
 
