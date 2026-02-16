@@ -108,100 +108,116 @@ class _LoginPageState extends ConsumerState<LoginPage>
       child: Stack(
         children: [
           Positioned.fill(child: _buildBackground(scheme, extras)),
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppTokens.space4),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isMobile ? 440 : 560),
-                child: FadeTransition(
-                  opacity: panelReveal,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.84, end: 1).animate(
-                      panelReveal,
+          LayoutBuilder(
+            builder: (context, viewport) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(AppTokens.space4),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: math.max(
+                      0,
+                      viewport.maxHeight - (AppTokens.space4 * 2),
                     ),
-                    child: _buildContentLayer(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildStatusPill(scheme, extras),
-                          const SizedBox(height: AppTokens.space4),
-                          _buildAnimatedIcon(scheme),
-                          const SizedBox(height: AppTokens.space4),
-                          FadeTransition(
-                            opacity: titleReveal,
-                            child: ScaleTransition(
-                              scale: Tween<double>(begin: 0.9, end: 1).animate(
-                                titleReveal,
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    'ALEX',
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .displaySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 1.2,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(maxWidth: isMobile ? 440 : 560),
+                      child: FadeTransition(
+                        opacity: panelReveal,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.84, end: 1).animate(
+                            panelReveal,
+                          ),
+                          child: _buildContentLayer(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildStatusPill(scheme, extras),
+                                const SizedBox(height: AppTokens.space4),
+                                _buildAnimatedIcon(scheme),
+                                const SizedBox(height: AppTokens.space4),
+                                FadeTransition(
+                                  opacity: titleReveal,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(begin: 0.9, end: 1)
+                                        .animate(
+                                      titleReveal,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          'ALEX',
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .displaySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 1.2,
+                                              ),
                                         ),
+                                        const SizedBox(
+                                            height: AppTokens.space1),
+                                        Text(
+                                          'Retail operating console',
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyLarge
+                                              ?.copyWith(color: extras.muted),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: AppTokens.space1),
-                                  Text(
-                                    'Retail operating console',
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.copyWith(color: extras.muted),
+                                ),
+                                const SizedBox(height: AppTokens.space4),
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  spacing: AppTokens.space2,
+                                  runSpacing: AppTokens.space2,
+                                  children: [
+                                    _buildFeaturePill(
+                                      icon: Icons.payments_outlined,
+                                      label: 'FAST CHECKOUT',
+                                      start: 0.46,
+                                      end: 0.72,
+                                    ),
+                                    _buildFeaturePill(
+                                      icon: Icons.inventory_2_outlined,
+                                      label: 'SMART STOCK',
+                                      start: 0.56,
+                                      end: 0.82,
+                                    ),
+                                    _buildFeaturePill(
+                                      icon: Icons.sync_rounded,
+                                      label: 'LIVE SYNC',
+                                      start: 0.66,
+                                      end: 0.92,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppTokens.space5),
+                                FadeTransition(
+                                  opacity: buttonReveal,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(begin: 0.92, end: 1)
+                                        .animate(
+                                      buttonReveal,
+                                    ),
+                                    child: _buildAnimatedButton(),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: AppTokens.space4),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: AppTokens.space2,
-                            runSpacing: AppTokens.space2,
-                            children: [
-                              _buildFeaturePill(
-                                icon: Icons.payments_outlined,
-                                label: 'FAST CHECKOUT',
-                                start: 0.46,
-                                end: 0.72,
-                              ),
-                              _buildFeaturePill(
-                                icon: Icons.inventory_2_outlined,
-                                label: 'SMART STOCK',
-                                start: 0.56,
-                                end: 0.82,
-                              ),
-                              _buildFeaturePill(
-                                icon: Icons.sync_rounded,
-                                label: 'LIVE SYNC',
-                                start: 0.66,
-                                end: 0.92,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppTokens.space5),
-                          FadeTransition(
-                            opacity: buttonReveal,
-                            child: ScaleTransition(
-                              scale: Tween<double>(begin: 0.92, end: 1).animate(
-                                buttonReveal,
-                              ),
-                              child: _buildAnimatedButton(),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
