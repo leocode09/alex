@@ -69,8 +69,9 @@ int _getCurrentIndex(String location) {
   if (location.startsWith('/money')) return 0;
   if (location.startsWith('/dashboard')) return 0;
   if (location.startsWith('/sales')) return 1;
-  if (location.startsWith('/products') || location.startsWith('/product'))
+  if (location.startsWith('/products') || location.startsWith('/product')) {
     return 2;
+  }
   if (location.startsWith('/reports')) return 3;
   if (location.startsWith('/settings') ||
       location.startsWith('/lan') ||

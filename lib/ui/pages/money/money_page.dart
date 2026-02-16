@@ -592,6 +592,9 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                 }
 
                 if (result.success) {
+                  if (!dialogContext.mounted) {
+                    return;
+                  }
                   Navigator.of(dialogContext).pop();
                   await _refreshAndSync(
                     isEditing
@@ -677,6 +680,9 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
               }
 
               if (result.success) {
+                if (!dialogContext.mounted) {
+                  return;
+                }
                 Navigator.of(dialogContext).pop();
                 await _refreshAndSync(
                   isAdding
@@ -713,6 +719,9 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
               final repository = ref.read(moneyRepositoryProvider);
               final result = await repository.deleteAccount(account.id);
               if (!mounted) {
+                return;
+              }
+              if (!dialogContext.mounted) {
                 return;
               }
               Navigator.of(dialogContext).pop();

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/account_history_record.dart';
@@ -44,8 +45,10 @@ class MoneyRepository {
       accounts.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return accounts;
     } catch (e, stackTrace) {
-      print('Error loading money accounts: $e');
-      print('Stack trace: $stackTrace');
+      if (kDebugMode) {
+        debugPrint('Error loading money accounts: $e');
+        debugPrint('Stack trace: $stackTrace');
+      }
       return [];
     }
   }
@@ -61,8 +64,10 @@ class MoneyRepository {
       records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return records;
     } catch (e, stackTrace) {
-      print('Error loading money history: $e');
-      print('Stack trace: $stackTrace');
+      if (kDebugMode) {
+        debugPrint('Error loading money history: $e');
+        debugPrint('Stack trace: $stackTrace');
+      }
       return [];
     }
   }
@@ -322,7 +327,9 @@ class MoneyRepository {
           jsonEncode(accounts.map((account) => account.toMap()).toList());
       return await _storage.saveData(_accountsKey, jsonData);
     } catch (e) {
-      print('Error saving money accounts: $e');
+      if (kDebugMode) {
+        debugPrint('Error saving money accounts: $e');
+      }
       return false;
     }
   }
@@ -345,7 +352,9 @@ class MoneyRepository {
           jsonEncode(records.map((record) => record.toMap()).toList());
       return await _storage.saveData(_historyKey, jsonData);
     } catch (e) {
-      print('Error saving money history: $e');
+      if (kDebugMode) {
+        debugPrint('Error saving money history: $e');
+      }
       return false;
     }
   }
