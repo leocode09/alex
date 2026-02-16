@@ -76,7 +76,7 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
     await _service.clearTamper();
     ref.read(timeTamperProvider.notifier).state = null;
     ref.read(pinUnlockedProvider.notifier).state = true;
-    context.go('/dashboard');
+    context.go('/money');
   }
 
   Future<void> _openSettings() async {

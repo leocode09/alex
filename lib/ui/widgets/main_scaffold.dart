@@ -105,9 +105,9 @@ class MainScaffold extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
     return [
       NavigationDestination(
-        icon: const Icon(Icons.dashboard_outlined),
-        selectedIcon: Icon(Icons.dashboard, color: primary),
-        label: 'Dashboard',
+        icon: const Icon(Icons.account_balance_wallet_outlined),
+        selectedIcon: Icon(Icons.account_balance_wallet, color: primary),
+        label: 'Money',
       ),
       NavigationDestination(
         icon: const Icon(Icons.point_of_sale_outlined),
@@ -135,9 +135,9 @@ class MainScaffold extends StatelessWidget {
   List<NavigationRailDestination> _railDestinations() {
     return const [
       NavigationRailDestination(
-        icon: Icon(Icons.dashboard_outlined),
-        selectedIcon: Icon(Icons.dashboard),
-        label: Text('Dashboard'),
+        icon: Icon(Icons.account_balance_wallet_outlined),
+        selectedIcon: Icon(Icons.account_balance_wallet),
+        label: Text('Money'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.point_of_sale_outlined),
@@ -168,13 +168,13 @@ class MainScaffold extends StatelessWidget {
         if (await PinProtection.requirePinIfNeeded(
           context,
           isRequired: () => PinService().isPinRequiredForDashboard(),
-          title: 'Dashboard Access',
-          subtitle: 'Enter PIN to view dashboard',
+          title: 'Money Access',
+          subtitle: 'Enter PIN to view money accounts',
         )) {
           if (!context.mounted) {
             return;
           }
-          context.go('/dashboard');
+          context.go('/money');
         }
         break;
       case 1:

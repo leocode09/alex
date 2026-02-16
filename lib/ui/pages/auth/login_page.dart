@@ -66,8 +66,8 @@ class LoginPage extends ConsumerWidget {
                       if (requireDashboardPin) {
                         final verified = await PinProtection.requirePin(
                           context,
-                          title: 'Dashboard Access',
-                          subtitle: 'Enter PIN to view dashboard',
+                          title: 'Money Access',
+                          subtitle: 'Enter PIN to view money accounts',
                         );
                         if (!verified) {
                           return;
@@ -78,7 +78,7 @@ class LoginPage extends ConsumerWidget {
                         return;
                       }
 
-                      context.go('/dashboard');
+                      context.go('/money');
                     },
                     child: const Text('Continue'),
                   ),

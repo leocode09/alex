@@ -284,9 +284,9 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
                                 setState(() => _requireOnLogin = value),
                           ),
                           _buildPreferenceSwitch(
-                            icon: Icons.dashboard_outlined,
-                            title: 'Dashboard Access',
-                            subtitle: 'Require PIN to view dashboard',
+                            icon: Icons.account_balance_wallet_outlined,
+                            title: 'Money Access',
+                            subtitle: 'Require PIN to view money accounts',
                             value: _requireOnDashboard,
                             onChanged: (value) =>
                                 setState(() => _requireOnDashboard = value),

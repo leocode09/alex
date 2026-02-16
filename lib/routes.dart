@@ -15,8 +15,8 @@ import 'services/pin_service.dart';
 import 'providers/time_tamper_provider.dart';
 import 'ui/pages/security/time_tamper_page.dart';
 
-// Dashboard
-import 'ui/pages/dashboard/dashboard_page.dart';
+// Money
+import 'ui/pages/money/money_page.dart';
 
 // Sales
 import 'ui/pages/sales/sales_page.dart';
@@ -66,6 +66,7 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 // Helper to get current index based on location
 int _getCurrentIndex(String location) {
+  if (location.startsWith('/money')) return 0;
   if (location.startsWith('/dashboard')) return 0;
   if (location.startsWith('/sales')) return 1;
   if (location.startsWith('/products') || location.startsWith('/product'))
@@ -113,7 +114,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (timeTamper == null && isOnTimeLock) {
-        return '/dashboard';
+        return '/money';
       }
 
       // First time - need to setup PIN
@@ -129,7 +130,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Unlocked but on login/pin pages
       if (isUnlocked &&
           (isOnLogin || isOnPinEntry || (isOnPinSetup && !isChangingPinFlow))) {
-        return '/dashboard';
+        return '/money';
       }
 
       return null;
@@ -170,7 +171,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           onSuccess: () async {
             ref.read(pinUnlockedProvider.notifier).state = true;
             if (context.mounted) {
-              context.go('/dashboard');
+              context.go('/money');
             }
           },
         ),
@@ -193,13 +194,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
         routes: [
-          // Dashboard
+          // Money
+          GoRoute(
+            path: '/money',
+            name: 'money',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MoneyPage(),
+            ),
+          ),
           GoRoute(
             path: '/dashboard',
-            name: 'dashboard',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: DashboardPage(),
-            ),
+            redirect: (context, state) => '/money',
           ),
 
           // Sales
