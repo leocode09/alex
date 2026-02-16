@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'ui/design_system/app_route_transitions.dart';
 
 // Widgets
 import 'ui/widgets/main_scaffold.dart';
@@ -63,6 +64,27 @@ import 'ui/pages/notifications/notifications_page.dart';
 // Navigation state key
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
+
+GoRoute _animatedRoute({
+  required String path,
+  String? name,
+  GoRouterRedirect? redirect,
+  Widget Function(BuildContext context, GoRouterState state)? builder,
+  List<RouteBase> routes = const <RouteBase>[],
+}) {
+  return GoRoute(
+    path: path,
+    name: name,
+    redirect: redirect,
+    routes: routes,
+    pageBuilder: builder == null
+        ? null
+        : (context, state) => AppRouteTransitions.build(
+              state: state,
+              child: builder(context, state),
+            ),
+  );
+}
 
 // Helper to get current index based on location
 int _getCurrentIndex(String location) {
@@ -316,14 +338,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       // Time tamper lock
-      GoRoute(
+      _animatedRoute(
         path: '/time-lock',
         name: 'time-lock',
         builder: (context, state) => const TimeTamperPage(),
       ),
 
       // PIN Setup (first time)
-      GoRoute(
+      _animatedRoute(
         path: '/pin-setup',
         name: 'pin-setup',
         builder: (context, state) => PinSetupPage(
@@ -332,14 +354,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // PIN Preferences
-      GoRoute(
+      _animatedRoute(
         path: '/pin-preferences',
         name: 'pin-preferences',
         builder: (context, state) => const PinPreferencesPage(),
       ),
 
       // PIN Entry
-      GoRoute(
+      _animatedRoute(
         path: '/pin-entry',
         name: 'pin-entry',
         builder: (context, state) => PinEntryPage(
@@ -357,7 +379,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Auth (no bottom bar)
-      GoRoute(
+      _animatedRoute(
         path: '/',
         name: 'login',
         builder: (context, state) => const LoginPage(),
@@ -374,36 +396,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           // Money
-          GoRoute(
+          _animatedRoute(
             path: '/money',
             name: 'money',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: MoneyPage(),
-            ),
+            builder: (context, state) => const MoneyPage(),
           ),
-          GoRoute(
+          _animatedRoute(
             path: '/dashboard',
             redirect: (context, state) => '/money',
           ),
 
           // Sales
-          GoRoute(
+          _animatedRoute(
             path: '/sales',
             name: 'sales',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SalesPage(),
-            ),
+            builder: (context, state) => const SalesPage(),
           ),
 
           // Products
-          GoRoute(
+          _animatedRoute(
             path: '/products',
             name: 'products',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ProductCatalogPage(),
-            ),
+            builder: (context, state) => const ProductCatalogPage(),
             routes: [
-              GoRoute(
+              _animatedRoute(
                 path: 'add',
                 name: 'add-product',
                 builder: (context, state) {
@@ -411,7 +427,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   return AddEditProductPage(initialName: initialName);
                 },
               ),
-              GoRoute(
+              _animatedRoute(
                 path: ':id',
                 name: 'product-details',
                 builder: (context, state) {
@@ -419,7 +435,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   return ProductDetailsPage(productId: id);
                 },
               ),
-              GoRoute(
+              _animatedRoute(
                 path: 'edit/:id',
                 name: 'edit-product',
                 builder: (context, state) {
@@ -432,7 +448,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // Product routes (singular for compatibility)
           // Note: Literal paths must come before parameterized paths
-          GoRoute(
+          _animatedRoute(
             path: '/product/add',
             name: 'add-product-alt',
             builder: (context, state) {
@@ -440,7 +456,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               return AddEditProductPage(initialName: initialName);
             },
           ),
-          GoRoute(
+          _animatedRoute(
             path: '/product/edit/:id',
             name: 'edit-product-alt',
             builder: (context, state) {
@@ -448,7 +464,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               return AddEditProductPage(productId: id);
             },
           ),
-          GoRoute(
+          _animatedRoute(
             path: '/product/:id',
             name: 'product-details-alt',
             builder: (context, state) {
@@ -458,51 +474,47 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
 
           // Reports
-          GoRoute(
+          _animatedRoute(
             path: '/reports',
             name: 'reports',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ReportsPage(),
-            ),
+            builder: (context, state) => const ReportsPage(),
           ),
 
           // Settings & More
-          GoRoute(
+          _animatedRoute(
             path: '/settings',
             name: 'settings',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SettingsPage(),
-            ),
+            builder: (context, state) => const SettingsPage(),
           ),
 
           // LAN Manager
-          GoRoute(
+          _animatedRoute(
             path: '/lan',
             name: 'lan',
             builder: (context, state) => const LanManagerPage(),
           ),
 
           // Inventory
-          GoRoute(
+          _animatedRoute(
             path: '/inventory',
             name: 'inventory',
             builder: (context, state) => const InventoryPage(),
           ),
 
           // Categories Management
-          GoRoute(
+          _animatedRoute(
             path: '/categories',
             name: 'categories',
             builder: (context, state) => const CategoryManagementPage(),
           ),
 
           // Customers
-          GoRoute(
+          _animatedRoute(
             path: '/customers',
             name: 'customers',
             builder: (context, state) => const CustomerListPage(),
             routes: [
-              GoRoute(
+              _animatedRoute(
                 path: ':id',
                 name: 'customer-profile',
                 builder: (context, state) {
@@ -512,7 +524,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(
+          _animatedRoute(
             path: '/customer/:id',
             name: 'customer-profile-alt',
             builder: (context, state) {
@@ -522,12 +534,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
 
           // Employees
-          GoRoute(
+          _animatedRoute(
             path: '/employees',
             name: 'employees',
             builder: (context, state) => const EmployeeListPage(),
             routes: [
-              GoRoute(
+              _animatedRoute(
                 path: ':id',
                 name: 'employee-profile',
                 builder: (context, state) {
@@ -537,7 +549,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(
+          _animatedRoute(
             path: '/employee/:id',
             name: 'employee-profile-alt',
             builder: (context, state) {
@@ -547,12 +559,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
 
           // Stores
-          GoRoute(
+          _animatedRoute(
             path: '/stores',
             name: 'stores',
             builder: (context, state) => const StoresPage(),
             routes: [
-              GoRoute(
+              _animatedRoute(
                 path: ':id',
                 name: 'store-details',
                 builder: (context, state) {
@@ -562,7 +574,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(
+          _animatedRoute(
             path: '/store/:id',
             name: 'store-details-alt',
             builder: (context, state) {
@@ -572,21 +584,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
 
           // Hardware
-          GoRoute(
+          _animatedRoute(
             path: '/hardware',
             name: 'hardware',
             builder: (context, state) => const HardwareSetupPage(),
           ),
 
           // Promotions
-          GoRoute(
+          _animatedRoute(
             path: '/promotions',
             name: 'promotions',
             builder: (context, state) => const PromotionsPage(),
           ),
 
           // Notifications
-          GoRoute(
+          _animatedRoute(
             path: '/notifications',
             name: 'notifications',
             builder: (context, state) => const NotificationsPage(),
