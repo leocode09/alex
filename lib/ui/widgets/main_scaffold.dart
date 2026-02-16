@@ -35,30 +35,6 @@ const List<String> _productVisibilityKeys = [
 
 const List<String> _settingsVisibilityKeys = [
   'settings',
-  'viewStores',
-  'addStore',
-  'editStore',
-  'deleteStore',
-  'viewEmployees',
-  'addEmployee',
-  'editEmployee',
-  'deleteEmployee',
-  'viewCustomers',
-  'addCustomer',
-  'editCustomer',
-  'deleteCustomer',
-  'viewCategories',
-  'addCategory',
-  'editCategory',
-  'deleteCategory',
-  'hardwareSetup',
-  'dataSync',
-  'managePromotions',
-  'viewNotifications',
-  'taxSettings',
-  'receiptSettings',
-  'clearAllData',
-  'changePin',
 ];
 
 class _NavItem {
@@ -160,7 +136,12 @@ class MainScaffold extends StatelessWidget {
         icon: Icons.assessment_outlined,
         selectedIcon: Icons.assessment,
         route: '/reports',
-        visibilityKeys: const ['reports', 'viewFinancialReports', 'viewInventoryReports', 'exportReports'],
+        visibilityKeys: const [
+          'reports',
+          'viewFinancialReports',
+          'viewInventoryReports',
+          'exportReports'
+        ],
         isPinRequired: (service) => service.isPinRequiredForReports(),
         pinTitle: 'Reports Access',
         pinSubtitle: 'Enter PIN to view reports',
@@ -261,7 +242,8 @@ class MainScaffold extends StatelessWidget {
               child: NavigationRail(
                 selectedIndex: selectedIndex,
                 extended: extendedRail,
-                onDestinationSelected: (index) => _onTap(context, navItems[index]),
+                onDestinationSelected: (index) =>
+                    _onTap(context, navItems[index]),
                 minWidth: 82,
                 minExtendedWidth: 210,
                 labelType: extendedRail

@@ -16,195 +16,215 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
-    return AppPageScaffold(
-      title: 'Settings',
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildSectionHeader(context, 'General'),
-          _buildSettingTile(
-            context,
-            'Store Profile',
-            'Manage store details and branding',
-            Icons.store_outlined,
-            onTap: () async {
-              if (await PinProtection.requirePinIfNeeded(
+    return FutureBuilder<Map<String, bool>>(
+      future: PinService().getPinPreferences(),
+      builder: (context, snapshot) {
+        final prefs = snapshot.data ?? const <String, bool>{};
+        bool isVisible(String key) =>
+            prefs[PinService.visiblePreferenceKey(key)] ?? true;
+
+        return AppPageScaffold(
+          title: 'Settings',
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildSectionHeader(context, 'General'),
+              if (isVisible('viewStores'))
+                _buildSettingTile(
+                  context,
+                  'Store Profile',
+                  'Manage store details and branding',
+                  Icons.store_outlined,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () =>
+                          PinService().isPinRequiredForViewStores(),
+                      title: 'Stores Access',
+                      subtitle: 'Enter PIN to view stores',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/stores');
+                    }
+                  },
+                ),
+              if (isVisible('hardwareSetup'))
+                _buildSettingTile(
+                  context,
+                  'Hardware Setup',
+                  'Printers, scanners, and terminals',
+                  Icons.devices_outlined,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () =>
+                          PinService().isPinRequiredForHardwareSetup(),
+                      title: 'Hardware Setup',
+                      subtitle: 'Enter PIN to configure hardware',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/hardware');
+                    }
+                  },
+                ),
+              if (isVisible('dataSync'))
+                _buildSettingTile(
+                  context,
+                  'LAN Manager',
+                  'Manage Wi-Fi Direct peers and sync',
+                  Icons.wifi_tethering,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () => PinService().isPinRequiredForDataSync(),
+                      title: 'LAN Manager',
+                      subtitle: 'Enter PIN to manage LAN',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/lan');
+                    }
+                  },
+                ),
+              if (isVisible('managePromotions'))
+                _buildSettingTile(
+                  context,
+                  'Promotions',
+                  'Discounts and loyalty programs',
+                  Icons.local_offer_outlined,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () =>
+                          PinService().isPinRequiredForManagePromotions(),
+                      title: 'Promotions',
+                      subtitle: 'Enter PIN to manage promotions',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/promotions');
+                    }
+                  },
+                ),
+              const SizedBox(height: 24),
+              _buildSectionHeader(context, 'Account & Security'),
+              if (isVisible('viewEmployees'))
+                _buildSettingTile(
+                  context,
+                  'Employees',
+                  'Manage staff and permissions',
+                  Icons.people_outline,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () =>
+                          PinService().isPinRequiredForViewEmployees(),
+                      title: 'Employees',
+                      subtitle: 'Enter PIN to view employees',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/employees');
+                    }
+                  },
+                ),
+              if (isVisible('settings') || isVisible('changePin'))
+                _buildSettingTile(
+                  context,
+                  'Security',
+                  'PIN, passwords, and access logs',
+                  Icons.lock_outline,
+                  onTap: () => _showSecurityOptions(context),
+                ),
+              const SizedBox(height: 24),
+              _buildSectionHeader(context, 'App Preferences'),
+              _buildSettingTile(
                 context,
-                isRequired: () => PinService().isPinRequiredForViewStores(),
-                title: 'Stores Access',
-                subtitle: 'Enter PIN to view stores',
-              )) {
-                if (!context.mounted) {
-                  return;
-                }
-                context.push('/stores');
-              }
-            },
-          ),
-          _buildSettingTile(
-            context,
-            'Hardware Setup',
-            'Printers, scanners, and terminals',
-            Icons.devices_outlined,
-            onTap: () async {
-              if (await PinProtection.requirePinIfNeeded(
+                'Language',
+                'English (US)',
+                Icons.language,
+                onTap: () {},
+              ),
+              _buildSettingTile(
                 context,
-                isRequired: () => PinService().isPinRequiredForHardwareSetup(),
-                title: 'Hardware Setup',
-                subtitle: 'Enter PIN to configure hardware',
-              )) {
-                if (!context.mounted) {
-                  return;
-                }
-                context.push('/hardware');
-              }
-            },
-          ),
-          _buildSettingTile(
-            context,
-            'LAN Manager',
-            'Manage Wi-Fi Direct peers and sync',
-            Icons.wifi_tethering,
-            onTap: () async {
-              if (await PinProtection.requirePinIfNeeded(
+                'Theme',
+                _themeModeLabel(themeMode),
+                Icons.brightness_6_outlined,
+                onTap: () => _showThemeOptions(context, ref, themeMode),
+              ),
+              if (isVisible('viewNotifications'))
+                _buildSettingTile(
+                  context,
+                  'Notifications',
+                  'Manage alerts and sounds',
+                  Icons.notifications_outlined,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () =>
+                          PinService().isPinRequiredForViewNotifications(),
+                      title: 'Notifications',
+                      subtitle: 'Enter PIN to view notifications',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/notifications');
+                    }
+                  },
+                ),
+              const SizedBox(height: 24),
+              _buildSectionHeader(context, 'Support'),
+              _buildSettingTile(
                 context,
-                isRequired: () => PinService().isPinRequiredForDataSync(),
-                title: 'LAN Manager',
-                subtitle: 'Enter PIN to manage LAN',
-              )) {
-                if (!context.mounted) {
-                  return;
-                }
-                context.push('/lan');
-              }
-            },
-          ),
-          _buildSettingTile(
-            context,
-            'Promotions',
-            'Discounts and loyalty programs',
-            Icons.local_offer_outlined,
-            onTap: () async {
-              if (await PinProtection.requirePinIfNeeded(
+                'Help Center',
+                'FAQ and support contact',
+                Icons.help_outline,
+                onTap: () {},
+              ),
+              _buildSettingTile(
                 context,
-                isRequired: () =>
-                    PinService().isPinRequiredForManagePromotions(),
-                title: 'Promotions',
-                subtitle: 'Enter PIN to manage promotions',
-              )) {
-                if (!context.mounted) {
-                  return;
-                }
-                context.push('/promotions');
-              }
-            },
+                'About',
+                'Version 1.0.0',
+                Icons.info_outline,
+                onTap: () {},
+              ),
+              const SizedBox(height: 24),
+              _buildSectionHeader(context, 'Data Management'),
+              if (isVisible('clearAllData'))
+                _buildSettingTile(
+                  context,
+                  'Clear All Data',
+                  'Remove all products, sales, and settings',
+                  Icons.delete_sweep_outlined,
+                  onTap: () => _showClearDataDialog(context),
+                ),
+              const SizedBox(height: 32),
+              OutlinedButton(
+                onPressed: () {
+                  PinService().clearSessionVerified();
+                  ref.read(pinUnlockedProvider.notifier).state = false;
+                  context.go('/pin-entry');
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('Log Out'),
+              ),
+              const SizedBox(height: 32),
+            ],
           ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, 'Account & Security'),
-          _buildSettingTile(
-            context,
-            'Employees',
-            'Manage staff and permissions',
-            Icons.people_outline,
-            onTap: () async {
-              if (await PinProtection.requirePinIfNeeded(
-                context,
-                isRequired: () => PinService().isPinRequiredForViewEmployees(),
-                title: 'Employees',
-                subtitle: 'Enter PIN to view employees',
-              )) {
-                if (!context.mounted) {
-                  return;
-                }
-                context.push('/employees');
-              }
-            },
-          ),
-          _buildSettingTile(
-            context,
-            'Security',
-            'PIN, passwords, and access logs',
-            Icons.lock_outline,
-            onTap: () => _showSecurityOptions(context),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, 'App Preferences'),
-          _buildSettingTile(
-            context,
-            'Language',
-            'English (US)',
-            Icons.language,
-            onTap: () {},
-          ),
-          _buildSettingTile(
-            context,
-            'Theme',
-            _themeModeLabel(themeMode),
-            Icons.brightness_6_outlined,
-            onTap: () => _showThemeOptions(context, ref, themeMode),
-          ),
-          _buildSettingTile(
-            context,
-            'Notifications',
-            'Manage alerts and sounds',
-            Icons.notifications_outlined,
-            onTap: () async {
-              if (await PinProtection.requirePinIfNeeded(
-                context,
-                isRequired: () =>
-                    PinService().isPinRequiredForViewNotifications(),
-                title: 'Notifications',
-                subtitle: 'Enter PIN to view notifications',
-              )) {
-                if (!context.mounted) {
-                  return;
-                }
-                context.push('/notifications');
-              }
-            },
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, 'Support'),
-          _buildSettingTile(
-            context,
-            'Help Center',
-            'FAQ and support contact',
-            Icons.help_outline,
-            onTap: () {},
-          ),
-          _buildSettingTile(
-            context,
-            'About',
-            'Version 1.0.0',
-            Icons.info_outline,
-            onTap: () {},
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, 'Data Management'),
-          _buildSettingTile(
-            context,
-            'Clear All Data',
-            'Remove all products, sales, and settings',
-            Icons.delete_sweep_outlined,
-            onTap: () => _showClearDataDialog(context),
-          ),
-          const SizedBox(height: 32),
-          OutlinedButton(
-            onPressed: () {
-              PinService().clearSessionVerified();
-              ref.read(pinUnlockedProvider.notifier).state = false;
-              context.go('/pin-entry');
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: const Text('Log Out'),
-          ),
-          const SizedBox(height: 32),
-        ],
-      ),
+        );
+      },
     );
   }
 

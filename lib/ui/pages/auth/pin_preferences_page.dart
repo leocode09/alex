@@ -219,7 +219,8 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
       _requireOnChangePin = prefs['changePin'] ?? true;
 
       for (final featureKey in _featureKeyByTitle.values.toSet()) {
-        _visibleByFeature[featureKey] = prefs[_visibilityKey(featureKey)] ?? true;
+        _visibleByFeature[featureKey] =
+            prefs[_visibilityKey(featureKey)] ?? true;
       }
 
       _isLoading = false;
@@ -864,7 +865,8 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
     required ValueChanged<bool> onChanged,
   }) {
     final featureKey = _featureKeyByTitle[title];
-    final isVisible = featureKey == null ? true : _visibleByFeature[featureKey] ?? true;
+    final isVisible =
+        featureKey == null ? true : _visibleByFeature[featureKey] ?? true;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -882,7 +884,8 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+                  child:
+                      Icon(icon, color: Theme.of(context).colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
