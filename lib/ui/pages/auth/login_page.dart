@@ -119,9 +119,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     scale: Tween<double>(begin: 0.84, end: 1).animate(
                       panelReveal,
                     ),
-                    child: _buildClayCard(
-                      scheme: scheme,
-                      extras: extras,
+                    child: _buildContentLayer(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -231,38 +229,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  Widget _buildClayCard({
-    required ColorScheme scheme,
-    required AppThemeExtras extras,
+  Widget _buildContentLayer({
     required Widget child,
   }) {
-    final topColor =
-        Color.lerp(extras.panelAlt, extras.panel, 0.55) ?? extras.panel;
-    final depthColor = Color.alphaBlend(
-      scheme.primary.withValues(alpha: 0.14),
-      extras.panelAlt,
-    );
-
-    return Stack(
-      children: [
-        Positioned.fill(
-          top: 8,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: depthColor,
-              borderRadius: BorderRadius.circular(30),
-            ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(AppTokens.space5),
-          decoration: BoxDecoration(
-            color: topColor,
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: child,
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.all(AppTokens.space5),
+      child: child,
     );
   }
 
