@@ -412,7 +412,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'notifications',
             builder: (context, state) => const NotificationsPage(),
           ),
-
         ],
       ),
     ],

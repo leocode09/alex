@@ -21,14 +21,16 @@ final moneyTotalBalanceProvider = FutureProvider<double>((ref) async {
   return repository.getTotalBalance();
 });
 
-final moneyHistoryProvider = FutureProvider<List<AccountHistoryRecord>>((ref) async {
+final moneyHistoryProvider =
+    FutureProvider<List<AccountHistoryRecord>>((ref) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(moneyRepositoryProvider);
   return repository.getAllHistory();
 });
 
 final accountMoneyHistoryProvider =
-    FutureProvider.family<List<AccountHistoryRecord>, String>((ref, accountId) async {
+    FutureProvider.family<List<AccountHistoryRecord>, String>(
+        (ref, accountId) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(moneyRepositoryProvider);
   return repository.getHistoryForAccount(accountId);

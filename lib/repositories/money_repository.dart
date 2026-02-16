@@ -67,7 +67,8 @@ class MoneyRepository {
     }
   }
 
-  Future<List<AccountHistoryRecord>> getHistoryForAccount(String accountId) async {
+  Future<List<AccountHistoryRecord>> getHistoryForAccount(
+      String accountId) async {
     final history = await getAllHistory();
     return history.where((record) => record.accountId == accountId).toList();
   }
@@ -123,7 +124,8 @@ class MoneyRepository {
     );
     final savedHistory = await _appendHistory(historyRecord);
     if (!savedHistory) {
-      return MoneyActionResult.fail('Account created, but history was not saved.');
+      return MoneyActionResult.fail(
+          'Account created, but history was not saved.');
     }
 
     return MoneyActionResult.ok('Account created successfully.');
@@ -296,7 +298,8 @@ class MoneyRepository {
     );
     final savedHistory = await _appendHistory(historyRecord);
     if (!savedHistory) {
-      return MoneyActionResult.fail('Balance updated, but history was not saved.');
+      return MoneyActionResult.fail(
+          'Balance updated, but history was not saved.');
     }
 
     return MoneyActionResult.ok(successMessage);
@@ -315,7 +318,8 @@ class MoneyRepository {
 
   Future<bool> _saveAccounts(List<MoneyAccount> accounts) async {
     try {
-      final jsonData = jsonEncode(accounts.map((account) => account.toMap()).toList());
+      final jsonData =
+          jsonEncode(accounts.map((account) => account.toMap()).toList());
       return await _storage.saveData(_accountsKey, jsonData);
     } catch (e) {
       print('Error saving money accounts: $e');
@@ -330,13 +334,15 @@ class MoneyRepository {
     }
     final decoded = jsonDecode(jsonData) as List<dynamic>;
     return decoded
-        .map((item) => AccountHistoryRecord.fromMap(item as Map<String, dynamic>))
+        .map((item) =>
+            AccountHistoryRecord.fromMap(item as Map<String, dynamic>))
         .toList();
   }
 
   Future<bool> _saveHistory(List<AccountHistoryRecord> records) async {
     try {
-      final jsonData = jsonEncode(records.map((record) => record.toMap()).toList());
+      final jsonData =
+          jsonEncode(records.map((record) => record.toMap()).toList());
       return await _storage.saveData(_historyKey, jsonData);
     } catch (e) {
       print('Error saving money history: $e');

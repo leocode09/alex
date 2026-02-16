@@ -7,6 +7,7 @@ import 'package:alex/ui/pages/customers/customer_profile_page.dart';
 import 'package:alex/ui/pages/employees/employee_list_page.dart';
 import 'package:alex/ui/pages/employees/employee_profile_page.dart';
 import 'package:alex/ui/pages/hardware/hardware_setup_page.dart';
+import 'package:alex/ui/pages/money/money_page.dart';
 import 'package:alex/ui/pages/notifications/notifications_page.dart';
 import 'package:alex/ui/pages/promotions/promotions_page.dart';
 import 'package:alex/ui/pages/security/time_tamper_page.dart';
@@ -48,6 +49,7 @@ void main() {
     await pumpPage(tester, const EmployeeListPage());
     await pumpPage(tester, const EmployeeProfilePage(employeeId: '1'));
     await pumpPage(tester, const HardwareSetupPage());
+    await pumpPage(tester, const MoneyPage(), withProviders: true);
     await pumpPage(tester, const PromotionsPage());
     await pumpPage(tester, const NotificationsPage());
     await pumpPage(tester, const PinEntryPage());
