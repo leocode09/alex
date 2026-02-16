@@ -9,7 +9,6 @@ import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
-import '../../design_system/widgets/app_panel.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -89,6 +88,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final extras = context.appExtras;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     final titleReveal = CurvedAnimation(
       parent: _entryController,
       curve: const Interval(0.36, 0.78, curve: Curves.easeOutCubic),
@@ -112,18 +112,16 @@ class _LoginPageState extends ConsumerState<LoginPage>
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(AppTokens.space4),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
+                constraints: BoxConstraints(maxWidth: isMobile ? 440 : 560),
                 child: FadeTransition(
                   opacity: panelReveal,
                   child: ScaleTransition(
                     scale: Tween<double>(begin: 0.84, end: 1).animate(
                       panelReveal,
                     ),
-                    child: AppPanel(
-                      emphasized: true,
-                      outlinedStrong: true,
-                      color: extras.panel.withValues(alpha: 0.94),
-                      padding: const EdgeInsets.all(AppTokens.space5),
+                    child: _buildClayCard(
+                      scheme: scheme,
+                      extras: extras,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -144,7 +142,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                     textAlign: TextAlign.center,
                                     style: Theme.of(context)
                                         .textTheme
-                                        .displayMedium
+                                        .displaySmall
                                         ?.copyWith(
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: 1.2,
@@ -156,7 +154,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                     textAlign: TextAlign.center,
                                     style: Theme.of(context)
                                         .textTheme
-                                        .titleMedium
+                                        .bodyLarge
                                         ?.copyWith(color: extras.muted),
                                   ),
                                 ],
@@ -230,7 +228,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 child: _ambientOrb(
                   size: 280,
                   color: scheme.primary.withValues(alpha: 0.08),
-                  borderColor: scheme.primary.withValues(alpha: 0.24),
                 ),
               ),
             ),
@@ -242,7 +239,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 child: _ambientOrb(
                   size: 250,
                   color: extras.accentSoft.withValues(alpha: 0.2),
-                  borderColor: scheme.primary.withValues(alpha: 0.16),
                 ),
               ),
             ),
@@ -252,7 +248,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
               child: _ambientOrb(
                 size: 120,
                 color: extras.panel.withValues(alpha: 0.55),
-                borderColor: extras.borderStrong.withValues(alpha: 0.55),
               ),
             ),
           ],
@@ -264,7 +259,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Widget _ambientOrb({
     required double size,
     required Color color,
-    required Color borderColor,
   }) {
     return Container(
       width: size,
@@ -272,7 +266,106 @@ class _LoginPageState extends ConsumerState<LoginPage>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: color,
-        border: Border.all(color: borderColor, width: AppTokens.border),
+      ),
+    );
+  }
+
+  Widget _buildClayCard({
+    required ColorScheme scheme,
+    required AppThemeExtras extras,
+    required Widget child,
+  }) {
+    final topColor =
+        Color.lerp(extras.panelAlt, extras.panel, 0.55) ?? extras.panel;
+    final depthColor = Color.alphaBlend(
+      scheme.primary.withValues(alpha: 0.14),
+      extras.panelAlt,
+    );
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          top: 8,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: depthColor,
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(AppTokens.space5),
+          decoration: BoxDecoration(
+            color: topColor.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: child,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClayCapsule({
+    required Widget child,
+    required Color topColor,
+    required Color depthColor,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
+      horizontal: AppTokens.space3,
+      vertical: AppTokens.space1,
+    ),
+  }) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          top: 3,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: depthColor,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+        Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: topColor,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: child,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClayCircle({
+    required double size,
+    required Color topColor,
+    required Color depthColor,
+    Widget? child,
+  }) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            top: size * 0.08,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: depthColor,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: topColor,
+            ),
+            alignment: Alignment.center,
+            child: child,
+          ),
+        ],
       ),
     );
   }
@@ -282,15 +375,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
       animation: _pulseController,
       builder: (context, child) {
         final dotScale = 0.9 + (_pulseController.value * 0.45);
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space3,
-            vertical: AppTokens.space1,
+        return _buildClayCapsule(
+          topColor: Color.alphaBlend(
+            scheme.primary.withValues(alpha: 0.06),
+            extras.panel,
           ),
-          decoration: BoxDecoration(
-            color: extras.panel,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: extras.borderStrong),
+          depthColor: Color.alphaBlend(
+            scheme.primary.withValues(alpha: 0.12),
+            extras.panelAlt,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -339,31 +431,16 @@ class _LoginPageState extends ConsumerState<LoginPage>
             children: [
               Transform.scale(
                 scale: pulse,
-                child: Container(
-                  width: 132,
-                  height: 132,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primary.withValues(alpha: 0.08),
-                    border: Border.all(
-                      color: scheme.primary.withValues(alpha: 0.32),
-                      width: AppTokens.borderStrong,
-                    ),
-                  ),
+                child: _buildClayCircle(
+                  size: 132,
+                  topColor: scheme.primary.withValues(alpha: 0.18),
+                  depthColor: scheme.primary.withValues(alpha: 0.08),
                 ),
               ),
-              Container(
-                width: 98,
-                height: 98,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: scheme.primary.withValues(alpha: 0.12),
-                  border: Border.all(
-                    color: scheme.primary.withValues(alpha: 0.48),
-                    width: AppTokens.border,
-                  ),
-                ),
-                alignment: Alignment.center,
+              _buildClayCircle(
+                size: 98,
+                topColor: scheme.primary.withValues(alpha: 0.2),
+                depthColor: scheme.primary.withValues(alpha: 0.1),
                 child: Icon(
                   Icons.point_of_sale_rounded,
                   size: 52,
@@ -392,15 +469,18 @@ class _LoginPageState extends ConsumerState<LoginPage>
       opacity: reveal,
       child: ScaleTransition(
         scale: Tween<double>(begin: 0.8, end: 1).animate(reveal),
-        child: Container(
+        child: _buildClayCapsule(
+          topColor: Color.alphaBlend(
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+            context.appExtras.panel,
+          ),
+          depthColor: Color.alphaBlend(
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+            context.appExtras.panelAlt,
+          ),
           padding: const EdgeInsets.symmetric(
             horizontal: AppTokens.space2,
             vertical: AppTokens.space1,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: context.appExtras.borderStrong),
-            color: context.appExtras.panel,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -432,15 +512,34 @@ class _LoginPageState extends ConsumerState<LoginPage>
       },
       child: SizedBox(
         width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _continueToApp,
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(0, 52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTokens.radiusM + 2),
+        height: 58,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              top: 4,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusL),
+                ),
+              ),
             ),
-          ),
-          child: const Text('Continue'),
+            Positioned.fill(
+              child: ElevatedButton(
+                onPressed: _continueToApp,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTokens.radiusL),
+                  ),
+                ),
+                child: const Text('Continue'),
+              ),
+            ),
+          ],
         ),
       ),
     );
