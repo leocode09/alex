@@ -5,7 +5,11 @@ class PinService {
   static const String _pinKey = 'user_pin';
   static const String _pinSetKey = 'pin_is_set';
   static const String _pinPreferencesKey = 'pin_preferences';
+  static const String _visibilityPrefix = 'visible_';
   static bool _sessionVerified = false;
+
+  static String visiblePreferenceKey(String preferenceKey) =>
+      '$_visibilityPrefix$preferenceKey';
 
   Future<bool> isPinSet() async {
     final prefs = await SharedPreferences.getInstance();
@@ -90,7 +94,7 @@ class PinService {
     await prefs.setBool(_pinSetKey, true);
 
     // Store all preferences in a single JSON key
-    final preferences = {
+    final preferences = _withDefaultPreferences({
       'login': requireOnLogin,
       'settings': requireOnSettings,
       'dashboard': requireOnDashboard,
@@ -140,7 +144,7 @@ class PinService {
       'taxSettings': requireOnTaxSettings,
       'receiptSettings': requireOnReceiptSettings,
       'changePin': requireOnChangePin,
-    };
+    });
 
     await prefs.setString(_pinPreferencesKey, jsonEncode(preferences));
   }
@@ -178,14 +182,28 @@ class PinService {
 
     try {
       final decoded = jsonDecode(prefsString) as Map<String, dynamic>;
-      return decoded.map((key, value) => MapEntry(key, value as bool));
+      final sanitized = <String, bool>{};
+      for (final entry in decoded.entries) {
+        final value = entry.value;
+        if (value is bool) {
+          sanitized[entry.key] = value;
+        }
+      }
+      return _withDefaultPreferences(sanitized);
     } catch (e) {
       return _getDefaultPreferences();
     }
   }
 
-  Map<String, bool> _getDefaultPreferences() {
+  Map<String, bool> _withDefaultPreferences(Map<String, bool> preferences) {
     return {
+      ..._getDefaultPreferences(),
+      ...preferences,
+    };
+  }
+
+  Map<String, bool> _getDefaultPreferences() {
+    final defaults = <String, bool>{
       'login': true,
       'settings': false,
       'dashboard': false,
@@ -236,6 +254,21 @@ class PinService {
       'receiptSettings': false,
       'changePin': true,
     };
+
+    final featureKeys = defaults.keys.toList();
+    for (final key in featureKeys) {
+      defaults[visiblePreferenceKey(key)] = true;
+    }
+
+    return defaults;
+  }
+
+  Future<bool> isFeatureVisible(
+    String featureKey, {
+    bool defaultValue = true,
+  }) async {
+    final prefs = await _getPreferencesMap();
+    return prefs[visiblePreferenceKey(featureKey)] ?? defaultValue;
   }
 
   // Auth & General
@@ -500,7 +533,8 @@ class PinService {
 
   Future<void> updatePinPreferences(Map<String, bool> preferences) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_pinPreferencesKey, jsonEncode(preferences));
+    final mergedPreferences = _withDefaultPreferences(preferences);
+    await prefs.setString(_pinPreferencesKey, jsonEncode(mergedPreferences));
   }
 
   Future<void> clearPin() async {
