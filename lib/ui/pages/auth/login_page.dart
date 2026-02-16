@@ -212,61 +212,22 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   Widget _buildBackground(ColorScheme scheme, AppThemeExtras extras) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_orbitController, _pulseController]),
+      animation: _orbitController,
       builder: (context, child) {
-        final orbit = _orbitController.value * 2 * math.pi;
-        final pulse =
-            1 + (math.sin(_pulseController.value * 2 * math.pi) * 0.05);
-
-        return Stack(
-          children: [
-            Positioned(
-              left: -120 + (math.sin(orbit) * 26),
-              top: -70 + (math.cos(orbit * 0.8) * 24),
-              child: Transform.scale(
-                scale: pulse,
-                child: _ambientOrb(
-                  size: 280,
-                  color: scheme.primary.withValues(alpha: 0.08),
-                ),
-              ),
+        return CustomPaint(
+          painter: _TechBackdropPainter(
+            progress: _orbitController.value,
+            plateColor: Color.alphaBlend(
+              scheme.primary.withValues(alpha: 0.05),
+              extras.panelAlt,
             ),
-            Positioned(
-              right: -100 + (math.cos(orbit * 0.7) * 20),
-              bottom: -90 + (math.sin(orbit) * 22),
-              child: Transform.scale(
-                scale: 1 - ((pulse - 1) * 0.8),
-                child: _ambientOrb(
-                  size: 250,
-                  color: extras.accentSoft.withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 30 + (math.sin(orbit * 1.4) * 14),
-              bottom: 110 + (math.cos(orbit * 1.1) * 16),
-              child: _ambientOrb(
-                size: 120,
-                color: extras.panel.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
+            traceColor: scheme.primary.withValues(alpha: 0.2),
+            traceSoftColor: scheme.primary.withValues(alpha: 0.1),
+            packetColor: scheme.primary.withValues(alpha: 0.68),
+          ),
+          child: const SizedBox.expand(),
         );
       },
-    );
-  }
-
-  Widget _ambientOrb({
-    required double size,
-    required Color color,
-  }) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
     );
   }
 
@@ -337,39 +298,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
-  Widget _buildClayCircle({
-    required double size,
-    required Color topColor,
-    required Color depthColor,
-    Widget? child,
-  }) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            top: size * 0.08,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: depthColor,
-              ),
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: topColor,
-            ),
-            alignment: Alignment.center,
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStatusPill(ColorScheme scheme, AppThemeExtras extras) {
     return AnimatedBuilder(
       animation: _pulseController,
@@ -422,32 +350,48 @@ class _LoginPageState extends ConsumerState<LoginPage>
     return ScaleTransition(
       scale: Tween<double>(begin: 0.72, end: 1).animate(reveal),
       child: AnimatedBuilder(
-        animation: _pulseController,
+        animation: Listenable.merge([_pulseController, _orbitController]),
         builder: (context, child) {
           final pulse =
-              1 + (math.sin(_pulseController.value * 2 * math.pi) * 0.08);
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Transform.scale(
-                scale: pulse,
-                child: _buildClayCircle(
-                  size: 132,
-                  topColor: scheme.primary.withValues(alpha: 0.18),
-                  depthColor: scheme.primary.withValues(alpha: 0.08),
-                ),
+              1 + (math.sin(_pulseController.value * 2 * math.pi) * 0.035);
+          return Transform.scale(
+            scale: pulse,
+            child: SizedBox(
+              width: 172,
+              height: 172,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(172, 172),
+                    painter: _TechEmblemPainter(
+                      progress: _orbitController.value,
+                      traceColor: scheme.primary.withValues(alpha: 0.34),
+                      traceSoftColor: scheme.primary.withValues(alpha: 0.14),
+                      packetColor: scheme.primary.withValues(alpha: 0.78),
+                    ),
+                  ),
+                  Transform.scale(
+                    scale: 1 +
+                        (math.sin(_pulseController.value * 2 * math.pi) * 0.02),
+                    child: Container(
+                      width: 94,
+                      height: 94,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: scheme.primary.withValues(alpha: 0.2),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.point_of_sale_rounded,
+                        size: 52,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              _buildClayCircle(
-                size: 98,
-                topColor: scheme.primary.withValues(alpha: 0.2),
-                depthColor: scheme.primary.withValues(alpha: 0.1),
-                child: Icon(
-                  Icons.point_of_sale_rounded,
-                  size: 52,
-                  color: scheme.primary,
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -543,5 +487,307 @@ class _LoginPageState extends ConsumerState<LoginPage>
         ),
       ),
     );
+  }
+}
+
+class _TechBackdropPainter extends CustomPainter {
+  const _TechBackdropPainter({
+    required this.progress,
+    required this.plateColor,
+    required this.traceColor,
+    required this.traceSoftColor,
+    required this.packetColor,
+  });
+
+  final double progress;
+  final Color plateColor;
+  final Color traceColor;
+  final Color traceSoftColor;
+  final Color packetColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final platePaint = Paint()
+      ..color = plateColor
+      ..style = PaintingStyle.fill;
+    final strongTracePaint = Paint()
+      ..color = traceColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final softTracePaint = Paint()
+      ..color = traceSoftColor
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final packetPaint = Paint()
+      ..color = packetColor
+      ..strokeWidth = 3.2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final nodePaint = Paint()
+      ..color = packetColor.withValues(alpha: 0.72)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(-56, size.height * 0.08, size.width * 0.48, 124),
+        const Radius.circular(64),
+      ),
+      platePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+            size.width * 0.64, size.height * 0.78, size.width * 0.52, 180),
+        const Radius.circular(90),
+      ),
+      platePaint,
+    );
+
+    final traces = <List<Offset>>[
+      [
+        Offset(-24, size.height * 0.17),
+        Offset(size.width * 0.18, size.height * 0.17),
+        Offset(size.width * 0.18, size.height * 0.29),
+        Offset(size.width * 0.56, size.height * 0.29),
+        Offset(size.width * 0.56, size.height * 0.15),
+        Offset(size.width + 24, size.height * 0.15),
+      ],
+      [
+        Offset(-16, size.height * 0.58),
+        Offset(size.width * 0.14, size.height * 0.58),
+        Offset(size.width * 0.14, size.height * 0.7),
+        Offset(size.width * 0.42, size.height * 0.7),
+        Offset(size.width * 0.42, size.height * 0.85),
+        Offset(size.width * 0.88, size.height * 0.85),
+        Offset(size.width + 20, size.height * 0.85),
+      ],
+      [
+        Offset(size.width * 0.76, -20),
+        Offset(size.width * 0.76, size.height * 0.22),
+        Offset(size.width * 0.62, size.height * 0.22),
+        Offset(size.width * 0.62, size.height * 0.46),
+        Offset(size.width * 0.86, size.height * 0.46),
+        Offset(size.width * 0.86, size.height * 0.64),
+      ],
+      [
+        Offset(size.width * 0.08, size.height * 0.36),
+        Offset(size.width * 0.3, size.height * 0.36),
+        Offset(size.width * 0.3, size.height * 0.48),
+        Offset(size.width * 0.5, size.height * 0.48),
+      ],
+    ];
+
+    for (var i = 0; i < traces.length; i++) {
+      final path = _polylinePath(traces[i]);
+      canvas.drawPath(path, i.isEven ? strongTracePaint : softTracePaint);
+
+      _drawPacket(
+        canvas: canvas,
+        path: path,
+        packetPaint: packetPaint,
+        nodePaint: nodePaint,
+        t: (progress + (i * 0.19)) % 1,
+      );
+
+      for (final node in traces[i].skip(1).take(traces[i].length - 2)) {
+        final shimmer = 1 +
+            (math.sin((progress * 2 * math.pi) + node.dx * 0.01 + (i * 0.9)) *
+                0.12);
+        canvas.drawCircle(node, 2.2 * shimmer, nodePaint);
+      }
+    }
+  }
+
+  Path _polylinePath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx, points[i].dy);
+    }
+    return path;
+  }
+
+  void _drawPacket({
+    required Canvas canvas,
+    required Path path,
+    required Paint packetPaint,
+    required Paint nodePaint,
+    required double t,
+  }) {
+    for (final metric in path.computeMetrics()) {
+      if (metric.length <= 0) {
+        continue;
+      }
+      final segmentLength = math.min(metric.length * 0.22, 84.0);
+      final start = (metric.length * t) % metric.length;
+      final end = start + segmentLength;
+      if (end <= metric.length) {
+        canvas.drawPath(metric.extractPath(start, end), packetPaint);
+      } else {
+        canvas.drawPath(metric.extractPath(start, metric.length), packetPaint);
+        canvas.drawPath(
+            metric.extractPath(0, end - metric.length), packetPaint);
+      }
+
+      final markerOffset = (start + (segmentLength * 0.6)) % metric.length;
+      final marker = metric.getTangentForOffset(markerOffset);
+      if (marker != null) {
+        canvas.drawCircle(marker.position, 3, nodePaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TechBackdropPainter other) {
+    return other.progress != progress ||
+        other.plateColor != plateColor ||
+        other.traceColor != traceColor ||
+        other.traceSoftColor != traceSoftColor ||
+        other.packetColor != packetColor;
+  }
+}
+
+class _TechEmblemPainter extends CustomPainter {
+  const _TechEmblemPainter({
+    required this.progress,
+    required this.traceColor,
+    required this.traceSoftColor,
+    required this.packetColor,
+  });
+
+  final double progress;
+  final Color traceColor;
+  final Color traceSoftColor;
+  final Color packetColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final strongTracePaint = Paint()
+      ..color = traceColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final softTracePaint = Paint()
+      ..color = traceSoftColor
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final packetPaint = Paint()
+      ..color = packetColor
+      ..strokeWidth = 2.8
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final nodePaint = Paint()
+      ..color = packetColor.withValues(alpha: 0.84)
+      ..style = PaintingStyle.fill;
+
+    final outerFrame = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: center,
+            width: size.width * 0.82,
+            height: size.height * 0.82,
+          ),
+          const Radius.circular(28),
+        ),
+      );
+    canvas.drawPath(outerFrame, softTracePaint);
+
+    final traces = <List<Offset>>[
+      [
+        Offset(size.width * 0.05, center.dy),
+        Offset(size.width * 0.32, center.dy),
+        Offset(size.width * 0.32, size.height * 0.34),
+        Offset(size.width * 0.44, size.height * 0.34),
+      ],
+      [
+        Offset(size.width * 0.95, center.dy),
+        Offset(size.width * 0.68, center.dy),
+        Offset(size.width * 0.68, size.height * 0.66),
+        Offset(size.width * 0.56, size.height * 0.66),
+      ],
+      [
+        Offset(center.dx, size.height * 0.05),
+        Offset(center.dx, size.height * 0.3),
+        Offset(size.width * 0.6, size.height * 0.3),
+      ],
+      [
+        Offset(center.dx, size.height * 0.95),
+        Offset(center.dx, size.height * 0.7),
+        Offset(size.width * 0.4, size.height * 0.7),
+      ],
+    ];
+
+    for (var i = 0; i < traces.length; i++) {
+      final path = _polylinePath(traces[i]);
+      canvas.drawPath(path, i.isEven ? strongTracePaint : softTracePaint);
+      _drawPacket(
+        canvas: canvas,
+        path: path,
+        packetPaint: packetPaint,
+        nodePaint: nodePaint,
+        t: (progress + (i * 0.27)) % 1,
+      );
+      for (final node in traces[i].skip(1)) {
+        canvas.drawCircle(node, 2.4, nodePaint);
+      }
+    }
+
+    _drawPacket(
+      canvas: canvas,
+      path: outerFrame,
+      packetPaint: packetPaint,
+      nodePaint: nodePaint,
+      t: (progress * 1.2) % 1,
+    );
+  }
+
+  Path _polylinePath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx, points[i].dy);
+    }
+    return path;
+  }
+
+  void _drawPacket({
+    required Canvas canvas,
+    required Path path,
+    required Paint packetPaint,
+    required Paint nodePaint,
+    required double t,
+  }) {
+    for (final metric in path.computeMetrics()) {
+      if (metric.length <= 0) {
+        continue;
+      }
+      final segmentLength = math.min(metric.length * 0.16, 52.0);
+      final start = (metric.length * t) % metric.length;
+      final end = start + segmentLength;
+      if (end <= metric.length) {
+        canvas.drawPath(metric.extractPath(start, end), packetPaint);
+      } else {
+        canvas.drawPath(metric.extractPath(start, metric.length), packetPaint);
+        canvas.drawPath(
+            metric.extractPath(0, end - metric.length), packetPaint);
+      }
+
+      final markerOffset = (start + (segmentLength * 0.58)) % metric.length;
+      final marker = metric.getTangentForOffset(markerOffset);
+      if (marker != null) {
+        canvas.drawCircle(marker.position, 2.4, nodePaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TechEmblemPainter other) {
+    return other.progress != progress ||
+        other.traceColor != traceColor ||
+        other.traceSoftColor != traceSoftColor ||
+        other.packetColor != packetColor;
   }
 }
