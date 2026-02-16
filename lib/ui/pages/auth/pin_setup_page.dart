@@ -28,6 +28,14 @@ class _PinSetupPageState extends State<PinSetupPage> {
   bool _requireOnSettings = false;
   bool _requireOnDashboard = false;
 
+  // Money
+  bool _requireOnAddMoneyAccount = false;
+  bool _requireOnEditMoneyAccount = false;
+  bool _requireOnDeleteMoneyAccount = false;
+  bool _requireOnAddMoney = false;
+  bool _requireOnRemoveMoney = false;
+  bool _requireOnViewMoneyHistory = false;
+
   // Products
   bool _requireOnAddProduct = false;
   bool _requireOnEditProduct = false;
@@ -184,6 +192,12 @@ class _PinSetupPageState extends State<PinSetupPage> {
       requireOnLogin: _requireOnLogin,
       requireOnSettings: _requireOnSettings,
       requireOnDashboard: _requireOnDashboard,
+      requireOnAddMoneyAccount: _requireOnAddMoneyAccount,
+      requireOnEditMoneyAccount: _requireOnEditMoneyAccount,
+      requireOnDeleteMoneyAccount: _requireOnDeleteMoneyAccount,
+      requireOnAddMoney: _requireOnAddMoney,
+      requireOnRemoveMoney: _requireOnRemoveMoney,
+      requireOnViewMoneyHistory: _requireOnViewMoneyHistory,
 
       // Products
       requireOnAddProduct: _requireOnAddProduct,
@@ -399,6 +413,59 @@ class _PinSetupPageState extends State<PinSetupPage> {
                       value: _requireOnSettings,
                       onChanged: (value) =>
                           setState(() => _requireOnSettings = value),
+                    ),
+
+                    // Money Section
+                    const SizedBox(height: 24),
+                    _buildSectionHeader('Money'),
+                    _buildPreferenceSwitch(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Create Account',
+                      subtitle: 'Require PIN when creating money accounts',
+                      value: _requireOnAddMoneyAccount,
+                      onChanged: (value) =>
+                          setState(() => _requireOnAddMoneyAccount = value),
+                    ),
+                    _buildPreferenceSwitch(
+                      icon: Icons.edit_outlined,
+                      title: 'Edit Account',
+                      subtitle: 'Require PIN when editing money accounts',
+                      value: _requireOnEditMoneyAccount,
+                      onChanged: (value) =>
+                          setState(() => _requireOnEditMoneyAccount = value),
+                    ),
+                    _buildPreferenceSwitch(
+                      icon: Icons.delete_outlined,
+                      title: 'Delete Account',
+                      subtitle: 'Require PIN when deleting money accounts',
+                      value: _requireOnDeleteMoneyAccount,
+                      onChanged: (value) => setState(
+                          () => _requireOnDeleteMoneyAccount = value),
+                    ),
+                    _buildPreferenceSwitch(
+                      icon: Icons.add_card_outlined,
+                      title: 'Add Money',
+                      subtitle: 'Require PIN when adding money to an account',
+                      value: _requireOnAddMoney,
+                      onChanged: (value) =>
+                          setState(() => _requireOnAddMoney = value),
+                    ),
+                    _buildPreferenceSwitch(
+                      icon: Icons.remove_circle_outline,
+                      title: 'Remove Money',
+                      subtitle:
+                          'Require PIN when removing money from an account',
+                      value: _requireOnRemoveMoney,
+                      onChanged: (value) =>
+                          setState(() => _requireOnRemoveMoney = value),
+                    ),
+                    _buildPreferenceSwitch(
+                      icon: Icons.history,
+                      title: 'View Money History',
+                      subtitle: 'Require PIN to view account history records',
+                      value: _requireOnViewMoneyHistory,
+                      onChanged: (value) =>
+                          setState(() => _requireOnViewMoneyHistory = value),
                     ),
 
                     // Products Section

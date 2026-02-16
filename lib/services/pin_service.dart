@@ -19,6 +19,14 @@ class PinService {
     bool requireOnSettings = false,
     bool requireOnDashboard = false,
 
+    // Money
+    bool requireOnAddMoneyAccount = false,
+    bool requireOnEditMoneyAccount = false,
+    bool requireOnDeleteMoneyAccount = false,
+    bool requireOnAddMoney = false,
+    bool requireOnRemoveMoney = false,
+    bool requireOnViewMoneyHistory = false,
+
     // Products
     bool requireOnAddProduct = false,
     bool requireOnEditProduct = false,
@@ -86,6 +94,12 @@ class PinService {
       'login': requireOnLogin,
       'settings': requireOnSettings,
       'dashboard': requireOnDashboard,
+      'addMoneyAccount': requireOnAddMoneyAccount,
+      'editMoneyAccount': requireOnEditMoneyAccount,
+      'deleteMoneyAccount': requireOnDeleteMoneyAccount,
+      'addMoney': requireOnAddMoney,
+      'removeMoney': requireOnRemoveMoney,
+      'viewMoneyHistory': requireOnViewMoneyHistory,
       'addProduct': requireOnAddProduct,
       'editProduct': requireOnEditProduct,
       'deleteProduct': requireOnDeleteProduct,
@@ -175,6 +189,12 @@ class PinService {
       'login': true,
       'settings': false,
       'dashboard': false,
+      'addMoneyAccount': false,
+      'editMoneyAccount': false,
+      'deleteMoneyAccount': false,
+      'addMoney': false,
+      'removeMoney': false,
+      'viewMoneyHistory': false,
       'addProduct': false,
       'editProduct': false,
       'deleteProduct': false,
@@ -232,6 +252,37 @@ class PinService {
   Future<bool> isPinRequiredForDashboard() async {
     final prefs = await _getPreferencesMap();
     return prefs['dashboard'] ?? false;
+  }
+
+  // Money
+  Future<bool> isPinRequiredForAddMoneyAccount() async {
+    final prefs = await _getPreferencesMap();
+    return prefs['addMoneyAccount'] ?? false;
+  }
+
+  Future<bool> isPinRequiredForEditMoneyAccount() async {
+    final prefs = await _getPreferencesMap();
+    return prefs['editMoneyAccount'] ?? false;
+  }
+
+  Future<bool> isPinRequiredForDeleteMoneyAccount() async {
+    final prefs = await _getPreferencesMap();
+    return prefs['deleteMoneyAccount'] ?? false;
+  }
+
+  Future<bool> isPinRequiredForAddMoney() async {
+    final prefs = await _getPreferencesMap();
+    return prefs['addMoney'] ?? false;
+  }
+
+  Future<bool> isPinRequiredForRemoveMoney() async {
+    final prefs = await _getPreferencesMap();
+    return prefs['removeMoney'] ?? false;
+  }
+
+  Future<bool> isPinRequiredForViewMoneyHistory() async {
+    final prefs = await _getPreferencesMap();
+    return prefs['viewMoneyHistory'] ?? false;
   }
 
   // Products
