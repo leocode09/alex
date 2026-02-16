@@ -122,7 +122,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   child: Center(
                     child: ConstrainedBox(
                       constraints:
-                          BoxConstraints(maxWidth: isMobile ? 440 : 560),
+                          BoxConstraints(maxWidth: isMobile ? 390 : 520),
                       child: FadeTransition(
                         opacity: panelReveal,
                         child: ScaleTransition(
@@ -134,9 +134,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 _buildStatusPill(scheme, extras),
-                                const SizedBox(height: AppTokens.space4),
+                                const SizedBox(height: AppTokens.space3),
                                 _buildAnimatedIcon(scheme),
-                                const SizedBox(height: AppTokens.space4),
+                                const SizedBox(height: AppTokens.space3),
                                 FadeTransition(
                                   opacity: titleReveal,
                                   child: ScaleTransition(
@@ -151,7 +151,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                           textAlign: TextAlign.center,
                                           style: Theme.of(context)
                                               .textTheme
-                                              .displaySmall
+                                              .headlineLarge
                                               ?.copyWith(
                                                 fontWeight: FontWeight.w800,
                                                 letterSpacing: 1.2,
@@ -164,14 +164,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                           textAlign: TextAlign.center,
                                           style: Theme.of(context)
                                               .textTheme
-                                              .bodyLarge
+                                              .bodyMedium
                                               ?.copyWith(color: extras.muted),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: AppTokens.space4),
+                                const SizedBox(height: AppTokens.space3),
                                 Wrap(
                                   alignment: WrapAlignment.center,
                                   spacing: AppTokens.space2,
@@ -197,7 +197,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: AppTokens.space5),
+                                const SizedBox(height: AppTokens.space4),
                                 FadeTransition(
                                   opacity: buttonReveal,
                                   child: ScaleTransition(
@@ -249,7 +249,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
     required Widget child,
   }) {
     return Padding(
-      padding: const EdgeInsets.all(AppTokens.space5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space4,
+        vertical: AppTokens.space4,
+      ),
       child: child,
     );
   }
@@ -317,9 +320,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
               const SizedBox(width: AppTokens.space1),
               Text(
                 'SYSTEM READY',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
+                      letterSpacing: 0.7,
                     ),
               ),
             ],
@@ -351,8 +354,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   scale: 1 +
                       (math.sin(_pulseController.value * 2 * math.pi) * 0.02),
                   child: Container(
-                    width: 128,
-                    height: 128,
+                    width: 108,
+                    height: 108,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: scheme.primary.withValues(alpha: 0.1),
@@ -360,8 +363,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   ),
                 ),
                 Container(
-                  width: 94,
-                  height: 94,
+                  width: 78,
+                  height: 78,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: scheme.primary.withValues(alpha: 0.2),
@@ -369,7 +372,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   alignment: Alignment.center,
                   child: Icon(
                     Icons.point_of_sale_rounded,
-                    size: 52,
+                    size: 42,
                     color: scheme.primary,
                   ),
                 ),
@@ -413,8 +416,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon,
-                  size: 16, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 6),
+                  size: 14, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 4),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -439,11 +442,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
       },
       child: SizedBox(
         width: double.infinity,
-        height: 58,
+        height: 52,
         child: Stack(
           children: [
             Positioned.fill(
-              top: 4,
+              top: 3,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: Theme.of(context)
@@ -458,7 +461,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
               child: ElevatedButton(
                 onPressed: _continueToApp,
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(0, 54),
+                  minimumSize: const Size(0, 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTokens.radiusL),
                   ),
