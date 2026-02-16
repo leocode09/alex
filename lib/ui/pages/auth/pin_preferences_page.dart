@@ -10,6 +10,59 @@ class PinPreferencesPage extends StatefulWidget {
 
 class _PinPreferencesPageState extends State<PinPreferencesPage> {
   final PinService _pinService = PinService();
+  final Map<String, bool> _visibleByFeature = {};
+
+  static const Map<String, String> _featureKeyByTitle = {
+    'Login': 'login',
+    'Money Access': 'dashboard',
+    'Settings Access': 'settings',
+    'Create Account': 'addMoneyAccount',
+    'Edit Account': 'editMoneyAccount',
+    'Delete Account': 'deleteMoneyAccount',
+    'Add Money': 'addMoney',
+    'Remove Money': 'removeMoney',
+    'View Money History': 'viewMoneyHistory',
+    'Add Products': 'addProduct',
+    'Edit Products': 'editProduct',
+    'Delete Products': 'deleteProduct',
+    'View Product Details': 'viewProductDetails',
+    'Scan Barcode': 'scanBarcode',
+    'Adjust Stock/Inventory': 'adjustStock',
+    'Process Sale': 'createSale',
+    'View Sales History': 'viewSalesHistory',
+    'Edit Receipt': 'editReceipt',
+    'Delete Receipt': 'deleteReceipt',
+    'Apply Discount': 'applyDiscount',
+    'Issue Refund': 'issueRefund',
+    'View Categories': 'viewCategories',
+    'Add Category': 'addCategory',
+    'Edit Category': 'editCategory',
+    'Delete Category': 'deleteCategory',
+    'View Customers': 'viewCustomers',
+    'Add Customer': 'addCustomer',
+    'Edit Customer': 'editCustomer',
+    'Delete Customer': 'deleteCustomer',
+    'View Employees': 'viewEmployees',
+    'Add Employee': 'addEmployee',
+    'Edit Employee': 'editEmployee',
+    'Delete Employee': 'deleteEmployee',
+    'View Stores': 'viewStores',
+    'Add Store': 'addStore',
+    'Edit Store': 'editStore',
+    'Delete Store': 'deleteStore',
+    'Access Reports': 'reports',
+    'Financial Reports': 'viewFinancialReports',
+    'Inventory Reports': 'viewInventoryReports',
+    'Export Reports': 'exportReports',
+    'Hardware Setup': 'hardwareSetup',
+    'Data Sync': 'dataSync',
+    'Clear All Data': 'clearAllData',
+    'Manage Promotions': 'managePromotions',
+    'View Notifications': 'viewNotifications',
+    'Tax Settings': 'taxSettings',
+    'Receipt Settings': 'receiptSettings',
+    'Change PIN': 'changePin',
+  };
 
   // Auth & General
   bool _requireOnLogin = true;
@@ -90,6 +143,9 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
     _loadPreferences();
   }
 
+  String _visibilityKey(String featureKey) =>
+      PinService.visiblePreferenceKey(featureKey);
+
   Future<void> _loadPreferences() async {
     final prefs = await _pinService.getPinPreferences();
     setState(() {
@@ -162,11 +218,19 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
       _requireOnReceiptSettings = prefs['receiptSettings'] ?? false;
       _requireOnChangePin = prefs['changePin'] ?? true;
 
+      for (final featureKey in _featureKeyByTitle.values.toSet()) {
+        _visibleByFeature[featureKey] = prefs[_visibilityKey(featureKey)] ?? true;
+      }
+
       _isLoading = false;
     });
   }
 
   Future<void> _savePreferences() async {
+    for (final featureKey in _featureKeyByTitle.values.toSet()) {
+      _visibleByFeature.putIfAbsent(featureKey, () => true);
+    }
+
     await _pinService.updatePinPreferences({
       // Auth & General
       'login': _requireOnLogin,
@@ -236,6 +300,11 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
       'taxSettings': _requireOnTaxSettings,
       'receiptSettings': _requireOnReceiptSettings,
       'changePin': _requireOnChangePin,
+
+      // Feature visibility
+      ..._visibleByFeature.map(
+        (featureKey, visible) => MapEntry(_visibilityKey(featureKey), visible),
+      ),
     });
 
     if (mounted) {
@@ -285,7 +354,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Select which actions should require PIN verification for security',
+                            'Set PIN requirements and visibility for each page and feature',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[600],
@@ -794,27 +863,109 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
+    final featureKey = _featureKeyByTitle[title];
+    final isVisible = featureKey == null ? true : _visibleByFeature[featureKey] ?? true;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: SwitchListTile(
-          secondary: Icon(icon, color: Theme.of(context).colorScheme.primary),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          ),
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: Theme.of(context).colorScheme.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildCheckOption(
+                    label: 'Require PIN',
+                    value: value,
+                    onChanged: onChanged,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildCheckOption(
+                    label: 'Visible',
+                    value: isVisible,
+                    onChanged: featureKey == null
+                        ? null
+                        : (newValue) {
+                            setState(() {
+                              _visibleByFeature[featureKey] = newValue;
+                            });
+                          },
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCheckOption({
+    required String label,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onChanged == null ? null : () => onChanged(!value),
+      child: Row(
+        children: [
+          Checkbox(
+            value: value,
+            onChanged: onChanged == null
+                ? null
+                : (newValue) {
+                    if (newValue == null) {
+                      return;
+                    }
+                    onChanged(newValue);
+                  },
+          ),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

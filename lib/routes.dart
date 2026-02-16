@@ -90,6 +90,177 @@ int _getCurrentIndex(String location) {
   return 0;
 }
 
+const List<String> _moneyFeatureKeys = [
+  'dashboard',
+  'addMoneyAccount',
+  'editMoneyAccount',
+  'deleteMoneyAccount',
+  'addMoney',
+  'removeMoney',
+  'viewMoneyHistory',
+];
+
+const List<String> _salesFeatureKeys = [
+  'createSale',
+  'viewSalesHistory',
+  'editReceipt',
+  'deleteReceipt',
+  'applyDiscount',
+  'issueRefund',
+];
+
+const List<String> _productFeatureKeys = [
+  'addProduct',
+  'editProduct',
+  'deleteProduct',
+  'viewProductDetails',
+  'scanBarcode',
+  'adjustStock',
+];
+
+const List<String> _categoryFeatureKeys = [
+  'viewCategories',
+  'addCategory',
+  'editCategory',
+  'deleteCategory',
+];
+
+const List<String> _customerFeatureKeys = [
+  'viewCustomers',
+  'addCustomer',
+  'editCustomer',
+  'deleteCustomer',
+];
+
+const List<String> _employeeFeatureKeys = [
+  'viewEmployees',
+  'addEmployee',
+  'editEmployee',
+  'deleteEmployee',
+];
+
+const List<String> _storeFeatureKeys = [
+  'viewStores',
+  'addStore',
+  'editStore',
+  'deleteStore',
+];
+
+const List<String> _reportFeatureKeys = [
+  'reports',
+  'viewFinancialReports',
+  'viewInventoryReports',
+  'exportReports',
+];
+
+bool _isFeatureVisible(Map<String, bool> prefs, String featureKey) {
+  return prefs[PinService.visiblePreferenceKey(featureKey)] ?? true;
+}
+
+bool _isAnyFeatureVisible(Map<String, bool> prefs, List<String> featureKeys) {
+  return featureKeys.any((key) => _isFeatureVisible(prefs, key));
+}
+
+bool _isPathVisibilityExempt(String path) {
+  return path == '/' ||
+      path == '/pin-entry' ||
+      path == '/pin-setup' ||
+      path == '/pin-preferences' ||
+      path == '/time-lock';
+}
+
+bool _isRouteHiddenByPreferences(String path, Map<String, bool> prefs) {
+  if (path.startsWith('/money') || path.startsWith('/dashboard')) {
+    return !_isAnyFeatureVisible(prefs, _moneyFeatureKeys);
+  }
+  if (path.startsWith('/sales')) {
+    return !_isAnyFeatureVisible(prefs, _salesFeatureKeys);
+  }
+  if (path.startsWith('/products') || path.startsWith('/product')) {
+    return !_isAnyFeatureVisible(prefs, _productFeatureKeys);
+  }
+  if (path.startsWith('/reports')) {
+    return !_isAnyFeatureVisible(prefs, _reportFeatureKeys);
+  }
+  if (path.startsWith('/settings')) {
+    return !_isFeatureVisible(prefs, 'settings');
+  }
+  if (path.startsWith('/inventory')) {
+    return !_isFeatureVisible(prefs, 'adjustStock');
+  }
+  if (path.startsWith('/categories')) {
+    return !_isAnyFeatureVisible(prefs, _categoryFeatureKeys);
+  }
+  if (path.startsWith('/customers') || path.startsWith('/customer')) {
+    return !_isAnyFeatureVisible(prefs, _customerFeatureKeys);
+  }
+  if (path.startsWith('/employees') || path.startsWith('/employee')) {
+    return !_isAnyFeatureVisible(prefs, _employeeFeatureKeys);
+  }
+  if (path.startsWith('/stores') || path.startsWith('/store')) {
+    return !_isAnyFeatureVisible(prefs, _storeFeatureKeys);
+  }
+  if (path.startsWith('/hardware')) {
+    return !_isFeatureVisible(prefs, 'hardwareSetup');
+  }
+  if (path.startsWith('/lan')) {
+    return !_isFeatureVisible(prefs, 'dataSync');
+  }
+  if (path.startsWith('/promotions')) {
+    return !_isFeatureVisible(prefs, 'managePromotions');
+  }
+  if (path.startsWith('/notifications')) {
+    return !_isFeatureVisible(prefs, 'viewNotifications');
+  }
+  return false;
+}
+
+String _firstVisibleRoute(Map<String, bool> prefs) {
+  if (_isAnyFeatureVisible(prefs, _moneyFeatureKeys)) {
+    return '/money';
+  }
+  if (_isAnyFeatureVisible(prefs, _salesFeatureKeys)) {
+    return '/sales';
+  }
+  if (_isAnyFeatureVisible(prefs, _productFeatureKeys)) {
+    return '/products';
+  }
+  if (_isAnyFeatureVisible(prefs, _reportFeatureKeys)) {
+    return '/reports';
+  }
+  if (_isFeatureVisible(prefs, 'settings')) {
+    return '/settings';
+  }
+  if (_isAnyFeatureVisible(prefs, _storeFeatureKeys)) {
+    return '/stores';
+  }
+  if (_isAnyFeatureVisible(prefs, _employeeFeatureKeys)) {
+    return '/employees';
+  }
+  if (_isAnyFeatureVisible(prefs, _customerFeatureKeys)) {
+    return '/customers';
+  }
+  if (_isAnyFeatureVisible(prefs, _categoryFeatureKeys)) {
+    return '/categories';
+  }
+  if (_isFeatureVisible(prefs, 'adjustStock')) {
+    return '/inventory';
+  }
+  if (_isFeatureVisible(prefs, 'hardwareSetup')) {
+    return '/hardware';
+  }
+  if (_isFeatureVisible(prefs, 'dataSync')) {
+    return '/lan';
+  }
+  if (_isFeatureVisible(prefs, 'managePromotions')) {
+    return '/promotions';
+  }
+  if (_isFeatureVisible(prefs, 'viewNotifications')) {
+    return '/notifications';
+  }
+  return '/pin-preferences';
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   final pinUnlocked = ref.watch(pinUnlockedProvider);
   final timeTamper = ref.watch(timeTamperProvider);
@@ -109,6 +280,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final requireLoginPin = await pinService.isPinRequiredForLogin();
       final isSessionVerified = pinService.isSessionVerified();
       final isUnlocked = pinUnlocked || isSessionVerified;
+      final visibilityPrefs = await pinService.getPinPreferences();
 
       if (timeTamper != null && isPinSet && !isOnTimeLock) {
         return '/time-lock';
@@ -131,7 +303,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Unlocked but on login/pin pages
       if (isUnlocked &&
           (isOnLogin || isOnPinEntry || (isOnPinSetup && !isChangingPinFlow))) {
-        return '/money';
+        return _firstVisibleRoute(visibilityPrefs);
+      }
+
+      if (isUnlocked &&
+          !_isPathVisibilityExempt(state.uri.path) &&
+          _isRouteHiddenByPreferences(state.uri.path, visibilityPrefs)) {
+        return _firstVisibleRoute(visibilityPrefs);
       }
 
       return null;

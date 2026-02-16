@@ -5,6 +5,86 @@ import '../../services/pin_service.dart';
 import '../design_system/app_theme_extensions.dart';
 import '../design_system/app_tokens.dart';
 
+const List<String> _moneyVisibilityKeys = [
+  'dashboard',
+  'addMoneyAccount',
+  'editMoneyAccount',
+  'deleteMoneyAccount',
+  'addMoney',
+  'removeMoney',
+  'viewMoneyHistory',
+];
+
+const List<String> _salesVisibilityKeys = [
+  'createSale',
+  'viewSalesHistory',
+  'editReceipt',
+  'deleteReceipt',
+  'applyDiscount',
+  'issueRefund',
+];
+
+const List<String> _productVisibilityKeys = [
+  'addProduct',
+  'editProduct',
+  'deleteProduct',
+  'viewProductDetails',
+  'scanBarcode',
+  'adjustStock',
+];
+
+const List<String> _settingsVisibilityKeys = [
+  'settings',
+  'viewStores',
+  'addStore',
+  'editStore',
+  'deleteStore',
+  'viewEmployees',
+  'addEmployee',
+  'editEmployee',
+  'deleteEmployee',
+  'viewCustomers',
+  'addCustomer',
+  'editCustomer',
+  'deleteCustomer',
+  'viewCategories',
+  'addCategory',
+  'editCategory',
+  'deleteCategory',
+  'hardwareSetup',
+  'dataSync',
+  'managePromotions',
+  'viewNotifications',
+  'taxSettings',
+  'receiptSettings',
+  'clearAllData',
+  'changePin',
+];
+
+class _NavItem {
+  const _NavItem({
+    required this.slotIndex,
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+    required this.route,
+    required this.visibilityKeys,
+    this.isPinRequired,
+    this.pinTitle,
+    this.pinSubtitle,
+  });
+
+  final int slotIndex;
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+  final String route;
+  final List<String> visibilityKeys;
+  final Future<bool> Function(PinService service)? isPinRequired;
+  final String? pinTitle;
+  final String? pinSubtitle;
+}
+
 class MainScaffold extends StatelessWidget {
   final Widget child;
   final int currentIndex;
@@ -17,19 +97,116 @@ class MainScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 700) {
-          return _buildCompactScaffold(context);
-        }
-        return _buildWideScaffold(context, constraints.maxWidth >= 1100);
+    return FutureBuilder<Map<String, bool>>(
+      future: PinService().getPinPreferences(),
+      builder: (context, snapshot) {
+        final preferences = snapshot.data ?? const <String, bool>{};
+        final navItems = _visibleNavItems(preferences);
+        final selectedIndex = _resolveSelectedIndex(navItems);
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 700) {
+              return _buildCompactScaffold(
+                context,
+                navItems: navItems,
+                selectedIndex: selectedIndex,
+              );
+            }
+            return _buildWideScaffold(
+              context,
+              constraints.maxWidth >= 1100,
+              navItems: navItems,
+              selectedIndex: selectedIndex,
+            );
+          },
+        );
       },
     );
   }
 
-  Widget _buildCompactScaffold(BuildContext context) {
+  List<_NavItem> _allNavItems() {
+    return [
+      _NavItem(
+        slotIndex: 0,
+        label: 'Money',
+        icon: Icons.account_balance_wallet_outlined,
+        selectedIcon: Icons.account_balance_wallet,
+        route: '/money',
+        visibilityKeys: _moneyVisibilityKeys,
+        isPinRequired: (service) => service.isPinRequiredForDashboard(),
+        pinTitle: 'Money Access',
+        pinSubtitle: 'Enter PIN to view money accounts',
+      ),
+      const _NavItem(
+        slotIndex: 1,
+        label: 'Sales',
+        icon: Icons.point_of_sale_outlined,
+        selectedIcon: Icons.point_of_sale,
+        route: '/sales',
+        visibilityKeys: _salesVisibilityKeys,
+      ),
+      const _NavItem(
+        slotIndex: 2,
+        label: 'Products',
+        icon: Icons.inventory_2_outlined,
+        selectedIcon: Icons.inventory_2,
+        route: '/products',
+        visibilityKeys: _productVisibilityKeys,
+      ),
+      _NavItem(
+        slotIndex: 3,
+        label: 'Reports',
+        icon: Icons.assessment_outlined,
+        selectedIcon: Icons.assessment,
+        route: '/reports',
+        visibilityKeys: const ['reports', 'viewFinancialReports', 'viewInventoryReports', 'exportReports'],
+        isPinRequired: (service) => service.isPinRequiredForReports(),
+        pinTitle: 'Reports Access',
+        pinSubtitle: 'Enter PIN to view reports',
+      ),
+      _NavItem(
+        slotIndex: 4,
+        label: 'More',
+        icon: Icons.settings_outlined,
+        selectedIcon: Icons.settings,
+        route: '/settings',
+        visibilityKeys: _settingsVisibilityKeys,
+        isPinRequired: (service) => service.isPinRequiredForSettings(),
+        pinTitle: 'Settings Access',
+        pinSubtitle: 'Enter PIN to access settings',
+      ),
+    ];
+  }
+
+  List<_NavItem> _visibleNavItems(Map<String, bool> preferences) {
+    return _allNavItems().where((item) {
+      return item.visibilityKeys.any((featureKey) {
+        return preferences[PinService.visiblePreferenceKey(featureKey)] ?? true;
+      });
+    }).toList();
+  }
+
+  int _resolveSelectedIndex(List<_NavItem> navItems) {
+    if (navItems.isEmpty) {
+      return 0;
+    }
+    final index = navItems.indexWhere((item) => item.slotIndex == currentIndex);
+    return index >= 0 ? index : 0;
+  }
+
+  Widget _buildCompactScaffold(
+    BuildContext context, {
+    required List<_NavItem> navItems,
+    required int selectedIndex,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     final extras = context.appExtras;
+
+    if (navItems.isEmpty) {
+      return Scaffold(body: child);
+    }
+
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
@@ -40,22 +217,32 @@ class MainScaffold extends StatelessWidget {
           color: scheme.surface,
         ),
         child: NavigationBar(
-          selectedIndex: currentIndex,
-          onDestinationSelected: (index) => _onTap(context, index),
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (index) => _onTap(context, navItems[index]),
           elevation: 0,
           height: 62,
           backgroundColor: scheme.surface,
           indicatorColor: extras.accentSoft,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: _destinations(context),
+          destinations: _destinations(context, navItems),
         ),
       ),
     );
   }
 
-  Widget _buildWideScaffold(BuildContext context, bool extendedRail) {
+  Widget _buildWideScaffold(
+    BuildContext context,
+    bool extendedRail, {
+    required List<_NavItem> navItems,
+    required int selectedIndex,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     final extras = context.appExtras;
+
+    if (navItems.isEmpty) {
+      return Scaffold(body: child);
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Row(
@@ -72,16 +259,16 @@ class MainScaffold extends StatelessWidget {
                 ),
               ),
               child: NavigationRail(
-                selectedIndex: currentIndex,
+                selectedIndex: selectedIndex,
                 extended: extendedRail,
-                onDestinationSelected: (index) => _onTap(context, index),
+                onDestinationSelected: (index) => _onTap(context, navItems[index]),
                 minWidth: 82,
                 minExtendedWidth: 210,
                 labelType: extendedRail
                     ? NavigationRailLabelType.none
                     : NavigationRailLabelType.all,
                 useIndicator: true,
-                destinations: _railDestinations(),
+                destinations: _railDestinations(navItems),
               ),
             ),
             Expanded(
@@ -101,114 +288,50 @@ class MainScaffold extends StatelessWidget {
     );
   }
 
-  List<NavigationDestination> _destinations(BuildContext context) {
+  List<NavigationDestination> _destinations(
+    BuildContext context,
+    List<_NavItem> navItems,
+  ) {
     final primary = Theme.of(context).colorScheme.primary;
-    return [
-      NavigationDestination(
-        icon: const Icon(Icons.account_balance_wallet_outlined),
-        selectedIcon: Icon(Icons.account_balance_wallet, color: primary),
-        label: 'Money',
-      ),
-      NavigationDestination(
-        icon: const Icon(Icons.point_of_sale_outlined),
-        selectedIcon: Icon(Icons.point_of_sale, color: primary),
-        label: 'Sales',
-      ),
-      NavigationDestination(
-        icon: const Icon(Icons.inventory_2_outlined),
-        selectedIcon: Icon(Icons.inventory_2, color: primary),
-        label: 'Products',
-      ),
-      NavigationDestination(
-        icon: const Icon(Icons.assessment_outlined),
-        selectedIcon: Icon(Icons.assessment, color: primary),
-        label: 'Reports',
-      ),
-      NavigationDestination(
-        icon: const Icon(Icons.settings_outlined),
-        selectedIcon: Icon(Icons.settings, color: primary),
-        label: 'More',
-      ),
-    ];
+    return navItems
+        .map(
+          (item) => NavigationDestination(
+            icon: Icon(item.icon),
+            selectedIcon: Icon(item.selectedIcon, color: primary),
+            label: item.label,
+          ),
+        )
+        .toList();
   }
 
-  List<NavigationRailDestination> _railDestinations() {
-    return const [
-      NavigationRailDestination(
-        icon: Icon(Icons.account_balance_wallet_outlined),
-        selectedIcon: Icon(Icons.account_balance_wallet),
-        label: Text('Money'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.point_of_sale_outlined),
-        selectedIcon: Icon(Icons.point_of_sale),
-        label: Text('Sales'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.inventory_2_outlined),
-        selectedIcon: Icon(Icons.inventory_2),
-        label: Text('Products'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.assessment_outlined),
-        selectedIcon: Icon(Icons.assessment),
-        label: Text('Reports'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.settings_outlined),
-        selectedIcon: Icon(Icons.settings),
-        label: Text('More'),
-      ),
-    ];
+  List<NavigationRailDestination> _railDestinations(List<_NavItem> navItems) {
+    return navItems
+        .map(
+          (item) => NavigationRailDestination(
+            icon: Icon(item.icon),
+            selectedIcon: Icon(item.selectedIcon),
+            label: Text(item.label),
+          ),
+        )
+        .toList();
   }
 
-  Future<void> _onTap(BuildContext context, int index) async {
-    switch (index) {
-      case 0:
-        if (await PinProtection.requirePinIfNeeded(
-          context,
-          isRequired: () => PinService().isPinRequiredForDashboard(),
-          title: 'Money Access',
-          subtitle: 'Enter PIN to view money accounts',
-        )) {
-          if (!context.mounted) {
-            return;
-          }
-          context.go('/money');
-        }
-        break;
-      case 1:
-        context.go('/sales');
-        break;
-      case 2:
-        context.go('/products');
-        break;
-      case 3:
-        if (await PinProtection.requirePinIfNeeded(
-          context,
-          isRequired: () => PinService().isPinRequiredForReports(),
-          title: 'Reports Access',
-          subtitle: 'Enter PIN to view reports',
-        )) {
-          if (!context.mounted) {
-            return;
-          }
-          context.go('/reports');
-        }
-        break;
-      case 4:
-        if (await PinProtection.requirePinIfNeeded(
-          context,
-          isRequired: () => PinService().isPinRequiredForSettings(),
-          title: 'Settings Access',
-          subtitle: 'Enter PIN to access settings',
-        )) {
-          if (!context.mounted) {
-            return;
-          }
-          context.go('/settings');
-        }
-        break;
+  Future<void> _onTap(BuildContext context, _NavItem item) async {
+    if (item.isPinRequired != null) {
+      final allowed = await PinProtection.requirePinIfNeeded(
+        context,
+        isRequired: () => item.isPinRequired!(PinService()),
+        title: item.pinTitle ?? 'Restricted Feature',
+        subtitle: item.pinSubtitle ?? 'Enter PIN to continue',
+      );
+      if (!allowed) {
+        return;
+      }
     }
+
+    if (!context.mounted) {
+      return;
+    }
+    context.go(item.route);
   }
 }
