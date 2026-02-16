@@ -257,7 +257,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         Container(
           padding: const EdgeInsets.all(AppTokens.space5),
           decoration: BoxDecoration(
-            color: topColor.withValues(alpha: 0.96),
+            color: topColor,
             borderRadius: BorderRadius.circular(30),
           ),
           child: child,
@@ -512,17 +512,17 @@ class _TechBackdropPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     final strongTracePaint = Paint()
       ..color = traceColor
-      ..strokeWidth = 2
+      ..strokeWidth = 1.8
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final softTracePaint = Paint()
       ..color = traceSoftColor
-      ..strokeWidth = 1.4
+      ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final packetPaint = Paint()
       ..color = packetColor
-      ..strokeWidth = 3.2
+      ..strokeWidth = 2.8
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final nodePaint = Paint()
@@ -547,35 +547,27 @@ class _TechBackdropPainter extends CustomPainter {
 
     final traces = <List<Offset>>[
       [
-        Offset(-24, size.height * 0.17),
-        Offset(size.width * 0.18, size.height * 0.17),
-        Offset(size.width * 0.18, size.height * 0.29),
-        Offset(size.width * 0.56, size.height * 0.29),
-        Offset(size.width * 0.56, size.height * 0.15),
-        Offset(size.width + 24, size.height * 0.15),
+        Offset(-20, size.height * 0.135),
+        Offset(size.width * 0.2, size.height * 0.135),
+        Offset(size.width * 0.2, size.height * 0.075),
+        Offset(size.width * 0.48, size.height * 0.075),
       ],
       [
-        Offset(-16, size.height * 0.58),
-        Offset(size.width * 0.14, size.height * 0.58),
-        Offset(size.width * 0.14, size.height * 0.7),
-        Offset(size.width * 0.42, size.height * 0.7),
-        Offset(size.width * 0.42, size.height * 0.85),
-        Offset(size.width * 0.88, size.height * 0.85),
-        Offset(size.width + 20, size.height * 0.85),
+        Offset(size.width * 0.82, -16),
+        Offset(size.width * 0.82, size.height * 0.11),
+        Offset(size.width + 16, size.height * 0.11),
       ],
       [
-        Offset(size.width * 0.76, -20),
-        Offset(size.width * 0.76, size.height * 0.22),
-        Offset(size.width * 0.62, size.height * 0.22),
-        Offset(size.width * 0.62, size.height * 0.46),
-        Offset(size.width * 0.86, size.height * 0.46),
-        Offset(size.width * 0.86, size.height * 0.64),
+        Offset(-18, size.height * 0.72),
+        Offset(size.width * 0.16, size.height * 0.72),
+        Offset(size.width * 0.16, size.height * 0.9),
+        Offset(size.width * 0.31, size.height * 0.9),
       ],
       [
-        Offset(size.width * 0.08, size.height * 0.36),
-        Offset(size.width * 0.3, size.height * 0.36),
-        Offset(size.width * 0.3, size.height * 0.48),
-        Offset(size.width * 0.5, size.height * 0.48),
+        Offset(size.width * 0.73, size.height + 16),
+        Offset(size.width * 0.73, size.height * 0.84),
+        Offset(size.width * 0.96, size.height * 0.84),
+        Offset(size.width + 18, size.height * 0.84),
       ],
     ];
 
@@ -619,7 +611,7 @@ class _TechBackdropPainter extends CustomPainter {
       if (metric.length <= 0) {
         continue;
       }
-      final segmentLength = math.min(metric.length * 0.22, 84.0);
+      final segmentLength = math.min(metric.length * 0.2, 64.0);
       final start = (metric.length * t) % metric.length;
       final end = start + segmentLength;
       if (end <= metric.length) {
@@ -664,19 +656,28 @@ class _TechEmblemPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
+    final frameRect = Rect.fromCenter(
+      center: center,
+      width: size.width * 0.76,
+      height: size.height * 0.76,
+    );
+    final left = frameRect.left;
+    final right = frameRect.right;
+    final top = frameRect.top;
+    final bottom = frameRect.bottom;
     final strongTracePaint = Paint()
       ..color = traceColor
-      ..strokeWidth = 2
+      ..strokeWidth = 1.8
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final softTracePaint = Paint()
       ..color = traceSoftColor
-      ..strokeWidth = 1.4
+      ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final packetPaint = Paint()
       ..color = packetColor
-      ..strokeWidth = 2.8
+      ..strokeWidth = 2.4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     final nodePaint = Paint()
@@ -685,39 +686,34 @@ class _TechEmblemPainter extends CustomPainter {
 
     final outerFrame = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: center,
-            width: size.width * 0.82,
-            height: size.height * 0.82,
-          ),
-          const Radius.circular(28),
-        ),
+        RRect.fromRectAndRadius(frameRect, const Radius.circular(30)),
       );
     canvas.drawPath(outerFrame, softTracePaint);
 
     final traces = <List<Offset>>[
       [
-        Offset(size.width * 0.05, center.dy),
-        Offset(size.width * 0.32, center.dy),
-        Offset(size.width * 0.32, size.height * 0.34),
-        Offset(size.width * 0.44, size.height * 0.34),
+        Offset(left, center.dy),
+        Offset(left + 22, center.dy),
+        Offset(left + 22, center.dy - 20),
+        Offset(center.dx - 30, center.dy - 20),
       ],
       [
-        Offset(size.width * 0.95, center.dy),
-        Offset(size.width * 0.68, center.dy),
-        Offset(size.width * 0.68, size.height * 0.66),
-        Offset(size.width * 0.56, size.height * 0.66),
+        Offset(right, center.dy),
+        Offset(right - 22, center.dy),
+        Offset(right - 22, center.dy + 20),
+        Offset(center.dx + 30, center.dy + 20),
       ],
       [
-        Offset(center.dx, size.height * 0.05),
-        Offset(center.dx, size.height * 0.3),
-        Offset(size.width * 0.6, size.height * 0.3),
+        Offset(center.dx, top),
+        Offset(center.dx, top + 24),
+        Offset(center.dx + 20, top + 24),
+        Offset(center.dx + 20, center.dy - 30),
       ],
       [
-        Offset(center.dx, size.height * 0.95),
-        Offset(center.dx, size.height * 0.7),
-        Offset(size.width * 0.4, size.height * 0.7),
+        Offset(center.dx, bottom),
+        Offset(center.dx, bottom - 24),
+        Offset(center.dx - 20, bottom - 24),
+        Offset(center.dx - 20, center.dy + 30),
       ],
     ];
 
@@ -764,7 +760,7 @@ class _TechEmblemPainter extends CustomPainter {
       if (metric.length <= 0) {
         continue;
       }
-      final segmentLength = math.min(metric.length * 0.16, 52.0);
+      final segmentLength = math.min(metric.length * 0.14, 40.0);
       final start = (metric.length * t) % metric.length;
       final end = start + segmentLength;
       if (end <= metric.length) {
