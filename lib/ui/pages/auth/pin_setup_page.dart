@@ -439,8 +439,8 @@ class _PinSetupPageState extends State<PinSetupPage> {
                       title: 'Delete Account',
                       subtitle: 'Require PIN when deleting money accounts',
                       value: _requireOnDeleteMoneyAccount,
-                      onChanged: (value) => setState(
-                          () => _requireOnDeleteMoneyAccount = value),
+                      onChanged: (value) =>
+                          setState(() => _requireOnDeleteMoneyAccount = value),
                     ),
                     _buildPreferenceSwitch(
                       icon: Icons.add_card_outlined,

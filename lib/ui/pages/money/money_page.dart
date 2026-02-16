@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../helpers/pin_protection.dart';
 import '../../../models/account_history_record.dart';
 import '../../../models/money_account.dart';
 import '../../../providers/money_provider.dart';
 import '../../../repositories/money_repository.dart';
 import '../../../services/data_sync_triggers.dart';
+import '../../../services/pin_service.dart';
 import '../../design_system/app_tokens.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
 import '../../design_system/widgets/app_panel.dart';
@@ -22,6 +24,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
   final NumberFormat _currencyFormat =
       NumberFormat.currency(symbol: '\$', decimalDigits: 2);
   final DateFormat _dateFormat = DateFormat('MMM d, y - h:mm a');
+  final PinService _pinService = PinService();
 
   Future<void> _refreshData() async {
     ref.invalidate(moneyAccountsProvider);
@@ -32,6 +35,86 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
   Future<void> _refreshAndSync(String reason) async {
     await _refreshData();
     await DataSyncTriggers.trigger(reason: reason);
+  }
+
+  Future<bool> _authorize({
+    required Future<bool> Function() isRequired,
+    required String title,
+    required String subtitle,
+  }) async {
+    return PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: isRequired,
+      title: title,
+      subtitle: subtitle,
+    );
+  }
+
+  Future<void> _onCreateAccount() async {
+    final allowed = await _authorize(
+      isRequired: () => _pinService.isPinRequiredForAddMoneyAccount(),
+      title: 'Create Account',
+      subtitle: 'Enter PIN to create a money account',
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    await _showAccountFormDialog();
+  }
+
+  Future<void> _onEditAccount(MoneyAccount account) async {
+    final allowed = await _authorize(
+      isRequired: () => _pinService.isPinRequiredForEditMoneyAccount(),
+      title: 'Edit Account',
+      subtitle: 'Enter PIN to edit this money account',
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    await _showAccountFormDialog(account: account);
+  }
+
+  Future<void> _onDeleteAccount(MoneyAccount account) async {
+    final allowed = await _authorize(
+      isRequired: () => _pinService.isPinRequiredForDeleteMoneyAccount(),
+      title: 'Delete Account',
+      subtitle: 'Enter PIN to delete this money account',
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    await _confirmDeleteAccount(account);
+  }
+
+  Future<void> _onAdjustMoney(
+    MoneyAccount account, {
+    required bool isAdding,
+  }) async {
+    final allowed = await _authorize(
+      isRequired: () => isAdding
+          ? _pinService.isPinRequiredForAddMoney()
+          : _pinService.isPinRequiredForRemoveMoney(),
+      title: isAdding ? 'Add Money' : 'Remove Money',
+      subtitle: isAdding
+          ? 'Enter PIN to add money to this account'
+          : 'Enter PIN to remove money from this account',
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    await _showBalanceDialog(account, isAdding: isAdding);
+  }
+
+  Future<void> _onViewHistory(MoneyAccount account) async {
+    final allowed = await _authorize(
+      isRequired: () => _pinService.isPinRequiredForViewMoneyHistory(),
+      title: 'View History',
+      subtitle: 'Enter PIN to view account history',
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    await _showAccountHistorySheet(account);
   }
 
   @override
@@ -50,7 +133,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
         ),
       ],
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAccountFormDialog(),
+        onPressed: _onCreateAccount,
         icon: const Icon(Icons.add),
         label: const Text('New Account'),
       ),
@@ -211,7 +294,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
         ),
         TextButton.icon(
-          onPressed: () => _showAccountFormDialog(),
+          onPressed: _onCreateAccount,
           icon: const Icon(Icons.add),
           label: const Text('Create'),
         ),
@@ -316,13 +399,13 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                   ),
                   PopupMenuButton<String>(
                     tooltip: 'Manage account',
-                    onSelected: (value) {
+                    onSelected: (value) async {
                       switch (value) {
                         case 'edit':
-                          _showAccountFormDialog(account: account);
+                          await _onEditAccount(account);
                           break;
                         case 'delete':
-                          _confirmDeleteAccount(account);
+                          await _onDeleteAccount(account);
                           break;
                       }
                     },
@@ -347,17 +430,17 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
             runSpacing: AppTokens.space1,
             children: [
               FilledButton.tonalIcon(
-                onPressed: () => _showBalanceDialog(account, isAdding: true),
+                onPressed: () => _onAdjustMoney(account, isAdding: true),
                 icon: const Icon(Icons.add),
                 label: const Text('Add Money'),
               ),
               FilledButton.tonalIcon(
-                onPressed: () => _showBalanceDialog(account, isAdding: false),
+                onPressed: () => _onAdjustMoney(account, isAdding: false),
                 icon: const Icon(Icons.remove),
                 label: const Text('Remove Money'),
               ),
               OutlinedButton.icon(
-                onPressed: () => _showAccountHistorySheet(account),
+                onPressed: () => _onViewHistory(account),
                 icon: const Icon(Icons.history),
                 label: const Text('View History'),
               ),

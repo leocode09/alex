@@ -335,8 +335,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
                           _buildPreferenceSwitch(
                             icon: Icons.edit_outlined,
                             title: 'Edit Account',
-                            subtitle:
-                                'Require PIN when editing money accounts',
+                            subtitle: 'Require PIN when editing money accounts',
                             value: _requireOnEditMoneyAccount,
                             onChanged: (value) => setState(
                                 () => _requireOnEditMoneyAccount = value),
@@ -360,7 +359,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
                                 setState(() => _requireOnAddMoney = value),
                           ),
                           _buildPreferenceSwitch(
-                            icon: Icons.money_off_csred_outlined,
+                            icon: Icons.remove_circle_outline,
                             title: 'Remove Money',
                             subtitle:
                                 'Require PIN when removing money from an account',
@@ -814,7 +813,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
           ),
           value: value,
           onChanged: onChanged,
-          activeColor: Theme.of(context).colorScheme.primary,
+          activeThumbColor: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
