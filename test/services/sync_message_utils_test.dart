@@ -114,8 +114,7 @@ void main() {
     });
 
     test('enforces 20 MB payload cap before chunking', () {
-      final bytes =
-          Uint8List(SyncMessageUtils.maxAssembledPayloadBytes + 1);
+      final bytes = Uint8List(SyncMessageUtils.maxAssembledPayloadBytes + 1);
       final oversizedPayload = utf8.decode(bytes);
 
       expect(

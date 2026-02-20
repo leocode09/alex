@@ -217,7 +217,8 @@ class SyncChunkAssembler {
     try {
       return SyncChunkAssemblyResult.complete(utf8.decode(assembled));
     } catch (_) {
-      return SyncChunkAssemblyResult.failed('Chunk payload was not valid UTF-8.');
+      return SyncChunkAssemblyResult.failed(
+          'Chunk payload was not valid UTF-8.');
     }
   }
 

@@ -643,8 +643,7 @@ class LanSyncService extends ChangeNotifier {
 
     final sourceName = _resolveSourceDeviceName(
       deviceId: fromId,
-      providedName:
-          chunkEnvelope['fromName']?.toString() ?? fallbackSourceName,
+      providedName: chunkEnvelope['fromName']?.toString() ?? fallbackSourceName,
     );
 
     final messageId = chunkEnvelope['messageId']?.toString().trim();
