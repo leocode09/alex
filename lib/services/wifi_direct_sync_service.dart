@@ -21,7 +21,9 @@ class WifiDirectSyncService extends ChangeNotifier {
   static const MethodChannel _methodChannel = MethodChannel('wifi_direct');
   static const EventChannel _eventChannel = EventChannel('wifi_direct_events');
 
-  static const int _maxPayloadBytes = 1024 * 1024;
+  static const int _maxPayloadBytes = SyncMessageUtils.maxFramePayloadBytes;
+  static const int _maxSyncPayloadBytes =
+      SyncMessageUtils.maxAssembledPayloadBytes;
   static const Duration _healthCheckInterval = Duration(seconds: 12);
   static const Duration _peerDiscoveryInterval = Duration(seconds: 15);
   static const int _maxSyncRetryAttempts = 5;
@@ -29,6 +31,7 @@ class WifiDirectSyncService extends ChangeNotifier {
   final SyncService _syncService = SyncService();
   final RecentMessageCache _messageCache =
       RecentMessageCache(ttl: const Duration(minutes: 3));
+  final SyncChunkAssembler _chunkAssembler = SyncChunkAssembler();
 
   StreamSubscription? _subscription;
   bool _started = false;

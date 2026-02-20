@@ -23,7 +23,9 @@ class LanSyncService extends ChangeNotifier {
   static const Duration peerTimeout = Duration(seconds: 6);
   static const String _deviceNamePrefKey = 'lan_device_name';
 
-  static const int _maxPayloadBytes = 1024 * 1024;
+  static const int _maxPayloadBytes = SyncMessageUtils.maxFramePayloadBytes;
+  static const int _maxSyncPayloadBytes =
+      SyncMessageUtils.maxAssembledPayloadBytes;
   static const Duration _healthCheckInterval = Duration(seconds: 10);
   static const Duration _handshakeTimeout = Duration(seconds: 6);
   static const Duration _connectionIdleTimeout = Duration(seconds: 35);
@@ -33,6 +35,7 @@ class LanSyncService extends ChangeNotifier {
   final SyncService _syncService = SyncService();
   final RecentMessageCache _messageCache =
       RecentMessageCache(ttl: const Duration(minutes: 3));
+  final SyncChunkAssembler _chunkAssembler = SyncChunkAssembler();
 
   bool _running = false;
   RawDatagramSocket? _discoverySocket;
@@ -215,6 +218,7 @@ class LanSyncService extends ChangeNotifier {
     _sending = false;
     _retryAttempts = 0;
     _messageCache.clear();
+    _chunkAssembler.clear();
     notifyListeners();
   }
 
@@ -599,34 +603,105 @@ class LanSyncService extends ChangeNotifier {
     String? fallbackSourceId,
     String? fallbackSourceName,
   }) async {
-    if (payload.isEmpty ||
-        SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
-      _addLog('Dropped payload that exceeded size limits.');
+    if (payload.isEmpty) {
+      return;
+    }
+
+    if (SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
+      _addLog('Dropped incoming frame that exceeded transport size limits.');
       return;
     }
 
     await _ensureDeviceInfo();
-    Map<String, dynamic>? json;
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is Map<String, dynamic>) {
-        json = decoded;
-      } else if (decoded is Map) {
-        json = Map<String, dynamic>.from(decoded);
-      }
-    } catch (_) {
-      json = null;
+    final json = _tryDecodeJsonMap(payload);
+    if (json != null && json['type'] == SyncMessageUtils.syncChunkType) {
+      await _handleIncomingChunk(
+        json,
+        fallbackSourceId: fallbackSourceId,
+        fallbackSourceName: fallbackSourceName,
+      );
+      return;
     }
 
-    if (json != null) {
-      if (json['type'] == 'sync_data') {
-        final fromId = json['fromId']?.toString() ?? fallbackSourceId;
+    await _processSyncPayload(
+      payload,
+      json: json,
+      fallbackSourceId: fallbackSourceId,
+      fallbackSourceName: fallbackSourceName,
+    );
+  }
+
+  Future<void> _handleIncomingChunk(
+    Map<String, dynamic> chunkEnvelope, {
+    String? fallbackSourceId,
+    String? fallbackSourceName,
+  }) async {
+    final fromId = chunkEnvelope['fromId']?.toString() ?? fallbackSourceId;
+    if (fromId != null && fromId == _deviceId) {
+      return;
+    }
+
+    final sourceName = _resolveSourceDeviceName(
+      deviceId: fromId,
+      providedName:
+          chunkEnvelope['fromName']?.toString() ?? fallbackSourceName,
+    );
+
+    final messageId = chunkEnvelope['messageId']?.toString().trim();
+    if (messageId == null || messageId.isEmpty) {
+      _addLog(
+        'Dropped sync chunk missing message id.',
+        deviceId: fromId,
+        deviceName: sourceName,
+      );
+      return;
+    }
+
+    final messageKey = SyncMessageUtils.buildMessageKey(
+      messageId: messageId,
+      payload: messageId,
+    );
+    if (_messageCache.isDuplicate(messageKey)) {
+      return;
+    }
+
+    final assembly = _chunkAssembler.addEnvelope(chunkEnvelope);
+    if (assembly.hasError) {
+      _addLog(
+        'Dropped sync chunk: ${assembly.error}',
+        deviceId: fromId,
+        deviceName: sourceName,
+      );
+      return;
+    }
+    if (!assembly.isComplete || assembly.payload == null) {
+      return;
+    }
+
+    await _processSyncPayload(
+      assembly.payload!,
+      fallbackSourceId: fromId,
+      fallbackSourceName: sourceName,
+    );
+  }
+
+  Future<void> _processSyncPayload(
+    String payload, {
+    Map<String, dynamic>? json,
+    String? fallbackSourceId,
+    String? fallbackSourceName,
+  }) async {
+    final parsed = json ?? _tryDecodeJsonMap(payload);
+
+    if (parsed != null) {
+      if (parsed['type'] == 'sync_data') {
+        final fromId = parsed['fromId']?.toString() ?? fallbackSourceId;
         if (fromId != null && fromId == _deviceId) {
           return;
         }
 
         final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: json['messageId']?.toString(),
+          messageId: parsed['messageId']?.toString(),
           payload: payload,
         );
         if (_messageCache.isDuplicate(messageKey)) {
@@ -635,9 +710,9 @@ class LanSyncService extends ChangeNotifier {
 
         final sourceName = _resolveSourceDeviceName(
           deviceId: fromId,
-          providedName: json['fromName']?.toString() ?? fallbackSourceName,
+          providedName: parsed['fromName']?.toString() ?? fallbackSourceName,
         );
-        final data = json['data'];
+        final data = parsed['data'];
         SyncData? syncData;
         if (data is Map) {
           syncData = SyncData.fromJson(Map<String, dynamic>.from(data));
@@ -660,14 +735,14 @@ class LanSyncService extends ChangeNotifier {
         return;
       }
 
-      if (_looksLikeSyncData(json)) {
-        final syncData = SyncData.fromJson(json);
+      if (_looksLikeSyncData(parsed)) {
+        final syncData = SyncData.fromJson(parsed);
         if (syncData.deviceId == _deviceId) {
           return;
         }
 
         final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: json['messageId']?.toString(),
+          messageId: parsed['messageId']?.toString(),
           payload: payload,
         );
         if (_messageCache.isDuplicate(messageKey)) {
@@ -727,6 +802,21 @@ class LanSyncService extends ChangeNotifier {
     }
   }
 
+  Map<String, dynamic>? _tryDecodeJsonMap(String payload) {
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
   bool _looksLikeSyncData(Map<String, dynamic> json) {
     return json.containsKey('products') &&
         json.containsKey('categories') &&
@@ -760,14 +850,38 @@ class LanSyncService extends ChangeNotifier {
         'data': data.toJson(),
       });
 
-      if (SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
-        _lastError = 'Sync payload exceeded 1 MB and was not sent.';
+      final payloadSize = SyncMessageUtils.utf8Size(payload);
+      if (payloadSize > _maxSyncPayloadBytes) {
+        _lastError = 'Sync payload exceeded 20 MB and was not sent.';
         _addLog(_lastError!);
         notifyListeners();
         return false;
       }
 
-      final delivered = _sendPayload(payload);
+      int delivered;
+      var chunkCount = 1;
+      if (payloadSize <= _maxPayloadBytes) {
+        delivered = _sendPayload(payload);
+      } else {
+        final chunkFrames = _buildChunkFrames(
+          payload: payload,
+          messageId: messageId,
+          fromId: data.deviceId,
+          fromName: _deviceName ?? 'Device',
+        );
+        if (chunkFrames.isEmpty) {
+          _lastError = 'Sync payload chunks exceeded transport size limits.';
+          _addLog(_lastError!);
+          notifyListeners();
+          return false;
+        }
+        chunkCount = chunkFrames.length;
+        delivered = _sendPayloadBatch(
+          chunkFrames,
+          failureError: 'Failed to send sync payload chunk.',
+        );
+      }
+
       if (delivered == 0) {
         _addLog('No active peers were available to receive sync payload.');
         return false;
@@ -778,9 +892,15 @@ class LanSyncService extends ChangeNotifier {
         payload: payload,
       );
       _messageCache.remember(key);
-      _addLog(
-        'Shared sync data (${data.totalItems} items) to $delivered peer(s).',
-      );
+      if (chunkCount == 1) {
+        _addLog(
+          'Shared sync data (${data.totalItems} items) to $delivered peer(s).',
+        );
+      } else {
+        _addLog(
+          'Shared sync data (${data.totalItems} items, $chunkCount chunks) to $delivered peer(s).',
+        );
+      }
       return true;
     } catch (e) {
       _lastError = e.toString();
@@ -792,21 +912,74 @@ class LanSyncService extends ChangeNotifier {
     }
   }
 
+  List<String> _buildChunkFrames({
+    required String payload,
+    required String messageId,
+    required String fromId,
+    required String fromName,
+  }) {
+    final chunks = SyncMessageUtils.splitPayloadToBase64Chunks(payload);
+    if (chunks.isEmpty) {
+      return const <String>[];
+    }
+
+    final sentAt = DateTime.now().toIso8601String();
+    final frames = <String>[];
+    for (var index = 0; index < chunks.length; index++) {
+      final frame = jsonEncode({
+        'type': SyncMessageUtils.syncChunkType,
+        'messageId': messageId,
+        'protocolVersion': 3,
+        'fromId': fromId,
+        'fromName': fromName,
+        'chunkIndex': index,
+        'chunkCount': chunks.length,
+        'encoding': SyncMessageUtils.syncChunkEncoding,
+        'payload': chunks[index],
+        'sentAt': sentAt,
+      });
+      if (SyncMessageUtils.utf8Size(frame) > _maxPayloadBytes) {
+        return const <String>[];
+      }
+      frames.add(frame);
+    }
+    return frames;
+  }
+
   int _sendPayload(String payload) {
     if (payload.isEmpty) {
+      return 0;
+    }
+    return _sendPayloadBatch(
+      <String>[payload],
+      failureError: 'Failed to send sync payload.',
+    );
+  }
+
+  int _sendPayloadBatch(
+    List<String> payloads, {
+    required String failureError,
+  }) {
+    if (payloads.isEmpty) {
       return 0;
     }
 
     var delivered = 0;
     final snapshot = _connections.values.toList();
     for (final connection in snapshot) {
-      final sent = connection.sendJson(payload);
+      var sent = true;
+      for (final payload in payloads) {
+        if (!connection.sendJson(payload)) {
+          sent = false;
+          break;
+        }
+      }
       if (sent) {
         delivered++;
       } else {
         _removeLanConnection(
           connection,
-          error: 'Failed to send sync payload.',
+          error: failureError,
         );
       }
     }
@@ -920,6 +1093,7 @@ class LanSyncService extends ChangeNotifier {
 
     final now = DateTime.now();
     _messageCache.prune(now);
+    _chunkAssembler.prune(now);
     _pruneLanPeers();
 
     final allConnections = <_LanConnection>{
