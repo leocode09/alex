@@ -144,7 +144,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           data: (items) => items,
           orElse: () => const <Expense>[],
         );
-        final expenseHistory = allExpenses;
         final range = _getPeriodRange(_selectedPeriod);
         final filteredSales = _filterSalesByRange(allSales, range);
         final filteredExpenses = _filterExpensesByRange(allExpenses, range);
@@ -346,11 +345,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               ),
               if (hasExpenseError)
                 const Text('Failed to load expenses')
-              else if (expenseHistory.isEmpty)
-                const Text('No expenses added yet')
+              else if (filteredExpenses.isEmpty)
+                Text(
+                  allExpenses.isEmpty
+                      ? 'No expenses added yet'
+                      : 'No expenses for ${_periodLabel(_selectedPeriod)}',
+                )
               else ...[
                 const SizedBox(height: 12),
-                ...expenseHistory.map(_buildExpenseRow),
+                ...filteredExpenses.map(_buildExpenseRow),
               ],
               const SizedBox(height: 28),
               if (!hasSales)
