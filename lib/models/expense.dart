@@ -28,8 +28,9 @@ class Expense {
   }
 
   factory Expense.fromMap(Map<String, dynamic> map) {
-    final createdAt =
-        _parseDateTime(map['createdAt']) ?? _parseDateTime(map['date']) ?? DateTime.now();
+    final createdAt = _parseDateTime(map['createdAt']) ??
+        _parseDateTime(map['date']) ??
+        DateTime.now();
     final updatedAt = _parseDateTime(map['updatedAt']) ??
         _parseDateTime(map['modifiedAt']) ??
         createdAt;

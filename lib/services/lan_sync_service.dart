@@ -721,7 +721,7 @@ class LanSyncService extends ChangeNotifier {
         if (syncData != null) {
           _messageCache.remember(messageKey);
           _addLog(
-            'Received sync data (${syncData.totalItems} items).',
+            'Received sync data (${_formatSyncDataSummary(syncData)}).',
             deviceId: fromId,
             deviceName: sourceName,
           );
@@ -754,7 +754,7 @@ class LanSyncService extends ChangeNotifier {
           providedName: fallbackSourceName,
         );
         _addLog(
-          'Received sync data (${syncData.totalItems} items).',
+          'Received sync data (${_formatSyncDataSummary(syncData)}).',
           deviceId: syncData.deviceId,
           deviceName: sourceName,
         );
@@ -787,7 +787,7 @@ class LanSyncService extends ChangeNotifier {
         providedName: fallbackSourceName,
       );
       _addLog(
-        'Received sync data (${syncData.totalItems} items).',
+        'Received sync data (${_formatSyncDataSummary(syncData)}).',
         deviceId: syncData.deviceId,
         deviceName: sourceName,
       );
@@ -891,13 +891,14 @@ class LanSyncService extends ChangeNotifier {
         payload: payload,
       );
       _messageCache.remember(key);
+      final summary = _formatSyncDataSummary(data);
       if (chunkCount == 1) {
         _addLog(
-          'Shared sync data (${data.totalItems} items) to $delivered peer(s).',
+          'Shared sync data ($summary) to $delivered peer(s).',
         );
       } else {
         _addLog(
-          'Shared sync data (${data.totalItems} items, $chunkCount chunks) to $delivered peer(s).',
+          'Shared sync data ($summary, $chunkCount chunks) to $delivered peer(s).',
         );
       }
       return true;
@@ -1063,7 +1064,7 @@ class LanSyncService extends ChangeNotifier {
         );
         if (result.success) {
           _addLog(
-            'Applied sync data (${result.totalImported} imported).',
+            'Applied sync data (${_formatImportSummary(result)}).',
             deviceId: sourceDeviceId ?? data.deviceId,
             deviceName: sourceDeviceName,
           );
@@ -1083,6 +1084,14 @@ class LanSyncService extends ChangeNotifier {
       }
     });
     return _importQueue;
+  }
+
+  String _formatSyncDataSummary(SyncData data) {
+    return '${data.totalItems} items, expenses ${data.expenses.length}';
+  }
+
+  String _formatImportSummary(SyncResult result) {
+    return '${result.totalImported} imported, expenses ${result.expensesImported}';
   }
 
   void _runConnectionHealthCheck() {
