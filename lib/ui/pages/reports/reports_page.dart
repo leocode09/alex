@@ -39,6 +39,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   late Animation<double> _chartAnimation;
   final LanSyncService _lanSyncService = LanSyncService();
   String _selectedPeriod = 'Today';
+  DateTimeRange? _customDateTimeRange;
   String _selectedSyncDeviceFilter = _allDevicesFilter;
   SyncActionTimeRange _selectedSyncTimeRange = SyncActionTimeRange.today;
   final NumberFormat _currencyFormat =
@@ -90,18 +91,17 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         actions: [
           PopupMenuButton<String>(
             initialValue: _selectedPeriod,
-            onSelected: (value) {
-              setState(() {
-                _selectedPeriod = value;
-              });
-              _chartController.reset();
-            },
+            onSelected: _handlePeriodSelection,
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'Today', child: Text('Today')),
               const PopupMenuItem(value: 'This Week', child: Text('This Week')),
               const PopupMenuItem(
                   value: 'This Month', child: Text('This Month')),
               const PopupMenuItem(value: 'This Year', child: Text('This Year')),
+              const PopupMenuItem(
+                value: 'Custom',
+                child: Text('Custom Date/Time'),
+              ),
             ],
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -980,6 +980,104 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     }
   }
 
+  Future<void> _handlePeriodSelection(String value) async {
+    if (value == 'Custom') {
+      final range = await _pickCustomDateTimeRange();
+      if (!mounted || range == null) {
+        return;
+      }
+      setState(() {
+        _selectedPeriod = 'Custom';
+        _customDateTimeRange = range;
+      });
+      _chartController.reset();
+      return;
+    }
+
+    setState(() {
+      _selectedPeriod = value;
+    });
+    _chartController.reset();
+  }
+
+  Future<DateTimeRange?> _pickCustomDateTimeRange() async {
+    final now = DateTime.now();
+    final existingRange = _customDateTimeRange;
+    final initialStart =
+        existingRange?.start ?? DateTime(now.year, now.month, now.day);
+    final initialEnd = existingRange?.end ?? now;
+
+    final startDate = await showDatePicker(
+      context: context,
+      initialDate: initialStart,
+      firstDate: DateTime(2000, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+      helpText: 'Select Start Date',
+    );
+    if (!mounted || startDate == null) {
+      return null;
+    }
+
+    final startTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialStart),
+      helpText: 'Select Start Time',
+    );
+    if (!mounted || startTime == null) {
+      return null;
+    }
+
+    final startDateTime = DateTime(
+      startDate.year,
+      startDate.month,
+      startDate.day,
+      startTime.hour,
+      startTime.minute,
+    );
+
+    final normalizedInitialEnd =
+        initialEnd.isBefore(startDateTime) ? startDateTime : initialEnd;
+    final endDate = await showDatePicker(
+      context: context,
+      initialDate: normalizedInitialEnd,
+      firstDate: DateTime(2000, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+      helpText: 'Select End Date',
+    );
+    if (!mounted || endDate == null) {
+      return null;
+    }
+
+    final endTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(normalizedInitialEnd),
+      helpText: 'Select End Time',
+    );
+    if (!mounted || endTime == null) {
+      return null;
+    }
+
+    final endDateTime = DateTime(
+      endDate.year,
+      endDate.month,
+      endDate.day,
+      endTime.hour,
+      endTime.minute,
+    );
+
+    if (endDateTime.isBefore(startDateTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('End date/time must be after start date/time'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return null;
+    }
+
+    return DateTimeRange(start: startDateTime, end: endDateTime);
+  }
+
   DateTimeRange _getPeriodRange(String period) {
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
@@ -998,6 +1096,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             : DateTime(now.year, now.month + 1, 1);
         final end = nextMonth.subtract(const Duration(milliseconds: 1));
         return DateTimeRange(start: start, end: end);
+      case 'Custom':
+        return _customDateTimeRange ??
+            DateTimeRange(start: startOfToday, end: endOfToday);
       case 'This Year':
       default:
         final start = DateTime(now.year, 1, 1);
@@ -1075,6 +1176,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         return 'Last 7 Days';
       case 'This Month':
         return 'This Month';
+      case 'Custom':
+        return 'Custom Range';
       case 'This Year':
       default:
         return 'This Year';
