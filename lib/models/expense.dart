@@ -28,20 +28,54 @@ class Expense {
   }
 
   factory Expense.fromMap(Map<String, dynamic> map) {
+    final createdAt =
+        _parseDateTime(map['createdAt']) ?? _parseDateTime(map['date']) ?? DateTime.now();
+    final updatedAt = _parseDateTime(map['updatedAt']) ??
+        _parseDateTime(map['modifiedAt']) ??
+        createdAt;
+
     return Expense(
       id: map['id'] as String,
       title: (map['title'] ?? map['name'] ?? 'Expense') as String,
-      amount: (map['amount'] as num).toDouble(),
+      amount: _parseAmount(map['amount']),
       note: map['note'] as String?,
-      createdAt: map['createdAt'] != null
-          ? DateTime.parse(map['createdAt'] as String)
-          : DateTime.now(),
-      updatedAt: map['updatedAt'] != null
-          ? DateTime.parse(map['updatedAt'] as String)
-          : (map['createdAt'] != null
-              ? DateTime.parse(map['createdAt'] as String)
-              : DateTime.now()),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
+  }
+
+  static double _parseAmount(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      final normalized = value.trim().replaceAll(',', '');
+      return double.tryParse(normalized) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty) {
+        return null;
+      }
+      return DateTime.tryParse(text);
+    }
+    if (value is int) {
+      if (value <= 0) {
+        return null;
+      }
+      if (value > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      }
+      return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+    }
+    return null;
   }
 
   Expense copyWith({

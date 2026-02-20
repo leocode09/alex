@@ -51,6 +51,19 @@ class SyncData {
   /// Create from JSON
   factory SyncData.fromJson(Map<String, dynamic> json) {
     try {
+      final rawExpenses = (json['expenses'] ?? json['expances']) as List? ?? [];
+      final expenses = <Expense>[];
+      for (final item in rawExpenses) {
+        if (item is! Map) {
+          continue;
+        }
+        try {
+          expenses.add(Expense.fromMap(Map<String, dynamic>.from(item)));
+        } catch (e) {
+          print('Skipping invalid expense in sync payload: $e');
+        }
+      }
+
       return SyncData(
         products: (json['products'] as List? ?? [])
             .map((p) => Product.fromMap(p as Map<String, dynamic>))
@@ -64,9 +77,7 @@ class SyncData {
         employees: (json['employees'] as List? ?? [])
             .map((e) => Employee.fromMap(e as Map<String, dynamic>))
             .toList(),
-        expenses: (json['expenses'] as List? ?? [])
-            .map((e) => Expense.fromMap(e as Map<String, dynamic>))
-            .toList(),
+        expenses: expenses,
         sales: (json['sales'] as List? ?? [])
             .map((s) => Sale.fromMap(s as Map<String, dynamic>))
             .toList(),

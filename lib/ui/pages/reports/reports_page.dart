@@ -349,15 +349,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 const Text('No expenses for this period')
               else ...[
                 const SizedBox(height: 12),
-                ...filteredExpenses.take(8).map(_buildExpenseRow),
-                if (filteredExpenses.length > 8)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Showing latest 8 expenses',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                  ),
+                ...filteredExpenses.map(_buildExpenseRow),
               ],
               const SizedBox(height: 28),
               if (!hasSales)

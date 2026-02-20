@@ -12,10 +12,22 @@ class ExpenseRepository {
       final jsonData = await _storage.getData(_expensesKey);
       if (jsonData == null) return [];
 
-      final decoded = jsonDecode(jsonData) as List<dynamic>;
-      final expenses = decoded
-          .map((json) => Expense.fromMap(json as Map<String, dynamic>))
-          .toList();
+      final decoded = jsonDecode(jsonData);
+      if (decoded is! List) {
+        return [];
+      }
+
+      final expenses = <Expense>[];
+      for (final item in decoded) {
+        if (item is! Map) {
+          continue;
+        }
+        try {
+          expenses.add(Expense.fromMap(Map<String, dynamic>.from(item)));
+        } catch (e) {
+          print('Skipping invalid expense record: $e');
+        }
+      }
       expenses.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return expenses;
     } catch (e, stackTrace) {
