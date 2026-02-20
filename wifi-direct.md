@@ -17,7 +17,7 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 4. As peers are discovered, Android auto-connects to the first discovered peer when not in host-preferred mode.
 5. Once a group is formed, the group owner runs a TCP server and clients connect to the owner over a fixed port.
 6. Every connection exchanges a hello message and then relays payloads to Flutter. If the device is the group owner, it forwards payloads to all other peers.
-7. On `peer_connected` or a local data change trigger, Flutter exports all sync data and broadcasts it. On `message`, Flutter imports data using the merge strategy.
+7. On `peer_connected` or a local data change trigger, Flutter exports all sync data and broadcasts it. Payloads over 1MB are chunked automatically and reassembled on receipt before import.
 
 **Flutter-side wiring**
 - Control channel: `MethodChannel('wifi_direct')` in `lib/services/wifi_direct_sync_service.dart`.
@@ -25,6 +25,8 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 - `start()` sends `deviceId`, `deviceName`, and `host` (host preference toggle).
 - Incoming `message` events trigger automatic import via `SyncService`.
 - On `peer_connected` or `triggerSync()`, the full sync payload is exported and sent over Wi-Fi Direct automatically (debounced and rate-limited).
+- Payload transport keeps a 1MB per-frame limit. If a payload exceeds 1MB, it is split into ordered `sync_chunk` frames and reassembled on the receiver.
+- Total sync payload cap is 20MB; payloads above this cap are rejected with an explicit error.
 - The LAN Manager UI (`/lan`) uses the same service to expose start/stop, discovery, connect, and disconnect actions.
 
 **Android-side automatic behavior**
@@ -44,6 +46,7 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 - After hello, every line is treated as a payload string.
 - If the device is group owner, it forwards payloads to all other peers.
 - Flutter is notified for every payload with `type: message`, `payload`, `fromId`, `fromName`.
+- Large sync payloads use `type: "sync_chunk"` frames with `chunkIndex`, `chunkCount`, and `encoding: "base64_utf8"` until full reassembly completes.
 
 **Permissions and feature flags**
 - `android.permission.ACCESS_WIFI_STATE`
@@ -70,11 +73,15 @@ This project implements an automatic Wi-Fi Direct transport on Android and wires
 - LAN uses UDP broadcast discovery (port `42111`) and auto-connects over TCP (port `42112`).
 - Connections are de-duplicated using a device-id tie-breaker (only one socket per peer).
 - Open **LAN Manager** to see discovered peers, connected peers, and logs.
-- Sync uses the same payload as Wi-Fi Direct and merges automatically.
+- Sync uses the same payload protocol as Wi-Fi Direct (including chunking) and merges automatically.
+- For large syncs, both devices should run the same app build so both sides support `sync_chunk` reassembly.
 
 **Key constants**
 - Wi-Fi Direct port: `42113` (`WIFI_DIRECT_PORT` in `MainActivity.kt`).
 - Hotspot/LAN UDP discovery port: `42111` (`LanSyncService.discoveryPort`).
 - Hotspot/LAN TCP port: `42112` (`LanSyncService.tcpPort`).
+- Max transport frame size: `1 MB`.
+- Chunk raw payload size: `192 KB` (base64 encoded per frame).
+- Max assembled sync payload size: `20 MB`.
 - Connect timeout: `3500ms` (`CONNECT_TIMEOUT_MS` in `MainActivity.kt`).
 - Channels: `wifi_direct` (Method), `wifi_direct_events` (Events).

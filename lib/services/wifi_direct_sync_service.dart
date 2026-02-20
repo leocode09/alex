@@ -170,6 +170,7 @@ class WifiDirectSyncService extends ChangeNotifier {
       _sending = false;
       _retryAttempts = 0;
       _messageCache.clear();
+      _chunkAssembler.clear();
       notifyListeners();
     }
   }
@@ -406,38 +407,89 @@ class WifiDirectSyncService extends ChangeNotifier {
     }
 
     if (SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
-      _addLog('Dropped incoming payload that exceeded size limits.');
+      _addLog('Dropped incoming frame that exceeded transport size limits.');
       return;
     }
 
-    Map<String, dynamic>? json;
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is Map<String, dynamic>) {
-        json = decoded;
-      } else if (decoded is Map) {
-        json = Map<String, dynamic>.from(decoded);
-      }
-    } catch (_) {
-      json = null;
+    _deviceId ??= await _syncService.getDeviceId();
+    final fallbackSourceId = event['fromId']?.toString();
+    final json = _tryDecodeJsonMap(payload);
+    if (json != null && json['type'] == SyncMessageUtils.syncChunkType) {
+      await _handleIncomingChunk(
+        json,
+        fallbackSourceId: fallbackSourceId,
+      );
+      return;
     }
 
-    if (json != null) {
-      if (json['type'] == 'sync_data') {
-        final fromId = json['fromId']?.toString();
+    await _processSyncPayload(
+      payload,
+      json: json,
+      fallbackSourceId: fallbackSourceId,
+    );
+  }
+
+  Future<void> _handleIncomingChunk(
+    Map<String, dynamic> chunkEnvelope, {
+    String? fallbackSourceId,
+  }) async {
+    final fromId = chunkEnvelope['fromId']?.toString() ?? fallbackSourceId;
+    if (fromId != null && fromId == _deviceId) {
+      return;
+    }
+
+    final messageId = chunkEnvelope['messageId']?.toString().trim();
+    if (messageId == null || messageId.isEmpty) {
+      _addLog('Dropped sync chunk missing message id.');
+      return;
+    }
+
+    final messageKey = SyncMessageUtils.buildMessageKey(
+      messageId: messageId,
+      payload: messageId,
+    );
+    if (_messageCache.isDuplicate(messageKey)) {
+      return;
+    }
+
+    final assembly = _chunkAssembler.addEnvelope(chunkEnvelope);
+    if (assembly.hasError) {
+      _addLog('Dropped sync chunk: ${assembly.error}');
+      return;
+    }
+    if (!assembly.isComplete || assembly.payload == null) {
+      return;
+    }
+
+    await _processSyncPayload(
+      assembly.payload!,
+      fallbackSourceId: fromId,
+    );
+  }
+
+  Future<void> _processSyncPayload(
+    String payload, {
+    Map<String, dynamic>? json,
+    String? fallbackSourceId,
+  }) async {
+    final parsed = json ?? _tryDecodeJsonMap(payload);
+
+    if (parsed != null) {
+      if (parsed['type'] == 'sync_data') {
+        final fromId = parsed['fromId']?.toString() ?? fallbackSourceId;
         if (fromId != null && fromId == _deviceId) {
           return;
         }
 
         final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: json['messageId']?.toString(),
+          messageId: parsed['messageId']?.toString(),
           payload: payload,
         );
         if (_messageCache.isDuplicate(messageKey)) {
           return;
         }
 
-        final data = json['data'];
+        final data = parsed['data'];
         SyncData? syncData;
         if (data is Map) {
           syncData = SyncData.fromJson(Map<String, dynamic>.from(data));
@@ -452,16 +504,16 @@ class WifiDirectSyncService extends ChangeNotifier {
         return;
       }
 
-      if (_looksLikeSyncData(json)) {
+      if (_looksLikeSyncData(parsed)) {
         final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: json['messageId']?.toString(),
+          messageId: parsed['messageId']?.toString(),
           payload: payload,
         );
         if (_messageCache.isDuplicate(messageKey)) {
           return;
         }
 
-        final syncData = SyncData.fromJson(json);
+        final syncData = SyncData.fromJson(parsed);
         if (syncData.deviceId == _deviceId) {
           return;
         }
@@ -489,6 +541,21 @@ class WifiDirectSyncService extends ChangeNotifier {
     } catch (_) {
       return;
     }
+  }
+
+  Map<String, dynamic>? _tryDecodeJsonMap(String payload) {
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   bool _looksLikeSyncData(Map<String, dynamic> json) {
@@ -520,21 +587,50 @@ class WifiDirectSyncService extends ChangeNotifier {
         'data': data.toJson(),
       });
 
-      if (SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
-        _lastError = 'Wi-Fi Direct payload exceeded 1 MB and was not sent.';
+      final payloadSize = SyncMessageUtils.utf8Size(payload);
+      if (payloadSize > _maxSyncPayloadBytes) {
+        _lastError = 'Wi-Fi Direct payload exceeded 20 MB and was not sent.';
         notifyListeners();
         return false;
       }
 
-      await _methodChannel.invokeMethod('sendMessage', {
-        'payload': payload,
-      });
+      var chunkCount = 1;
+      if (payloadSize <= _maxPayloadBytes) {
+        final sent = await _sendFrame(payload);
+        if (!sent) {
+          _lastError = 'Wi-Fi Direct failed to send sync payload.';
+          notifyListeners();
+          return false;
+        }
+      } else {
+        final chunkFrames = _buildChunkFrames(
+          payload: payload,
+          messageId: messageId,
+          fromId: data.deviceId,
+          fromName: _deviceName ?? 'Android',
+        );
+        if (chunkFrames.isEmpty) {
+          _lastError = 'Wi-Fi Direct payload chunks exceeded transport limits.';
+          notifyListeners();
+          return false;
+        }
+        chunkCount = chunkFrames.length;
+        final sent = await _sendFrames(chunkFrames);
+        if (!sent) {
+          _lastError = 'Wi-Fi Direct failed while sending sync payload chunks.';
+          notifyListeners();
+          return false;
+        }
+      }
 
       final key = SyncMessageUtils.buildMessageKey(
         messageId: messageId,
         payload: payload,
       );
       _messageCache.remember(key);
+      if (chunkCount > 1) {
+        _addLog('Shared Wi-Fi Direct sync payload in $chunkCount chunks.');
+      }
       return true;
     } catch (e) {
       _lastError = e.toString();
@@ -543,6 +639,61 @@ class WifiDirectSyncService extends ChangeNotifier {
       return false;
     } finally {
       _sending = false;
+    }
+  }
+
+  List<String> _buildChunkFrames({
+    required String payload,
+    required String messageId,
+    required String fromId,
+    required String fromName,
+  }) {
+    final chunks = SyncMessageUtils.splitPayloadToBase64Chunks(payload);
+    if (chunks.isEmpty) {
+      return const <String>[];
+    }
+
+    final sentAt = DateTime.now().toIso8601String();
+    final frames = <String>[];
+    for (var index = 0; index < chunks.length; index++) {
+      final frame = jsonEncode({
+        'type': SyncMessageUtils.syncChunkType,
+        'messageId': messageId,
+        'protocolVersion': 3,
+        'fromId': fromId,
+        'fromName': fromName,
+        'chunkIndex': index,
+        'chunkCount': chunks.length,
+        'encoding': SyncMessageUtils.syncChunkEncoding,
+        'payload': chunks[index],
+        'sentAt': sentAt,
+      });
+      if (SyncMessageUtils.utf8Size(frame) > _maxPayloadBytes) {
+        return const <String>[];
+      }
+      frames.add(frame);
+    }
+    return frames;
+  }
+
+  Future<bool> _sendFrames(List<String> frames) async {
+    for (final frame in frames) {
+      final sent = await _sendFrame(frame);
+      if (!sent) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<bool> _sendFrame(String payload) async {
+    try {
+      await _methodChannel.invokeMethod('sendMessage', {
+        'payload': payload,
+      });
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -641,6 +792,7 @@ class WifiDirectSyncService extends ChangeNotifier {
 
     final now = DateTime.now();
     _messageCache.prune(now);
+    _chunkAssembler.prune(now);
 
     if (!_isConnected && !_connecting) {
       if (_lastPeerDiscoveryAt == null ||
