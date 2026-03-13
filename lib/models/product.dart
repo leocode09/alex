@@ -1,3 +1,45 @@
+/// A sellable package preset for a product (e.g. 1 item, 1/4 pack, 1/2 pack, full pack).
+/// Price is derived from product's single-item price: price * unitsPerPackage.
+class ProductPackage {
+  final String id;
+  final String name;
+  final int unitsPerPackage;
+
+  ProductPackage({
+    required this.id,
+    required this.name,
+    required this.unitsPerPackage,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'unitsPerPackage': unitsPerPackage,
+    };
+  }
+
+  factory ProductPackage.fromMap(Map<String, dynamic> map) {
+    return ProductPackage(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      unitsPerPackage: (map['unitsPerPackage'] as num).toInt(),
+    );
+  }
+
+  ProductPackage copyWith({
+    String? id,
+    String? name,
+    int? unitsPerPackage,
+  }) {
+    return ProductPackage(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      unitsPerPackage: unitsPerPackage ?? this.unitsPerPackage,
+    );
+  }
+}
+
 class Product {
   final String id;
   final String name;
@@ -9,6 +51,7 @@ class Product {
   final String? description;
   final String? category;
   final String? supplier;
+  final List<ProductPackage> packages;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,9 +66,11 @@ class Product {
     this.description,
     this.category,
     this.supplier,
+    List<ProductPackage>? packages,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
+  })  : packages = packages ?? [],
+        createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
@@ -40,6 +85,7 @@ class Product {
       'description': description,
       'category': category,
       'supplier': supplier,
+      'packages': packages.map((p) => p.toMap()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -59,6 +105,10 @@ class Product {
       description: map['description'] as String?,
       category: map['category'] as String?,
       supplier: map['supplier'] as String?,
+      packages: (map['packages'] as List<dynamic>?)
+              ?.map((e) => ProductPackage.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -75,6 +125,7 @@ class Product {
     String? description,
     String? category,
     String? supplier,
+    List<ProductPackage>? packages,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -89,6 +140,7 @@ class Product {
       description: description ?? this.description,
       category: category ?? this.category,
       supplier: supplier ?? this.supplier,
+      packages: packages ?? this.packages,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

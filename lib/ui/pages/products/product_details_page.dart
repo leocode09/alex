@@ -113,7 +113,7 @@ class ProductDetailsPage extends ConsumerWidget {
             orElse: () => <_ProductSaleEntry>[],
           );
           final totalSoldUnits = salesEntries.fold<int>(
-              0, (sum, entry) => sum + entry.item.quantity);
+              0, (sum, entry) => sum + entry.item.baseUnitsSold);
           final totalSalesCount = salesEntries.length;
           final totalSoldRevenue = salesEntries.fold<double>(
             0.0,
@@ -256,6 +256,24 @@ class ProductDetailsPage extends ConsumerWidget {
                   _buildDetailRow('Margin',
                       '${((product.price - product.costPrice!) / product.price * 100).toStringAsFixed(1)}%'),
                 _buildDetailRow('Description', product.description ?? '-'),
+                if (product.packages.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Packages',
+                      style: TextStyle(
+                          color: Colors.grey[500], fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: product.packages
+                        .map((p) => Chip(
+                              label: Text(
+                                  '${p.name} (${p.unitsPerPackage} units)'),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 _buildDetailRow('Created',
                     dateFormatter.format(product.createdAt.toLocal())),
                 _buildDetailRow('Updated',
@@ -482,8 +500,11 @@ class ProductDetailsPage extends ConsumerWidget {
           final saleEntry = entry.value;
           final sale = saleEntry.sale;
           final item = saleEntry.item;
+          final qtyLabel = item.packageName != null
+              ? '${item.quantity} x ${item.packageName} (${item.baseUnitsSold} units)'
+              : '${item.quantity} units';
           final subtitle =
-              '${item.quantity} units - \$${item.price.toStringAsFixed(2)} each\n${dateFormatter.format(sale.createdAt.toLocal())} - Receipt #${_shortId(sale.id)}';
+              '$qtyLabel - \$${item.price.toStringAsFixed(2)} each\n${dateFormatter.format(sale.createdAt.toLocal())} - Receipt #${_shortId(sale.id)}';
 
           return Column(
             children: [

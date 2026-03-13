@@ -31,6 +31,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   final _supplierController = TextEditingController();
 
   String? _selectedCategory;
+  List<ProductPackage> _packages = [];
   bool _isLoading = false;
   bool _pinVerified = false;
 
@@ -89,6 +90,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
         _barcodeController.text = product.barcode ?? '';
         _selectedCategory = product.category;
         _supplierController.text = product.supplier ?? '';
+        _packages = List.from(product.packages);
       });
     }
   }
@@ -136,7 +138,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
             : double.parse(_costPriceController.text),
         supplier:
             _supplierController.text.isEmpty ? null : _supplierController.text,
-        sku: '', // Assuming SKU is generated or optional
+        sku: '',
+        packages: _packages,
       );
 
       if (isEditing) {
@@ -267,6 +270,30 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               error: (_, __) => const Text('Error loading categories'),
             ),
             const SizedBox(height: 24),
+            _buildSectionTitle('Packages (Optional)'),
+            Text(
+              'Define sellable package sizes (e.g. 1/4 pack, 1/2 pack). Price per package = single-item price × units.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ..._packages.map((p) => Chip(
+                      label: Text('${p.name} (${p.unitsPerPackage} units)'),
+                      onDeleted: () => setState(() {
+                        _packages.removeWhere((x) => x.id == p.id);
+                      }),
+                    )),
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 18, color: Colors.white),
+                  label: const Text('Add Package'),
+                  onPressed: () => _showAddPackageDialog(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             _buildSectionTitle('Additional Details'),
             _buildTextField(
               controller: _barcodeController,
@@ -317,6 +344,68 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showAddPackageDialog() async {
+    final nameController = TextEditingController();
+    final unitsController = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Package'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Package name (e.g. 1/4 pack, Half pack)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: unitsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Units per package',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final units = int.tryParse(unitsController.text.trim());
+              if (name.isEmpty || units == null || units < 1) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Enter a valid name and units (≥ 1)'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              setState(() {
+                _packages.add(ProductPackage(
+                  id: const Uuid().v4(),
+                  name: name,
+                  unitsPerPackage: units,
+                ));
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Add'),
+          ),
+        ],
       ),
     );
   }

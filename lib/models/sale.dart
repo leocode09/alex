@@ -58,9 +58,12 @@ class SaleItem {
   final String productId;
   final String productName;
   final int quantity;
-  final double price; // Original price
+  final double price; // Price per unit or per package (for display)
   final double? discount; // Discount amount per item
   final double subtotal;
+  final String? packageId;
+  final String? packageName;
+  final int? unitsPerPackage;
 
   SaleItem({
     required this.productId,
@@ -68,7 +71,14 @@ class SaleItem {
     required this.quantity,
     required this.price,
     this.discount,
+    this.packageId,
+    this.packageName,
+    this.unitsPerPackage,
   }) : subtotal = quantity * (price - (discount ?? 0));
+
+  /// Base units consumed for stock deduction. When sold by package: quantity * unitsPerPackage; otherwise quantity.
+  int get baseUnitsSold =>
+      unitsPerPackage != null ? quantity * unitsPerPackage! : quantity;
 
   Map<String, dynamic> toMap() {
     return {
@@ -77,6 +87,9 @@ class SaleItem {
       'quantity': quantity,
       'price': price,
       'discount': discount,
+      'packageId': packageId,
+      'packageName': packageName,
+      'unitsPerPackage': unitsPerPackage,
       'subtotal': subtotal,
     };
   }
@@ -85,10 +98,15 @@ class SaleItem {
     return SaleItem(
       productId: map['productId'] as String,
       productName: map['productName'] as String,
-      quantity: map['quantity'] as int,
+      quantity: (map['quantity'] as num).toInt(),
       price: (map['price'] as num).toDouble(),
       discount:
           map['discount'] != null ? (map['discount'] as num).toDouble() : null,
+      packageId: map['packageId'] as String?,
+      packageName: map['packageName'] as String?,
+      unitsPerPackage: map['unitsPerPackage'] != null
+          ? (map['unitsPerPackage'] as num).toInt()
+          : null,
     );
   }
 }
