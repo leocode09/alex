@@ -1316,17 +1316,18 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       }
 
       for (final item in sale.items) {
+        final baseUnits = item.baseUnitsSold;
         final itemDiscount = (item.discount ?? 0) * item.quantity;
         discounts += itemDiscount;
-        itemsSold += item.quantity;
+        itemsSold += baseUnits;
 
         final product = productById[item.productId];
         final costPrice = product?.costPrice;
         if (costPrice != null) {
-          cogs += costPrice * item.quantity;
-          costedItems += item.quantity;
+          cogs += costPrice * baseUnits;
+          costedItems += baseUnits;
         } else {
-          missingCostItems += item.quantity;
+          missingCostItems += baseUnits;
         }
       }
     }
@@ -1360,7 +1361,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       for (final item in sale.items) {
         final entry =
             stats.putIfAbsent(item.productName, () => _ProductPerformance());
-        entry.units += item.quantity;
+        entry.units += item.baseUnitsSold;
         entry.revenue += item.subtotal;
       }
     }

@@ -65,6 +65,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
             'name': item.productName,
             'price': item.price,
             'quantity': item.quantity,
+            'packageId': item.packageId,
+            'packageName': item.packageName,
+            'unitsPerPackage': item.unitsPerPackage,
+            'stock': null,
           });
         }
         if (editingReceipt.customerId != null) {
@@ -131,11 +135,12 @@ class _SalesPageState extends ConsumerState<SalesPage>
   }
 
   int _getCartQuantity(Product product) {
-    final index = _cart.indexWhere((item) => item['id'] == product.id);
-    if (index >= 0) {
-      return _cart[index]['quantity'];
-    }
-    return 0;
+    return _cart.fold<int>(0, (sum, item) {
+      if (item['id'] != product.id) return sum;
+      final qty = item['quantity'] as int? ?? 0;
+      final units = item['unitsPerPackage'] as int?;
+      return sum + (units != null ? qty * units : qty);
+    });
   }
 
   void _removeProductFromCart(Product product) {
@@ -146,30 +151,89 @@ class _SalesPageState extends ConsumerState<SalesPage>
     HapticFeedback.mediumImpact();
   }
 
-  void _addToCart(Product product) {
+  void _addToCart(Product product, {ProductPackage? package}) {
+    final unitsPerPackage = package?.unitsPerPackage ?? 1;
+    final price = package != null
+        ? product.price * package.unitsPerPackage
+        : product.price;
+    final name = package != null
+        ? '${product.name} (${package.name})'
+        : product.name;
+    final packageId = package?.id;
+    final packageName = package?.name;
+
     setState(() {
-      final existingIndex =
-          _cart.indexWhere((item) => item['id'] == product.id);
+      final existingIndex = _cart.indexWhere((item) {
+        if (item['id'] != product.id) return false;
+        final itemPkgId = item['packageId'] as String?;
+        return itemPkgId == packageId;
+      });
+      final baseUnitsToAdd = unitsPerPackage;
+      final currentBaseUnits = _getCartQuantity(product);
+      if (currentBaseUnits + baseUnitsToAdd > product.stock) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Not enough stock for ${product.name}')),
+        );
+        return;
+      }
       if (existingIndex >= 0) {
-        if (_cart[existingIndex]['quantity'] < product.stock) {
-          _cart[existingIndex]['quantity']++;
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Not enough stock for ${product.name}')),
-          );
-        }
+        _cart[existingIndex]['quantity'] =
+            (_cart[existingIndex]['quantity'] as int) + 1;
       } else {
         _cart.add({
           'id': product.id,
-          'name': product.name,
-          'price': product.price,
+          'name': name,
+          'price': price,
           'quantity': 1,
           'stock': product.stock,
+          'packageId': packageId,
+          'packageName': packageName,
+          'unitsPerPackage': unitsPerPackage,
         });
       }
     });
     _saveCart();
     HapticFeedback.lightImpact();
+  }
+
+  Future<void> _onProductTap(Product product) async {
+    if (product.packages.isEmpty) {
+      _addToCart(product);
+      return;
+    }
+    final selected = await showModalBottomSheet<ProductPackage>(
+      context: context,
+      builder: (ctx) => _PackagePickerSheet(
+        product: product,
+        onSelect: (pkg) => Navigator.pop(ctx, pkg),
+      ),
+    );
+    if (selected != null && mounted) {
+      _addToCart(product, package: selected);
+    }
+  }
+
+  Future<void> _onCartItemIncrement(int index) async {
+    final item = _cart[index];
+    final products = await ref.read(productsProvider.future);
+    Product? product;
+    for (final p in products) {
+      if (p.id == item['id']) {
+        product = p;
+        break;
+      }
+    }
+    if (product == null) return;
+    ProductPackage? pkg;
+    final pkgId = item['packageId'] as String?;
+    if (pkgId != null) {
+      pkg = ProductPackage(
+        id: pkgId,
+        name: item['packageName'] as String? ?? '',
+        unitsPerPackage: item['unitsPerPackage'] as int? ?? 1,
+      );
+    }
+    if (mounted) _addToCart(product, package: pkg);
   }
 
   void _removeFromCart(int index) {
@@ -254,10 +318,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
     for (final item in _cart) {
       final productId = item['id'] as String?;
       final quantity = item['quantity'] as int?;
-      if (productId == null || quantity == null) {
-        continue;
-      }
-      quantities[productId] = (quantities[productId] ?? 0) + quantity;
+      final unitsPerPackage = item['unitsPerPackage'] as int?;
+      if (productId == null || quantity == null) continue;
+      final baseUnits = unitsPerPackage != null ? quantity * unitsPerPackage : quantity;
+      quantities[productId] = (quantities[productId] ?? 0) + baseUnits;
     }
     return quantities;
   }
@@ -266,7 +330,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
     final quantities = <String, int>{};
     for (final item in items) {
       quantities[item.productId] =
-          (quantities[item.productId] ?? 0) + item.quantity;
+          (quantities[item.productId] ?? 0) + item.baseUnitsSold;
     }
     return quantities;
   }
@@ -351,6 +415,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
           productName: item['name'],
           quantity: item['quantity'],
           price: item['price'],
+          packageId: item['packageId'],
+          packageName: item['packageName'],
+          unitsPerPackage: item['unitsPerPackage'],
         );
       }).toList();
 
@@ -927,8 +994,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         label: Text(category),
                         selected: isSelected,
                         onSelected: (selected) {
-                          if (selected)
+                          if (selected) {
                             setState(() => _selectedCategory = category);
+                          }
                         },
                         backgroundColor: Colors.white,
                         selectedColor: Theme.of(context).colorScheme.primary,
@@ -1016,7 +1084,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         final isInCart = cartQuantity > 0;
 
                         return InkWell(
-                          onTap: () => _addToCart(product),
+                          onTap: () => _onProductTap(product),
                           onLongPress: () => _removeProductFromCart(product),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
@@ -1199,14 +1267,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                     IconButton(
                                       icon: const Icon(Icons.add_circle_outline,
                                           size: 28),
-                                      onPressed: () => _addToCart(Product(
-                                        id: item['id'],
-                                        name: item['name'],
-                                        price: item['price'],
-                                        stock: item['stock'],
-                                        category: '',
-                                        sku: '',
-                                      )),
+                                      onPressed: () =>
+                                          _onCartItemIncrement(index),
                                     ),
                                   ],
                                 ),
@@ -1307,5 +1369,55 @@ class _SalesPageState extends ConsumerState<SalesPage>
         });
       }
     }
+  }
+}
+
+class _PackagePickerSheet extends StatelessWidget {
+  final Product product;
+  final void Function(ProductPackage) onSelect;
+
+  const _PackagePickerSheet({
+    required this.product,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final singleItem = ProductPackage(
+      id: '__single__',
+      name: '1 item',
+      unitsPerPackage: 1,
+    );
+    final options = [singleItem, ...product.packages];
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Select package for ${product.name}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...options.map((pkg) {
+              final price = product.price * pkg.unitsPerPackage;
+              return ListTile(
+                title: Text(pkg.name),
+                subtitle: Text(
+                  '${pkg.unitsPerPackage} units - \$${price.toStringAsFixed(2)}',
+                ),
+                onTap: () => onSelect(pkg),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
   }
 }

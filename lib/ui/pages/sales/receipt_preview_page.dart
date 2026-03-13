@@ -340,7 +340,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     final quantities = <String, int>{};
     for (final item in items) {
       quantities[item.productId] =
-          (quantities[item.productId] ?? 0) + item.quantity;
+          (quantities[item.productId] ?? 0) + item.baseUnitsSold;
     }
     return quantities;
   }
@@ -443,6 +443,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                 productName: name,
                 quantity: quantity,
                 price: price,
+                packageId: item.packageId,
+                packageName: item.packageName,
+                unitsPerPackage: item.unitsPerPackage,
               );
 
               await _updateSaleItems(updatedItems);

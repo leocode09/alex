@@ -201,7 +201,7 @@ class SaleRepository {
     for (var sale in sales) {
       for (var item in sale.items) {
         productCounts[item.productName] =
-            (productCounts[item.productName] ?? 0) + item.quantity;
+            (productCounts[item.productName] ?? 0) + item.baseUnitsSold;
       }
     }
 
