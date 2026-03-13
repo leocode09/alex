@@ -24,7 +24,21 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
   final NumberFormat _currencyFormat =
       NumberFormat.currency(symbol: '\$', decimalDigits: 2);
   final DateFormat _dateFormat = DateFormat('MMM d, y - h:mm a');
+  final DateFormat _calendarDateFormat = DateFormat('MMM d, y');
+  final DateFormat _isoDateFormat = DateFormat('yyyy-MM-dd');
+  final DateFormat _numericDateFormat = DateFormat('dd/MM/yyyy');
+  final DateFormat _timeFormat = DateFormat('h:mm a');
   final PinService _pinService = PinService();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  bool get _hasActiveSearch => _searchQuery.trim().isNotEmpty;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<void> _refreshData() async {
     ref.invalidate(moneyAccountsProvider);
@@ -141,6 +155,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
         onRefresh: _refreshData,
         child: accountsAsync.when(
           data: (accounts) {
+            final filteredAccounts = _filterAccounts(accounts, _searchQuery);
             final totalBalance = totalBalanceAsync.valueOrNull ??
                 accounts.fold<double>(
                     0, (sum, account) => sum + account.balance);
@@ -153,19 +168,26 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                   transactionCount: historyAsync.valueOrNull?.length ?? 0,
                 ),
                 const SizedBox(height: AppTokens.space3),
+                _buildUniversalSearchField(),
+                const SizedBox(height: AppTokens.space3),
                 _buildAccountsHeader(),
                 const SizedBox(height: AppTokens.space2),
                 if (accounts.isEmpty)
                   _buildEmptyAccounts()
+                else if (filteredAccounts.isEmpty)
+                  _buildEmptyAccounts(query: _searchQuery)
                 else
-                  ...accounts.map(
+                  ...filteredAccounts.map(
                     (account) => Padding(
                       padding: const EdgeInsets.only(bottom: AppTokens.space2),
                       child: _buildAccountCard(account),
                     ),
                   ),
                 const SizedBox(height: AppTokens.space3),
-                _buildHistorySection(historyAsync),
+                _buildHistorySection(
+                  historyAsync,
+                  query: _searchQuery,
+                ),
                 const SizedBox(height: AppTokens.space5),
               ],
             );
@@ -285,6 +307,33 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
     );
   }
 
+  Widget _buildUniversalSearchField() {
+    return AppPanel(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space2,
+        vertical: AppTokens.space1,
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) => setState(() => _searchQuery = value),
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Search accounts, balances, notes, activity',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _hasActiveSearch
+              ? IconButton(
+                  tooltip: 'Clear search',
+                  onPressed: _clearSearch,
+                  icon: const Icon(Icons.close),
+                )
+              : null,
+          border: InputBorder.none,
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
   Widget _buildAccountsHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -302,25 +351,30 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
     );
   }
 
-  Widget _buildEmptyAccounts() {
+  Widget _buildEmptyAccounts({String? query}) {
+    final trimmedQuery = query?.trim() ?? '';
+    final hasQuery = trimmedQuery.isNotEmpty;
+
     return AppPanel(
       child: Column(
         children: [
           Icon(
-            Icons.account_balance_wallet_outlined,
+            hasQuery ? Icons.search_off : Icons.account_balance_wallet_outlined,
             color: Colors.grey[600],
             size: 36,
           ),
           const SizedBox(height: AppTokens.space2),
-          const Text(
-            'No accounts yet',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          Text(
+            hasQuery ? 'No accounts match "$trimmedQuery"' : 'No accounts yet',
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppTokens.space1),
-          const Text(
-            'Create your first account to start tracking balances and transaction history.',
+          Text(
+            hasQuery
+                ? 'Try a different account name, note, balance, or date.'
+                : 'Create your first account to start tracking balances and transaction history.',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTokens.mutedText,
               fontSize: 12,
             ),
@@ -452,27 +506,34 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
   }
 
   Widget _buildHistorySection(
-      AsyncValue<List<AccountHistoryRecord>> historyAsync) {
+    AsyncValue<List<AccountHistoryRecord>> historyAsync, {
+    required String query,
+  }) {
+    final trimmedQuery = query.trim();
+    final hasQuery = trimmedQuery.isNotEmpty;
+
     return AppPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Recent Activity',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          Text(
+            hasQuery ? 'Matching Activity' : 'Recent Activity',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: AppTokens.space2),
           historyAsync.when(
             data: (records) {
-              if (records.isEmpty) {
-                return const Text(
-                  'No transaction history yet.',
-                  style: TextStyle(color: AppTokens.mutedText),
+              final filteredRecords = _filterHistory(records, trimmedQuery);
+              if (filteredRecords.isEmpty) {
+                return Text(
+                  hasQuery
+                      ? 'No activity matches "$trimmedQuery".'
+                      : 'No transaction history yet.',
+                  style: const TextStyle(color: AppTokens.mutedText),
                 );
               }
               return Column(
-                children: records
-                    .take(10)
+                children: filteredRecords
                     .map(
                       (record) => Padding(
                         padding:
@@ -495,6 +556,108 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
         ],
       ),
     );
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  List<MoneyAccount> _filterAccounts(List<MoneyAccount> accounts, String query) {
+    final tokens = _searchTokens(query);
+    if (tokens.isEmpty) {
+      return accounts;
+    }
+
+    return accounts
+        .where((account) {
+          final searchable = _buildAccountSearchableText(account);
+          return tokens.every(searchable.contains);
+        })
+        .toList(growable: false);
+  }
+
+  List<AccountHistoryRecord> _filterHistory(
+    List<AccountHistoryRecord> records,
+    String query,
+  ) {
+    final tokens = _searchTokens(query);
+    if (tokens.isEmpty) {
+      return records.take(10).toList(growable: false);
+    }
+
+    return records
+        .where((record) {
+          final searchable = _buildHistorySearchableText(record);
+          return tokens.every(searchable.contains);
+        })
+        .toList(growable: false);
+  }
+
+  List<String> _searchTokens(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      return const [];
+    }
+
+    return trimmed
+        .split(RegExp(r'\s+'))
+        .map(_normalizeSearchText)
+        .where((token) => token.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  String _buildAccountSearchableText(MoneyAccount account) {
+    return _normalizeSearchText(
+      [
+        account.id,
+        account.name,
+        account.note ?? '',
+        account.balance.toStringAsFixed(2),
+        account.balance.toStringAsFixed(0),
+        _currencyFormat.format(account.balance),
+        _dateFormat.format(account.updatedAt),
+        _calendarDateFormat.format(account.updatedAt),
+        _isoDateFormat.format(account.updatedAt),
+        _numericDateFormat.format(account.updatedAt),
+        _timeFormat.format(account.updatedAt),
+        _dateFormat.format(account.createdAt),
+        _calendarDateFormat.format(account.createdAt),
+        _isoDateFormat.format(account.createdAt),
+        _numericDateFormat.format(account.createdAt),
+      ].join(' '),
+    );
+  }
+
+  String _buildHistorySearchableText(AccountHistoryRecord record) {
+    final actionLabel = _historyActionLabel(record.action);
+
+    return _normalizeSearchText(
+      [
+        record.id,
+        record.accountId,
+        record.accountName,
+        actionLabel,
+        record.action.value,
+        record.note ?? '',
+        record.amount.toStringAsFixed(2),
+        record.amount.toStringAsFixed(0),
+        record.balanceBefore.toStringAsFixed(2),
+        record.balanceAfter.toStringAsFixed(2),
+        _currencyFormat.format(record.amount),
+        _currencyFormat.format(record.balanceBefore),
+        _currencyFormat.format(record.balanceAfter),
+        _dateFormat.format(record.createdAt),
+        _calendarDateFormat.format(record.createdAt),
+        _isoDateFormat.format(record.createdAt),
+        _numericDateFormat.format(record.createdAt),
+        _timeFormat.format(record.createdAt),
+      ].join(' '),
+    );
+  }
+
+  String _normalizeSearchText(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   Widget _buildHistoryTile(
