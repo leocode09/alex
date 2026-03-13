@@ -9,14 +9,16 @@ void main() {
   group('MoneyRepository', () {
     late MoneyRepository repository;
 
-    setUp(() {
+    setUp(() async {
       SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
       repository = MoneyRepository();
     });
 
     test('updateHistoryRecord updates note and replays correctly', () async {
       final createResult = await repository.createAccount(
-        name: 'Test Account',
+        name: 'Test Account Note',
         openingBalance: 100,
         note: 'Initial',
       );
@@ -57,26 +59,26 @@ void main() {
     test('updateHistoryRecord rejects edit that would cause negative balance',
         () async {
       final createResult = await repository.createAccount(
-        name: 'Test Account',
+        name: 'Test Account Negative',
         openingBalance: 50,
       );
       expect(createResult.success, isTrue);
 
       final accountId = (await repository.getAllAccounts()).first.id;
-      final addResult = await repository.addMoney(
+      final removeResult = await repository.removeMoney(
         accountId: accountId,
         amount: 25,
-        note: 'Deposit',
+        note: 'Withdrawal',
       );
-      expect(addResult.success, isTrue);
+      expect(removeResult.success, isTrue);
 
       final history = await repository.getAllHistory();
-      final addRecord = history.firstWhere(
-        (r) => r.action == MoneyHistoryAction.moneyAdded,
+      final removeRecord = history.firstWhere(
+        (r) => r.action == MoneyHistoryAction.moneyRemoved,
       );
 
       final updateResult = await repository.updateHistoryRecord(
-        recordId: addRecord.id,
+        recordId: removeRecord.id,
         amount: 100,
       );
       expect(updateResult.success, isFalse);
@@ -86,13 +88,13 @@ void main() {
       );
 
       final accounts = await repository.getAllAccounts();
-      expect(accounts.first.balance, 75);
+      expect(accounts.first.balance, 25);
     });
 
     test('updateHistoryRecord updates amount and replays balance correctly',
         () async {
       final createResult = await repository.createAccount(
-        name: 'Test Account',
+        name: 'Test Account Amount',
         openingBalance: 100,
       );
       expect(createResult.success, isTrue);
