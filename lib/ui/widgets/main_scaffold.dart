@@ -13,6 +13,7 @@ const List<String> _moneyVisibilityKeys = [
   'addMoney',
   'removeMoney',
   'viewMoneyHistory',
+  'editMoneyHistory',
 ];
 
 const List<String> _salesVisibilityKeys = [

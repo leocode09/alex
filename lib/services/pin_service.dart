@@ -30,6 +30,7 @@ class PinService {
     bool requireOnAddMoney = false,
     bool requireOnRemoveMoney = false,
     bool requireOnViewMoneyHistory = false,
+    bool requireOnEditMoneyHistory = false,
 
     // Products
     bool requireOnAddProduct = false,
@@ -104,6 +105,7 @@ class PinService {
       'addMoney': requireOnAddMoney,
       'removeMoney': requireOnRemoveMoney,
       'viewMoneyHistory': requireOnViewMoneyHistory,
+      'editMoneyHistory': requireOnEditMoneyHistory,
       'addProduct': requireOnAddProduct,
       'editProduct': requireOnEditProduct,
       'deleteProduct': requireOnDeleteProduct,
@@ -213,6 +215,7 @@ class PinService {
       'addMoney': false,
       'removeMoney': false,
       'viewMoneyHistory': false,
+      'editMoneyHistory': false,
       'addProduct': false,
       'editProduct': false,
       'deleteProduct': false,
@@ -316,6 +319,11 @@ class PinService {
   Future<bool> isPinRequiredForViewMoneyHistory() async {
     final prefs = await _getPreferencesMap();
     return prefs['viewMoneyHistory'] ?? false;
+  }
+
+  Future<bool> isPinRequiredForEditMoneyHistory() async {
+    final prefs = await _getPreferencesMap();
+    return prefs['editMoneyHistory'] ?? false;
   }
 
   // Products

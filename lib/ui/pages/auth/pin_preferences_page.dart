@@ -22,6 +22,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
     'Add Money': 'addMoney',
     'Remove Money': 'removeMoney',
     'View Money History': 'viewMoneyHistory',
+    'Edit Money History': 'editMoneyHistory',
     'Add Products': 'addProduct',
     'Edit Products': 'editProduct',
     'Delete Products': 'deleteProduct',
@@ -76,6 +77,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
   bool _requireOnAddMoney = false;
   bool _requireOnRemoveMoney = false;
   bool _requireOnViewMoneyHistory = false;
+  bool _requireOnEditMoneyHistory = false;
 
   // Products
   bool _requireOnAddProduct = false;
@@ -159,6 +161,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
       _requireOnAddMoney = prefs['addMoney'] ?? false;
       _requireOnRemoveMoney = prefs['removeMoney'] ?? false;
       _requireOnViewMoneyHistory = prefs['viewMoneyHistory'] ?? false;
+      _requireOnEditMoneyHistory = prefs['editMoneyHistory'] ?? false;
 
       // Products
       _requireOnAddProduct = prefs['addProduct'] ?? false;
@@ -243,6 +246,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
       'addMoney': _requireOnAddMoney,
       'removeMoney': _requireOnRemoveMoney,
       'viewMoneyHistory': _requireOnViewMoneyHistory,
+      'editMoneyHistory': _requireOnEditMoneyHistory,
 
       // Products
       'addProduct': _requireOnAddProduct,
@@ -445,6 +449,15 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
                             value: _requireOnViewMoneyHistory,
                             onChanged: (value) => setState(
                                 () => _requireOnViewMoneyHistory = value),
+                          ),
+                          _buildPreferenceSwitch(
+                            icon: Icons.edit_note_outlined,
+                            title: 'Edit Money History',
+                            subtitle:
+                                'Require PIN to edit history records',
+                            value: _requireOnEditMoneyHistory,
+                            onChanged: (value) => setState(
+                                () => _requireOnEditMoneyHistory = value),
                           ),
 
                           // Products Section

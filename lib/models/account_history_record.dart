@@ -96,4 +96,28 @@ class AccountHistoryRecord {
           : DateTime.now(),
     );
   }
+
+  AccountHistoryRecord copyWith({
+    String? id,
+    String? accountId,
+    String? accountName,
+    MoneyHistoryAction? action,
+    double? amount,
+    double? balanceBefore,
+    double? balanceAfter,
+    String? note,
+    DateTime? createdAt,
+  }) {
+    return AccountHistoryRecord(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      accountName: accountName ?? this.accountName,
+      action: action ?? this.action,
+      amount: amount ?? this.amount,
+      balanceBefore: balanceBefore ?? this.balanceBefore,
+      balanceAfter: balanceAfter ?? this.balanceAfter,
+      note: note ?? this.note,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }

@@ -131,6 +131,18 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
     await _showAccountHistorySheet(account);
   }
 
+  Future<void> _onEditHistory(AccountHistoryRecord record) async {
+    final allowed = await _authorize(
+      isRequired: () => _pinService.isPinRequiredForEditMoneyHistory(),
+      title: 'Edit History',
+      subtitle: 'Enter PIN to edit this history record',
+    );
+    if (!allowed || !mounted) {
+      return;
+    }
+    await _showEditHistoryDialog(record);
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(moneyAccountsProvider);
@@ -541,6 +553,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                         child: _buildHistoryTile(
                           record,
                           showAccountName: true,
+                          onEdit: () => _onEditHistory(record),
                         ),
                       ),
                     )
@@ -660,9 +673,22 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
     return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
+  bool _isAmountEditable(MoneyHistoryAction action) {
+    switch (action) {
+      case MoneyHistoryAction.accountCreated:
+      case MoneyHistoryAction.moneyAdded:
+      case MoneyHistoryAction.moneyRemoved:
+        return true;
+      case MoneyHistoryAction.accountUpdated:
+      case MoneyHistoryAction.accountDeleted:
+        return false;
+    }
+  }
+
   Widget _buildHistoryTile(
     AccountHistoryRecord record, {
     required bool showAccountName,
+    VoidCallback? onEdit,
   }) {
     final actionColor = _historyActionColor(record.action);
     final amountPrefix = record.isCredit
@@ -751,8 +777,150 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
               ),
             ],
           ),
+          if (onEdit != null)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit',
+              onPressed: onEdit,
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              style: IconButton.styleFrom(
+                padding: const EdgeInsets.all(AppTokens.space1),
+              ),
+            ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showEditHistoryDialog(AccountHistoryRecord record) async {
+    final amountController = TextEditingController(
+      text: record.amount.toStringAsFixed(2),
+    );
+    final noteController = TextEditingController(text: record.note ?? '');
+    DateTime selectedDate = record.createdAt;
+    TimeOfDay selectedTime = TimeOfDay.fromDateTime(record.createdAt);
+    final canEditAmount = _isAmountEditable(record.action);
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Edit ${_historyActionLabel(record.action)}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (canEditAmount)
+                      TextField(
+                        controller: amountController,
+                        decoration: const InputDecoration(
+                          labelText: 'Amount',
+                          prefixText: '\$',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+                    if (canEditAmount) const SizedBox(height: AppTokens.space2),
+                    TextField(
+                      controller: noteController,
+                      decoration: const InputDecoration(
+                        labelText: 'Note (Optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: AppTokens.space2),
+                    ListTile(
+                      title: const Text('Date & Time'),
+                      subtitle: Text(
+                        _dateFormat.format(DateTime(
+                          selectedDate.year,
+                          selectedDate.month,
+                          selectedDate.day,
+                          selectedTime.hour,
+                          selectedTime.minute,
+                        )),
+                      ),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (date == null || !context.mounted) return;
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime,
+                        );
+                        if (time != null && context.mounted) {
+                          setDialogState(() {
+                            selectedDate = date;
+                            selectedTime = time;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    double? newAmount;
+                    if (canEditAmount) {
+                      final parsed =
+                          double.tryParse(amountController.text.trim());
+                      if (parsed == null || parsed < 0) {
+                        _showResult(MoneyActionResult.fail(
+                          'Amount must be a positive number.',
+                        ));
+                        return;
+                      }
+                      newAmount = parsed;
+                    }
+                    final newNote = noteController.text.trim();
+                    final newDateTime = DateTime(
+                      selectedDate.year,
+                      selectedDate.month,
+                      selectedDate.day,
+                      selectedTime.hour,
+                      selectedTime.minute,
+                    );
+
+                    final repository = ref.read(moneyRepositoryProvider);
+                    final result = await repository.updateHistoryRecord(
+                      recordId: record.id,
+                      amount: newAmount,
+                      note: newNote,
+                      createdAt: newDateTime,
+                    );
+
+                    if (!mounted) return;
+                    if (!dialogContext.mounted) return;
+                    Navigator.of(dialogContext).pop();
+                    await _refreshAndSync('money_history_edited');
+                    _showResult(result);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1052,6 +1220,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                               return _buildHistoryTile(
                                 records[index],
                                 showAccountName: false,
+                                onEdit: () => _onEditHistory(records[index]),
                               );
                             },
                           );

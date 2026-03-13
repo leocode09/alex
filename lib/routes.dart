@@ -120,6 +120,7 @@ const List<String> _moneyFeatureKeys = [
   'addMoney',
   'removeMoney',
   'viewMoneyHistory',
+  'editMoneyHistory',
 ];
 
 const List<String> _salesFeatureKeys = [
