@@ -35,6 +35,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   int _computedLoose = 0;
   bool _isLoading = false;
   bool _pinVerified = false;
+  bool _suppressStockListener = false;
 
   bool get isEditing => widget.productId != null;
 
@@ -52,11 +53,24 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   }
 
   void _onStockChanged() {
-    if (_hasPackages) {
+    if (_hasPackages && !_suppressStockListener) {
       setState(() {
         _autoDistribute();
       });
     }
+  }
+
+  /// Bottom-up: recalculate total units from manual package counts + loose,
+  /// then update the stock field without triggering a top-down redistribute.
+  void _recomputeTotalFromPackages() {
+    final inPackages = _packages.fold<int>(
+      0,
+      (sum, p) => sum + p.packageCount * p.unitsPerPackage,
+    );
+    final total = inPackages + _computedLoose;
+    _suppressStockListener = true;
+    _stockController.text = '$total';
+    _suppressStockListener = false;
   }
 
   Future<void> _checkPinAndLoadData() async {
@@ -297,7 +311,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
             const SizedBox(height: 24),
             _buildSectionTitle('Packages (Optional)'),
             Text(
-              'Define sellable package sizes (e.g. half pack, full pack). Enter total units below and the number of packages and loose items will be calculated automatically.',
+              'Define sellable package sizes. You can enter total units to auto-calculate package counts, or enter the number of packages you have and the total units will be calculated for you.',
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
             const SizedBox(height: 8),
@@ -308,10 +322,19 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 ..._packages.map((p) => InputChip(
                       label: Text(_packageChipLabel(p)),
                       onPressed: () => _showPackageEditorDialog(existing: p),
-                      onDeleted: () => setState(() {
-                        _packages.removeWhere((x) => x.id == p.id);
-                        _autoDistribute();
-                      }),
+                      onDeleted: () {
+                        final hadManualCounts = _packages.any(
+                          (pkg) => pkg.packageCount > 0 && pkg.id != p.id,
+                        );
+                        setState(() {
+                          _packages.removeWhere((x) => x.id == p.id);
+                          if (hadManualCounts) {
+                            _recomputeTotalFromPackages();
+                          } else {
+                            _autoDistribute();
+                          }
+                        });
+                      },
                     )),
                 ActionChip(
                   avatar: const Icon(Icons.add, size: 18, color: Colors.white),
@@ -517,6 +540,9 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     final packagePriceController = TextEditingController(
       text: existing?.packagePrice?.toString() ?? '',
     );
+    final packageCountController = TextEditingController(
+      text: existing != null ? '${existing.packageCount}' : '0',
+    );
     final isEdit = existing != null;
     await showDialog<void>(
       context: context,
@@ -551,6 +577,16 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   labelText: 'Package price (optional)',
                   helperText: 'Leave empty = unit price × units',
                   prefixText: '\$ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: packageCountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Number of packages (optional)',
+                  helperText: 'Total units will be recalculated',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -589,6 +625,19 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   return;
                 }
               }
+              final pkgCount = int.tryParse(
+                packageCountController.text.trim(),
+              );
+              if (pkgCount != null && pkgCount < 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Package count cannot be negative'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              final hasManualCount = pkgCount != null && pkgCount > 0;
               final existingId = existing?.id;
               setState(() {
                 final pkg = ProductPackage(
@@ -596,6 +645,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   name: name,
                   unitsPerPackage: units,
                   packagePrice: pkgPrice,
+                  packageCount: hasManualCount ? pkgCount : 0,
                 );
                 if (isEdit && existingId != null) {
                   final i = _packages.indexWhere((x) => x.id == existingId);
@@ -605,7 +655,11 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 } else {
                   _packages.add(pkg);
                 }
-                _autoDistribute();
+                if (hasManualCount) {
+                  _recomputeTotalFromPackages();
+                } else {
+                  _autoDistribute();
+                }
               });
               Navigator.pop(ctx);
             },
