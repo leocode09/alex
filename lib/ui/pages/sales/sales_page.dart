@@ -154,7 +154,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
   void _addToCart(Product product, {ProductPackage? package}) {
     final unitsPerPackage = package?.unitsPerPackage ?? 1;
     final price = package != null
-        ? product.price * package.unitsPerPackage
+        ? sellingPriceForPackage(unitPrice: product.price, pkg: package)
         : product.price;
     final name = package != null
         ? '${product.name} (${package.name})'
@@ -227,11 +227,15 @@ class _SalesPageState extends ConsumerState<SalesPage>
     ProductPackage? pkg;
     final pkgId = item['packageId'] as String?;
     if (pkgId != null) {
-      pkg = ProductPackage(
-        id: pkgId,
-        name: item['packageName'] as String? ?? '',
-        unitsPerPackage: item['unitsPerPackage'] as int? ?? 1,
-      );
+      try {
+        pkg = product.packages.firstWhere((p) => p.id == pkgId);
+      } catch (_) {
+        pkg = ProductPackage(
+          id: pkgId,
+          name: item['packageName'] as String? ?? '',
+          unitsPerPackage: item['unitsPerPackage'] as int? ?? 1,
+        );
+      }
     }
     if (mounted) _addToCart(product, package: pkg);
   }
@@ -1384,7 +1388,7 @@ class _PackagePickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final singleItem = ProductPackage(
-      id: '__single__',
+      id: productPackageSingleItemId,
       name: '1 item',
       unitsPerPackage: 1,
     );
@@ -1406,7 +1410,10 @@ class _PackagePickerSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ...options.map((pkg) {
-              final price = product.price * pkg.unitsPerPackage;
+              final price = sellingPriceForPackage(
+                unitPrice: product.price,
+                pkg: pkg,
+              );
               return ListTile(
                 title: Text(pkg.name),
                 subtitle: Text(

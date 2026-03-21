@@ -1,14 +1,28 @@
+/// Picker-only sentinel: single-item line uses [Product.price], not package math.
+const String productPackageSingleItemId = '__single__';
+
+/// Selling price for one cart line of [pkg] given the product's per-unit price.
+double sellingPriceForPackage({
+  required double unitPrice,
+  required ProductPackage pkg,
+}) {
+  if (pkg.id == productPackageSingleItemId) return unitPrice;
+  return pkg.packagePrice ?? (unitPrice * pkg.unitsPerPackage);
+}
+
 /// A sellable package preset for a product (e.g. 1 item, 1/4 pack, 1/2 pack, full pack).
-/// Price is derived from product's single-item price: price * unitsPerPackage.
+/// When [packagePrice] is null, selling price is [Product.price] × [unitsPerPackage].
 class ProductPackage {
   final String id;
   final String name;
   final int unitsPerPackage;
+  final double? packagePrice;
 
   ProductPackage({
     required this.id,
     required this.name,
     required this.unitsPerPackage,
+    this.packagePrice,
   });
 
   Map<String, dynamic> toMap() {
@@ -16,6 +30,7 @@ class ProductPackage {
       'id': id,
       'name': name,
       'unitsPerPackage': unitsPerPackage,
+      if (packagePrice != null) 'packagePrice': packagePrice,
     };
   }
 
@@ -24,6 +39,9 @@ class ProductPackage {
       id: map['id'] as String,
       name: map['name'] as String,
       unitsPerPackage: (map['unitsPerPackage'] as num).toInt(),
+      packagePrice: map['packagePrice'] != null
+          ? (map['packagePrice'] as num).toDouble()
+          : null,
     );
   }
 
@@ -31,11 +49,13 @@ class ProductPackage {
     String? id,
     String? name,
     int? unitsPerPackage,
+    double? packagePrice,
   }) {
     return ProductPackage(
       id: id ?? this.id,
       name: name ?? this.name,
       unitsPerPackage: unitsPerPackage ?? this.unitsPerPackage,
+      packagePrice: packagePrice ?? this.packagePrice,
     );
   }
 }

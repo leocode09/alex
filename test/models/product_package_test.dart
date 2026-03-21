@@ -15,6 +15,61 @@ void main() {
       expect(restored.id, pkg.id);
       expect(restored.name, pkg.name);
       expect(restored.unitsPerPackage, pkg.unitsPerPackage);
+      expect(restored.packagePrice, isNull);
+    });
+
+    test('round-trips packagePrice when set', () {
+      final pkg = ProductPackage(
+        id: 'pkg-2',
+        name: 'Case',
+        unitsPerPackage: 24,
+        packagePrice: 19.99,
+      );
+      final restored = ProductPackage.fromMap(pkg.toMap());
+      expect(restored.packagePrice, 19.99);
+    });
+
+    test('fromMap omits packagePrice when key absent', () {
+      final restored = ProductPackage.fromMap({
+        'id': 'x',
+        'name': 'Box',
+        'unitsPerPackage': 6,
+      });
+      expect(restored.packagePrice, isNull);
+    });
+  });
+
+  group('sellingPriceForPackage', () {
+    test('single-item sentinel uses unit price only', () {
+      final pkg = ProductPackage(
+        id: productPackageSingleItemId,
+        name: '1 item',
+        unitsPerPackage: 1,
+        packagePrice: 999,
+      );
+      expect(
+        sellingPriceForPackage(unitPrice: 3.5, pkg: pkg),
+        3.5,
+      );
+    });
+
+    test('uses packagePrice when set', () {
+      final pkg = ProductPackage(
+        id: 'p1',
+        name: 'Half',
+        unitsPerPackage: 12,
+        packagePrice: 10.0,
+      );
+      expect(sellingPriceForPackage(unitPrice: 1.0, pkg: pkg), 10.0);
+    });
+
+    test('falls back to unit price times units when packagePrice null', () {
+      final pkg = ProductPackage(
+        id: 'p1',
+        name: 'Half',
+        unitsPerPackage: 12,
+      );
+      expect(sellingPriceForPackage(unitPrice: 2.0, pkg: pkg), 24.0);
     });
   });
 

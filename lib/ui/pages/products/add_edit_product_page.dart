@@ -272,7 +272,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
             const SizedBox(height: 24),
             _buildSectionTitle('Packages (Optional)'),
             Text(
-              'Define sellable package sizes (e.g. 1/4 pack, 1/2 pack). Price per package = single-item price × units.',
+              'Define sellable package sizes (e.g. 1/4 pack, 1/2 pack). The selling price field above is the price per single unit. Optionally set a fixed price per package; leave package price empty to use unit price × units.',
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
             const SizedBox(height: 8),
@@ -280,8 +280,9 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                ..._packages.map((p) => Chip(
-                      label: Text('${p.name} (${p.unitsPerPackage} units)'),
+                ..._packages.map((p) => InputChip(
+                      label: Text(_packageChipLabel(p)),
+                      onPressed: () => _showPackageEditorDialog(existing: p),
                       onDeleted: () => setState(() {
                         _packages.removeWhere((x) => x.id == p.id);
                       }),
@@ -289,7 +290,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 ActionChip(
                   avatar: const Icon(Icons.add, size: 18, color: Colors.white),
                   label: const Text('Add Package'),
-                  onPressed: () => _showAddPackageDialog(),
+                  onPressed: () => _showPackageEditorDialog(),
                 ),
               ],
             ),
@@ -348,33 +349,69 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
   }
 
-  Future<void> _showAddPackageDialog() async {
-    final nameController = TextEditingController();
-    final unitsController = TextEditingController();
+  double? get _draftUnitPrice =>
+      double.tryParse(_priceController.text.trim());
+
+  String _packageChipLabel(ProductPackage p) {
+    final unit = _draftUnitPrice;
+    if (unit != null && unit > 0) {
+      final sell = sellingPriceForPackage(unitPrice: unit, pkg: p);
+      final source = p.packagePrice != null ? 'fixed' : 'auto';
+      return '${p.name} (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)';
+    }
+    if (p.packagePrice != null) {
+      return '${p.name} (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)';
+    }
+    return '${p.name} (${p.unitsPerPackage} units · auto price)';
+  }
+
+  Future<void> _showPackageEditorDialog({ProductPackage? existing}) async {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final unitsController = TextEditingController(
+      text: existing != null ? '${existing.unitsPerPackage}' : '',
+    );
+    final packagePriceController = TextEditingController(
+      text: existing?.packagePrice?.toString() ?? '',
+    );
+    final isEdit = existing != null;
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add Package'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Package name (e.g. 1/4 pack, Half pack)',
-                border: OutlineInputBorder(),
+        title: Text(isEdit ? 'Edit Package' : 'Add Package'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Package name (e.g. 1/4 pack, Half pack)',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: unitsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Units per package',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextField(
+                controller: unitsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Units per package',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: packagePriceController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Package price (optional)',
+                  helperText: 'Leave empty = unit price × units',
+                  prefixText: '\$ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -394,16 +431,39 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 );
                 return;
               }
+              final priceRaw = packagePriceController.text.trim();
+              double? pkgPrice;
+              if (priceRaw.isNotEmpty) {
+                pkgPrice = double.tryParse(priceRaw);
+                if (pkgPrice == null || pkgPrice <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Enter a valid package price or leave empty'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+              }
               setState(() {
-                _packages.add(ProductPackage(
-                  id: const Uuid().v4(),
+                final pkg = ProductPackage(
+                  id: existing?.id ?? const Uuid().v4(),
                   name: name,
                   unitsPerPackage: units,
-                ));
+                  packagePrice: pkgPrice,
+                );
+                if (isEdit) {
+                  final i = _packages.indexWhere((x) => x.id == existing!.id);
+                  if (i >= 0) {
+                    _packages[i] = pkg;
+                  }
+                } else {
+                  _packages.add(pkg);
+                }
               });
               Navigator.pop(ctx);
             },
-            child: const Text('Add'),
+            child: Text(isEdit ? 'Save' : 'Add'),
           ),
         ],
       ),

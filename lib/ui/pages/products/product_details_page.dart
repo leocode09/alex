@@ -266,10 +266,20 @@ class ProductDetailsPage extends ConsumerWidget {
                     spacing: 8,
                     runSpacing: 4,
                     children: product.packages
-                        .map((p) => Chip(
-                              label: Text(
-                                  '${p.name} (${p.unitsPerPackage} units)'),
-                            ))
+                        .map((p) {
+                          final sell = sellingPriceForPackage(
+                            unitPrice: product.price,
+                            pkg: p,
+                          );
+                          final src =
+                              p.packagePrice != null ? 'fixed' : 'auto';
+                          return Chip(
+                            label: Text(
+                              '${p.name} (${p.unitsPerPackage} u) · '
+                              '\$${sell.toStringAsFixed(2)} ($src)',
+                            ),
+                          );
+                        })
                         .toList(),
                   ),
                   const SizedBox(height: 8),
