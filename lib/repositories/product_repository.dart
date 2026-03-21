@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import '../models/inventory_movement.dart';
 import '../models/product.dart';
+import '../models/sale.dart';
 import '../services/database_helper.dart';
 import 'inventory_movement_repository.dart';
 
@@ -201,6 +202,9 @@ class ProductRepository {
     String? referenceId,
     String? note,
     bool recordMovement = true,
+    /// When true (default), adjusts [Product.looseStock] so bucket sum matches [Product.stock]
+    /// after the delta. Set false for sales, then call [reconcilePackageBucketsAfterSale].
+    bool absorbInventoryDrift = true,
   }) async {
     final changes = <String, int>{};
     stockChanges.forEach((productId, delta) {
@@ -237,8 +241,21 @@ class ProductRepository {
         );
       }
 
+      var newLoose = existing.looseStock;
+      if (absorbInventoryDrift) {
+        if (existing.packages.isEmpty) {
+          newLoose = newStock;
+        } else {
+          final sumBefore =
+              existing.looseStock + baseUnitsInPackages(existing.packages);
+          final drift = newStock - sumBefore;
+          newLoose = (existing.looseStock + drift).clamp(0, 1 << 30);
+        }
+      }
+
       updatedProducts[productId] = existing.copyWith(
         stock: newStock,
+        looseStock: newLoose,
         updatedAt: now,
       );
 
@@ -426,6 +443,102 @@ class ProductRepository {
     final existingProducts = await getAllProducts();
     existingProducts.addAll(products);
     await _saveProducts(existingProducts);
+  }
+
+  /// After [applyStockChanges], keeps [Product.looseStock] and [ProductPackage.packageCount]
+  /// consistent with each sale line. [reverseFirst] undoes a prior receipt; [deduct] applies the new sale.
+  Future<void> reconcilePackageBucketsAfterSale({
+    required List<SaleItem> deduct,
+    List<SaleItem> reverseFirst = const [],
+  }) async {
+    if (reverseFirst.isEmpty && deduct.isEmpty) {
+      return;
+    }
+
+    final productIds = <String>{};
+    for (final i in reverseFirst) {
+      productIds.add(i.productId);
+    }
+    for (final i in deduct) {
+      productIds.add(i.productId);
+    }
+
+    final products = await getAllProducts();
+    final byId = {for (final p in products) p.id: p};
+    final now = DateTime.now();
+    var changed = false;
+
+    for (final productId in productIds) {
+      final p = byId[productId];
+      if (p == null) {
+        continue;
+      }
+
+      var loose = p.looseStock;
+      final pkgs = p.packages.map((x) => x.copyWith()).toList();
+
+      void addBack(SaleItem item) {
+        final q = item.quantity;
+        if (item.packageId != null) {
+          final idx = pkgs.indexWhere((x) => x.id == item.packageId);
+          if (idx >= 0) {
+            pkgs[idx] =
+                pkgs[idx].copyWith(packageCount: pkgs[idx].packageCount + q);
+          } else {
+            loose += item.baseUnitsSold;
+          }
+        } else {
+          loose += q;
+        }
+      }
+
+      void remove(SaleItem item) {
+        final q = item.quantity;
+        if (item.packageId != null) {
+          final idx = pkgs.indexWhere((x) => x.id == item.packageId);
+          if (idx >= 0) {
+            pkgs[idx] = pkgs[idx].copyWith(
+              packageCount: (pkgs[idx].packageCount - q).clamp(0, 1 << 30),
+            );
+          } else {
+            loose -= item.baseUnitsSold;
+          }
+        } else {
+          loose -= q;
+        }
+      }
+
+      for (final item in reverseFirst.where((e) => e.productId == productId)) {
+        addBack(item);
+      }
+      for (final item in deduct.where((e) => e.productId == productId)) {
+        remove(item);
+      }
+
+      loose = loose.clamp(0, 1 << 30);
+      final sumBuckets = loose + baseUnitsInPackages(pkgs);
+      final drift = p.stock - sumBuckets;
+      loose = (loose + drift).clamp(0, 1 << 30);
+
+      byId[productId] = p.copyWith(
+        looseStock: loose,
+        packages: pkgs,
+        updatedAt: now,
+      );
+      changed = true;
+    }
+
+    if (!changed) {
+      return;
+    }
+
+    final list = byId.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+    final success = await _saveProducts(list);
+    if (!success) {
+      throw const StockOperationException(
+        'Failed to save package bucket reconciliation.',
+      );
+    }
   }
 
   // Check if barcode exists (for validation)

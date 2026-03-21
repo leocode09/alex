@@ -84,9 +84,12 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     if (product != null) {
       setState(() {
         _nameController.text = product.name;
-        _priceController.text = product.price.toString();
+        _priceController.text =
+            product.price > 0 ? product.price.toString() : '';
         _costPriceController.text = product.costPrice?.toString() ?? '';
-        _stockController.text = product.stock.toString();
+        _stockController.text = product.packages.isNotEmpty
+            ? product.looseStock.toString()
+            : product.stock.toString();
         _barcodeController.text = product.barcode ?? '';
         _selectedCategory = product.category;
         _supplierController.text = product.supplier ?? '';
@@ -95,9 +98,33 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     }
   }
 
+  bool get _hasPackages => _packages.isNotEmpty;
+
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) {
       return;
+    }
+
+    final unitPrice = double.tryParse(_priceController.text.trim());
+    if (_hasPackages) {
+      final needsUnitOrFixed = unitPrice == null || unitPrice <= 0;
+      if (needsUnitOrFixed) {
+        for (final p in _packages) {
+          if (p.packagePrice == null) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Enter a unit price, or set a fixed price on every package.',
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
+        }
+      }
     }
 
     if (_barcodeController.text.isNotEmpty) {
@@ -125,11 +152,38 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     });
 
     try {
+      final loose = int.tryParse(_stockController.text.trim()) ?? 0;
+      if (loose < 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Stock cannot be negative'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final parsedSelling = double.tryParse(_priceController.text.trim());
+      final sellingPrice = _hasPackages
+          ? (parsedSelling != null && parsedSelling > 0 ? parsedSelling : 0.0)
+          : (parsedSelling ?? 0);
+
+      final totalStock = _hasPackages
+          ? loose +
+              _packages.fold<int>(
+                0,
+                (s, p) => s + p.packageCount * p.unitsPerPackage,
+              )
+          : loose;
+
       final product = Product(
         id: widget.productId ?? const Uuid().v4(),
         name: _nameController.text.trim(),
-        price: double.parse(_priceController.text),
-        stock: int.parse(_stockController.text),
+        price: sellingPrice,
+        stock: totalStock,
+        looseStock: _hasPackages ? loose : totalStock,
         category: _selectedCategory,
         barcode:
             _barcodeController.text.isEmpty ? null : _barcodeController.text,
@@ -213,18 +267,54 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               label: 'Product Name',
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Packages (Optional)'),
+            Text(
+              'You can sell using packages only: add lines below with units per package, optional fixed price, and how many packages you have. Unit price and loose stock are optional when packages exist; total stock = loose units + sum of (package count × units per package).',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ..._packages.map((p) => InputChip(
+                      label: Text(_packageChipLabel(p)),
+                      onPressed: () => _showPackageEditorDialog(existing: p),
+                      onDeleted: () => setState(() {
+                        _packages.removeWhere((x) => x.id == p.id);
+                      }),
+                    )),
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 18, color: Colors.white),
+                  label: const Text('Add Package'),
+                  onPressed: () => _showPackageEditorDialog(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Pricing & stock'),
             Row(
               children: [
                 Expanded(
                   child: _buildTextField(
                     controller: _priceController,
-                    label: 'Selling Price',
+                    label: _hasPackages
+                        ? 'Unit price (optional)'
+                        : 'Selling Price',
                     keyboardType: TextInputType.number,
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Required';
+                      if (!_hasPackages) {
+                        if (v == null || v.isEmpty) return 'Required';
+                        final value = double.tryParse(v);
+                        if (value == null || value <= 0) {
+                          return 'Enter a valid price';
+                        }
+                        return null;
+                      }
+                      if (v == null || v.isEmpty) return null;
                       final value = double.tryParse(v);
-                      if (value == null || value <= 0) {
+                      if (value == null || value < 0) {
                         return 'Enter a valid price';
                       }
                       return null;
@@ -235,13 +325,23 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 Expanded(
                   child: _buildTextField(
                     controller: _stockController,
-                    label: 'Stock',
+                    label: _hasPackages
+                        ? 'Loose stock (units)'
+                        : 'Stock',
                     keyboardType: TextInputType.number,
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Required';
+                      if (!_hasPackages) {
+                        if (v == null || v.isEmpty) return 'Required';
+                        final value = int.tryParse(v);
+                        if (value == null || value < 0) {
+                          return 'Enter a valid stock';
+                        }
+                        return null;
+                      }
+                      if (v == null || v.isEmpty) return null;
                       final value = int.tryParse(v);
                       if (value == null || value < 0) {
-                        return 'Enter a valid stock';
+                        return 'Enter valid loose stock';
                       }
                       return null;
                     },
@@ -268,31 +368,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               ),
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const Text('Error loading categories'),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionTitle('Packages (Optional)'),
-            Text(
-              'Define sellable package sizes (e.g. 1/4 pack, 1/2 pack). The selling price field above is the price per single unit. Optionally set a fixed price per package; leave package price empty to use unit price × units.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ..._packages.map((p) => InputChip(
-                      label: Text(_packageChipLabel(p)),
-                      onPressed: () => _showPackageEditorDialog(existing: p),
-                      onDeleted: () => setState(() {
-                        _packages.removeWhere((x) => x.id == p.id);
-                      }),
-                    )),
-                ActionChip(
-                  avatar: const Icon(Icons.add, size: 18, color: Colors.white),
-                  label: const Text('Add Package'),
-                  onPressed: () => _showPackageEditorDialog(),
-                ),
-              ],
             ),
             const SizedBox(height: 24),
             _buildSectionTitle('Additional Details'),
@@ -354,15 +429,16 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   String _packageChipLabel(ProductPackage p) {
     final unit = _draftUnitPrice;
+    final inv = '×${p.packageCount} pkg';
     if (unit != null && unit > 0) {
       final sell = sellingPriceForPackage(unitPrice: unit, pkg: p);
       final source = p.packagePrice != null ? 'fixed' : 'auto';
-      return '${p.name} (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)';
+      return '${p.name} $inv (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)';
     }
     if (p.packagePrice != null) {
-      return '${p.name} (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)';
+      return '${p.name} $inv (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)';
     }
-    return '${p.name} (${p.unitsPerPackage} units · auto price)';
+    return '${p.name} $inv (${p.unitsPerPackage} u · set unit or package price)';
   }
 
   Future<void> _showPackageEditorDialog({ProductPackage? existing}) async {
@@ -372,6 +448,9 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
     final packagePriceController = TextEditingController(
       text: existing?.packagePrice?.toString() ?? '',
+    );
+    final packageCountController = TextEditingController(
+      text: existing != null ? '${existing.packageCount}' : '0',
     );
     final isEdit = existing != null;
     await showDialog<void>(
@@ -410,6 +489,16 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: packageCountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Number of packages in stock',
+                  helperText: 'How many of this package you have',
+                  border: OutlineInputBorder(),
+                ),
+              ),
             ],
           ),
         ),
@@ -445,6 +534,16 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   return;
                 }
               }
+              final pkgCount = int.tryParse(packageCountController.text.trim());
+              if (pkgCount == null || pkgCount < 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Enter a valid package count (≥ 0)'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
               final existingId = existing?.id;
               setState(() {
                 final pkg = ProductPackage(
@@ -452,6 +551,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   name: name,
                   unitsPerPackage: units,
                   packagePrice: pkgPrice,
+                  packageCount: pkgCount,
                 );
                 if (isEdit && existingId != null) {
                   final i = _packages.indexWhere((x) => x.id == existingId);

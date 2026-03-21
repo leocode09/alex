@@ -229,6 +229,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
     String? referenceId,
     String? note,
     bool recordMovement = true,
+    bool absorbInventoryDrift = true,
   }) async {
     state = const AsyncValue.loading();
     try {
@@ -238,6 +239,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
         referenceId: referenceId,
         note: note,
         recordMovement: recordMovement,
+        absorbInventoryDrift: absorbInventoryDrift,
       );
       state = const AsyncValue.data(null);
       _invalidateProductCaches();

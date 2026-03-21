@@ -191,7 +191,9 @@ class ProductDetailsPage extends ConsumerWidget {
                       child: _buildStatItem(
                         context,
                         'Price',
-                        '\$${product.price.toInt()}',
+                        product.price > 0
+                            ? '\$${product.price.toInt()}'
+                            : '—',
                         Theme.of(context).colorScheme.primary,
                       ),
                     ),
@@ -200,7 +202,9 @@ class ProductDetailsPage extends ConsumerWidget {
                       child: _buildStatItem(
                         context,
                         'Value',
-                        '\$${(product.price * product.stock).toInt()}',
+                        product.price > 0
+                            ? '\$${(product.price * product.stock).toInt()}'
+                            : '—',
                         Colors.green,
                       ),
                     ),
@@ -262,6 +266,14 @@ class ProductDetailsPage extends ConsumerWidget {
                       style: TextStyle(
                           color: Colors.grey[500], fontSize: 14)),
                   const SizedBox(height: 4),
+                  if (product.looseStock > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        'Loose units (not in a package): ${product.looseStock}',
+                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                      ),
+                    ),
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
@@ -275,7 +287,7 @@ class ProductDetailsPage extends ConsumerWidget {
                               p.packagePrice != null ? 'fixed' : 'auto';
                           return Chip(
                             label: Text(
-                              '${p.name} (${p.unitsPerPackage} u) · '
+                              '${p.name} ×${p.packageCount} (${p.unitsPerPackage} u) · '
                               '\$${sell.toStringAsFixed(2)} ($src)',
                             ),
                           );

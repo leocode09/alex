@@ -435,17 +435,27 @@ class _SalesPageState extends ConsumerState<SalesPage>
       );
       final saleId = isEditingMode ? editingReceipt.id : const Uuid().v4();
       bool stockApplied = false;
+      bool bucketsReconciled = false;
       bool printFailed = false;
 
-      await productRepo.applyStockChanges(
-        stockDeltas,
-        reason: isEditingMode ? 'sale_receipt_edit' : 'sale',
-        referenceId: saleId,
-        note: isEditingMode
-            ? 'Stock adjusted from receipt update'
-            : 'Stock deducted from sale',
-      );
-      stockApplied = stockDeltas.isNotEmpty;
+      if (stockDeltas.isNotEmpty) {
+        await productRepo.applyStockChanges(
+          stockDeltas,
+          reason: isEditingMode ? 'sale_receipt_edit' : 'sale',
+          referenceId: saleId,
+          note: isEditingMode
+              ? 'Stock adjusted from receipt update'
+              : 'Stock deducted from sale',
+          absorbInventoryDrift: false,
+        );
+        stockApplied = true;
+        await productRepo.reconcilePackageBucketsAfterSale(
+          deduct: saleItems,
+          reverseFirst:
+              isEditingMode ? editingReceipt.items : const <SaleItem>[],
+        );
+        bucketsReconciled = true;
+      }
 
       try {
         // Calculate cash received and change for Cash payments
@@ -558,7 +568,16 @@ class _SalesPageState extends ConsumerState<SalesPage>
               referenceId: saleId,
               note: 'Rollback failed sale stock update',
               recordMovement: false,
+              absorbInventoryDrift: false,
             );
+            if (bucketsReconciled) {
+              await productRepo.reconcilePackageBucketsAfterSale(
+                reverseFirst: saleItems,
+                deduct: isEditingMode
+                    ? editingReceipt.items
+                    : const <SaleItem>[],
+              );
+            }
           } catch (rollbackError) {
             throw Exception('$e Stock rollback failed: $rollbackError');
           }
@@ -1387,12 +1406,15 @@ class _PackagePickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final singleItem = ProductPackage(
-      id: productPackageSingleItemId,
-      name: '1 item',
-      unitsPerPackage: 1,
-    );
-    final options = [singleItem, ...product.packages];
+    final options = <ProductPackage>[
+      if (product.price > 0)
+        ProductPackage(
+          id: productPackageSingleItemId,
+          name: '1 item',
+          unitsPerPackage: 1,
+        ),
+      ...product.packages,
+    ];
 
     return SafeArea(
       child: Padding(

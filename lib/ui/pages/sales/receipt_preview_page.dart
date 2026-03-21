@@ -582,15 +582,24 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
       newQuantities: newQuantities,
     );
     bool stockApplied = false;
+    bool bucketsReconciled = false;
 
     try {
-      await productRepo.applyStockChanges(
-        stockDeltas,
-        reason: 'sale_receipt_edit',
-        referenceId: _sale.id,
-        note: 'Stock adjusted from receipt item update',
-      );
-      stockApplied = stockDeltas.isNotEmpty;
+      if (stockDeltas.isNotEmpty) {
+        await productRepo.applyStockChanges(
+          stockDeltas,
+          reason: 'sale_receipt_edit',
+          referenceId: _sale.id,
+          note: 'Stock adjusted from receipt item update',
+          absorbInventoryDrift: false,
+        );
+        stockApplied = true;
+        await productRepo.reconcilePackageBucketsAfterSale(
+          deduct: updatedItems,
+          reverseFirst: _sale.items,
+        );
+        bucketsReconciled = true;
+      }
 
       final updated = await saleRepo.updateSale(updatedSale);
       if (!updated) {
@@ -608,7 +617,14 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
             referenceId: _sale.id,
             note: 'Rollback failed receipt stock update',
             recordMovement: false,
+            absorbInventoryDrift: false,
           );
+          if (bucketsReconciled) {
+            await productRepo.reconcilePackageBucketsAfterSale(
+              reverseFirst: updatedItems,
+              deduct: _sale.items,
+            );
+          }
         } catch (rollbackError) {
           error = Exception('$e Stock rollback failed: $rollbackError');
         }
@@ -711,6 +727,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
           reason: 'sale_delete',
           referenceId: _sale.id,
           note: 'Stock restored from deleted receipt',
+          absorbInventoryDrift: false,
+        );
+        await productRepo.reconcilePackageBucketsAfterSale(
+          reverseFirst: _sale.items,
+          deduct: const [],
         );
         stockApplied = true;
       }
@@ -766,6 +787,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
             referenceId: _sale.id,
             note: 'Rollback failed receipt delete stock restore',
             recordMovement: false,
+            absorbInventoryDrift: false,
+          );
+          await productRepo.reconcilePackageBucketsAfterSale(
+            deduct: _sale.items,
+            reverseFirst: const [],
           );
         } catch (_) {}
       }
