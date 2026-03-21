@@ -445,15 +445,16 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   return;
                 }
               }
+              final existingId = existing?.id;
               setState(() {
                 final pkg = ProductPackage(
-                  id: existing?.id ?? const Uuid().v4(),
+                  id: existingId ?? const Uuid().v4(),
                   name: name,
                   unitsPerPackage: units,
                   packagePrice: pkgPrice,
                 );
-                if (isEdit) {
-                  final i = _packages.indexWhere((x) => x.id == existing!.id);
+                if (isEdit && existingId != null) {
+                  final i = _packages.indexWhere((x) => x.id == existingId);
                   if (i >= 0) {
                     _packages[i] = pkg;
                   }

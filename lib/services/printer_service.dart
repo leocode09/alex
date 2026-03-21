@@ -253,6 +253,13 @@ class PrinterService {
     );
     bytes += generator.hr();
 
+    final sellerLabel = sale.employeeId.trim();
+    if (sellerLabel.isNotEmpty && sellerLabel != 'default-employee') {
+      bytes += generator.text('Seller: $sellerLabel',
+          styles: const PosStyles(bold: false));
+      bytes += generator.feed(1);
+    }
+
     // Customer Info
     if (sale.customerId != null) {
       bytes += generator.text('Customer: ${sale.customerId}',

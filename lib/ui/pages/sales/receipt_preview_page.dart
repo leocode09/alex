@@ -129,6 +129,18 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                       const Divider(
                           thickness: 1, height: 24, color: Colors.black),
 
+                      // Seller (device name stored as employeeId at checkout)
+                      if (_sale.employeeId.trim().isNotEmpty &&
+                          _sale.employeeId != 'default-employee')
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Seller: ${_sale.employeeId}',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+
                       // Customer Info
                       if (_sale.customerId != null)
                         Padding(
