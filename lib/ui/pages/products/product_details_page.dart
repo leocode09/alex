@@ -266,34 +266,28 @@ class ProductDetailsPage extends ConsumerWidget {
                       style: TextStyle(
                           color: Colors.grey[500], fontSize: 14)),
                   const SizedBox(height: 4),
+                  ...product.packages.where((p) => p.packageCount > 0).map((p) {
+                    final sell = sellingPriceForPackage(
+                      unitPrice: product.price,
+                      pkg: p,
+                    );
+                    final src = p.packagePrice != null ? 'fixed' : 'auto';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        '${p.name}: ${p.packageCount} pkg × ${p.unitsPerPackage} u = ${p.packageCount * p.unitsPerPackage} units · \$${sell.toStringAsFixed(2)} ($src)',
+                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                      ),
+                    );
+                  }),
                   if (product.looseStock > 0)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
-                        'Loose units (not in a package): ${product.looseStock}',
+                        'Loose units: ${product.looseStock}',
                         style: TextStyle(color: Colors.grey[700], fontSize: 13),
                       ),
                     ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: product.packages
-                        .map((p) {
-                          final sell = sellingPriceForPackage(
-                            unitPrice: product.price,
-                            pkg: p,
-                          );
-                          final src =
-                              p.packagePrice != null ? 'fixed' : 'auto';
-                          return Chip(
-                            label: Text(
-                              '${p.name} ×${p.packageCount} (${p.unitsPerPackage} u) · '
-                              '\$${sell.toStringAsFixed(2)} ($src)',
-                            ),
-                          );
-                        })
-                        .toList(),
-                  ),
                   const SizedBox(height: 8),
                 ],
                 _buildDetailRow('Created',

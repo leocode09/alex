@@ -198,38 +198,19 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     });
 
     try {
-      final loose = int.tryParse(_stockController.text.trim()) ?? 0;
-      if (loose < 0) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Stock cannot be negative'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
+      final totalStock = int.tryParse(_stockController.text.trim()) ?? 0;
 
       final parsedSelling = double.tryParse(_priceController.text.trim());
       final sellingPrice = _hasPackages
           ? (parsedSelling != null && parsedSelling > 0 ? parsedSelling : 0.0)
           : (parsedSelling ?? 0);
 
-      final totalStock = _hasPackages
-          ? loose +
-              _packages.fold<int>(
-                0,
-                (s, p) => s + p.packageCount * p.unitsPerPackage,
-              )
-          : loose;
-
       final product = Product(
         id: widget.productId ?? const Uuid().v4(),
         name: _nameController.text.trim(),
         price: sellingPrice,
         stock: totalStock,
-        looseStock: _hasPackages ? loose : totalStock,
+        looseStock: _computedLoose,
         category: _selectedCategory,
         barcode:
             _barcodeController.text.isEmpty ? null : _barcodeController.text,
@@ -316,7 +297,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
             const SizedBox(height: 24),
             _buildSectionTitle('Packages (Optional)'),
             Text(
-              'You can sell using packages only: add lines below with units per package, optional fixed price, and how many packages you have. Unit price and loose stock are optional when packages exist; total stock = loose units + sum of (package count × units per package).',
+              'Define sellable package sizes (e.g. half pack, full pack). Enter total units below and the number of packages and loose items will be calculated automatically.',
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
             const SizedBox(height: 8),
@@ -329,6 +310,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                       onPressed: () => _showPackageEditorDialog(existing: p),
                       onDeleted: () => setState(() {
                         _packages.removeWhere((x) => x.id == p.id);
+                        _autoDistribute();
                       }),
                     )),
                 ActionChip(
@@ -516,16 +498,15 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   String _packageChipLabel(ProductPackage p) {
     final unit = _draftUnitPrice;
-    final inv = '×${p.packageCount} pkg';
     if (unit != null && unit > 0) {
       final sell = sellingPriceForPackage(unitPrice: unit, pkg: p);
       final source = p.packagePrice != null ? 'fixed' : 'auto';
-      return '${p.name} $inv (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)';
+      return '${p.name} (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)';
     }
     if (p.packagePrice != null) {
-      return '${p.name} $inv (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)';
+      return '${p.name} (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)';
     }
-    return '${p.name} $inv (${p.unitsPerPackage} u · set unit or package price)';
+    return '${p.name} (${p.unitsPerPackage} u · set unit or package price)';
   }
 
   Future<void> _showPackageEditorDialog({ProductPackage? existing}) async {
