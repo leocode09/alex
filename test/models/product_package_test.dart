@@ -36,6 +36,18 @@ void main() {
         'unitsPerPackage': 6,
       });
       expect(restored.packagePrice, isNull);
+      expect(restored.packageCount, 0);
+    });
+
+    test('round-trips packageCount', () {
+      final pkg = ProductPackage(
+        id: 'a',
+        name: 'Case',
+        unitsPerPackage: 12,
+        packageCount: 7,
+      );
+      final restored = ProductPackage.fromMap(pkg.toMap());
+      expect(restored.packageCount, 7);
     });
   });
 
@@ -105,6 +117,31 @@ void main() {
       };
       final product = Product.fromMap(map);
       expect(product.packages, isEmpty);
+      expect(product.looseStock, 10);
+    });
+
+    test('fromMap reads looseStock and package inventory', () {
+      final map = {
+        'id': 'p2',
+        'name': 'Mix',
+        'price': 1.0,
+        'stock': 100,
+        'looseStock': 10,
+        'packages': [
+          {
+            'id': 'pk1',
+            'name': 'Half',
+            'unitsPerPackage': 10,
+            'packageCount': 9,
+          },
+        ],
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      final product = Product.fromMap(map);
+      expect(product.looseStock, 10);
+      expect(product.packages.first.packageCount, 9);
+      expect(totalBaseUnitsStock(product), 100);
     });
   });
 

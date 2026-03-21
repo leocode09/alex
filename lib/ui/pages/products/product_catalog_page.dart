@@ -362,12 +362,14 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w500)),
                         subtitle: Text(
-                          'Stock: ${product.stock} - ${product.category}',
+                          'Stock: ${product.stock}${product.category != null ? ' · ${product.category}' : ''}',
                           style:
                               TextStyle(color: Colors.grey[500], fontSize: 12),
                         ),
                         trailing: Text(
-                          '\$${product.price.toInt()}',
+                          product.price > 0
+                              ? '\$${product.price.toInt()}'
+                              : '—',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
