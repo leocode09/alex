@@ -32,6 +32,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   String? _selectedCategory;
   List<ProductPackage> _packages = [];
+  int _computedLoose = 0;
   bool _isLoading = false;
   bool _pinVerified = false;
 
@@ -40,7 +41,22 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   @override
   void initState() {
     super.initState();
+    _stockController.addListener(_onStockChanged);
     _checkPinAndLoadData();
+  }
+
+  @override
+  void dispose() {
+    _stockController.removeListener(_onStockChanged);
+    super.dispose();
+  }
+
+  void _onStockChanged() {
+    if (_hasPackages) {
+      setState(() {
+        _autoDistribute();
+      });
+    }
   }
 
   Future<void> _checkPinAndLoadData() async {
@@ -87,18 +103,48 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
         _priceController.text =
             product.price > 0 ? product.price.toString() : '';
         _costPriceController.text = product.costPrice?.toString() ?? '';
-        _stockController.text = product.packages.isNotEmpty
-            ? product.looseStock.toString()
-            : product.stock.toString();
+        _stockController.text = product.stock.toString();
         _barcodeController.text = product.barcode ?? '';
         _selectedCategory = product.category;
         _supplierController.text = product.supplier ?? '';
         _packages = List.from(product.packages);
+        _autoDistribute();
       });
     }
   }
 
   bool get _hasPackages => _packages.isNotEmpty;
+
+  /// Greedily distributes total units across packages (largest first)
+  /// and stores the results back into [_packages] and [_computedLoose].
+  void _autoDistribute() {
+    final total = int.tryParse(_stockController.text.trim()) ?? 0;
+    if (!_hasPackages || total <= 0) {
+      _computedLoose = total.clamp(0, 1 << 30);
+      _packages = _packages.map((p) => p.copyWith(packageCount: 0)).toList();
+      return;
+    }
+
+    final indices = List.generate(_packages.length, (i) => i);
+    indices.sort((a, b) =>
+        _packages[b].unitsPerPackage.compareTo(_packages[a].unitsPerPackage));
+
+    var remaining = total;
+    final counts = List<int>.filled(_packages.length, 0);
+    for (final i in indices) {
+      final u = _packages[i].unitsPerPackage;
+      if (u > 0 && remaining >= u) {
+        counts[i] = remaining ~/ u;
+        remaining -= counts[i] * u;
+      }
+    }
+
+    _computedLoose = remaining;
+    _packages = [
+      for (var i = 0; i < _packages.length; i++)
+        _packages[i].copyWith(packageCount: counts[i]),
+    ];
+  }
 
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) {
@@ -293,7 +339,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               ],
             ),
             const SizedBox(height: 24),
-            _buildSectionTitle('Pricing & stock'),
+            _buildSectionTitle('Pricing & Stock'),
             Row(
               children: [
                 Expanded(
@@ -325,23 +371,13 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 Expanded(
                   child: _buildTextField(
                     controller: _stockController,
-                    label: _hasPackages
-                        ? 'Loose stock (units)'
-                        : 'Stock',
+                    label: 'Total units in stock',
                     keyboardType: TextInputType.number,
                     validator: (v) {
-                      if (!_hasPackages) {
-                        if (v == null || v.isEmpty) return 'Required';
-                        final value = int.tryParse(v);
-                        if (value == null || value < 0) {
-                          return 'Enter a valid stock';
-                        }
-                        return null;
-                      }
-                      if (v == null || v.isEmpty) return null;
+                      if (v == null || v.isEmpty) return 'Required';
                       final value = int.tryParse(v);
                       if (value == null || value < 0) {
-                        return 'Enter valid loose stock';
+                        return 'Enter a valid stock';
                       }
                       return null;
                     },
@@ -349,6 +385,10 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 ),
               ],
             ),
+            if (_hasPackages) ...[
+              const SizedBox(height: 12),
+              _buildDistributionSummary(),
+            ],
             const SizedBox(height: 24),
             _buildSectionTitle('Category'),
             categoriesAsync.when(
@@ -424,6 +464,53 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
   }
 
+  Widget _buildDistributionSummary() {
+    final total = int.tryParse(_stockController.text.trim()) ?? 0;
+    if (total <= 0) {
+      return Text(
+        'Enter total units above to see package distribution.',
+        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+      );
+    }
+
+    final lines = <String>[];
+    for (final p in _packages) {
+      if (p.packageCount > 0) {
+        lines.add(
+          '${p.name}: ${p.packageCount} pkg × ${p.unitsPerPackage} u = ${p.packageCount * p.unitsPerPackage} units',
+        );
+      }
+    }
+    if (_computedLoose > 0) {
+      lines.add('Loose units: $_computedLoose');
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Auto-distribution ($total units)',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          const SizedBox(height: 4),
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(line, style: const TextStyle(fontSize: 13)),
+            ),
+        ],
+      ),
+    );
+  }
+
   double? get _draftUnitPrice =>
       double.tryParse(_priceController.text.trim());
 
@@ -448,9 +535,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
     final packagePriceController = TextEditingController(
       text: existing?.packagePrice?.toString() ?? '',
-    );
-    final packageCountController = TextEditingController(
-      text: existing != null ? '${existing.packageCount}' : '0',
     );
     final isEdit = existing != null;
     await showDialog<void>(
@@ -489,16 +573,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: packageCountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Number of packages in stock',
-                  helperText: 'How many of this package you have',
-                  border: OutlineInputBorder(),
-                ),
-              ),
             ],
           ),
         ),
@@ -534,16 +608,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   return;
                 }
               }
-              final pkgCount = int.tryParse(packageCountController.text.trim());
-              if (pkgCount == null || pkgCount < 0) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Enter a valid package count (≥ 0)'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
               final existingId = existing?.id;
               setState(() {
                 final pkg = ProductPackage(
@@ -551,7 +615,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   name: name,
                   unitsPerPackage: units,
                   packagePrice: pkgPrice,
-                  packageCount: pkgCount,
                 );
                 if (isEdit && existingId != null) {
                   final i = _packages.indexWhere((x) => x.id == existingId);
@@ -561,6 +624,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 } else {
                   _packages.add(pkg);
                 }
+                _autoDistribute();
               });
               Navigator.pop(ctx);
             },
