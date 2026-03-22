@@ -22,6 +22,7 @@ class DashboardPage extends ConsumerWidget {
     final lowStockProductsAsync = ref.watch(lowStockProductsProvider);
     final topSellingProductsAsync = ref.watch(topSellingProductsProvider);
     final allSalesAsync = ref.watch(salesProvider);
+    final todaysProfitAsync = ref.watch(todaysProfitProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -62,6 +63,7 @@ class DashboardPage extends ConsumerWidget {
           ref.invalidate(lowStockProductsProvider);
           ref.invalidate(topSellingProductsProvider);
           ref.invalidate(salesProvider);
+          ref.invalidate(todaysProfitProvider);
         },
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -192,6 +194,43 @@ class DashboardPage extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
+                    child: todaysProfitAsync.when(
+                      data: (profit) {
+                        return _buildMetricCard(
+                          context,
+                          title: 'Today\'s Profit',
+                          value: profit != null
+                              ? '\$${_formatNumber(profit)}'
+                              : '—',
+                          unit: '',
+                          trend: '',
+                          trendPositive: profit != null && profit >= 0,
+                        );
+                      },
+                      loading: () => _buildMetricCard(
+                        context,
+                        title: 'Today\'s Profit',
+                        value: '...',
+                        unit: '',
+                        trend: '',
+                        trendPositive: true,
+                      ),
+                      error: (_, __) => _buildMetricCard(
+                        context,
+                        title: 'Today\'s Profit',
+                        value: '—',
+                        unit: '',
+                        trend: '',
+                        trendPositive: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
                     child: totalProductsCountAsync.when(
                       data: (totalProducts) {
                         return _buildMetricCard(
@@ -221,6 +260,8 @@ class DashboardPage extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  const Expanded(child: SizedBox()),
                 ],
               ),
               const SizedBox(height: 24),

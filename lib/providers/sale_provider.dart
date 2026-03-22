@@ -102,3 +102,20 @@ final lastWeekRevenueProvider = FutureProvider<double>((ref) async {
   final repository = ref.watch(saleRepositoryProvider);
   return await repository.getLastWeekRevenue();
 });
+
+// Today's profit provider (sum of item-level profits from stored costPrice)
+final todaysProfitProvider = FutureProvider<double?>((ref) async {
+  final sales = await ref.watch(todaysSalesProvider.future);
+  double total = 0;
+  bool hasCost = false;
+  for (final sale in sales) {
+    for (final item in sale.items) {
+      final p = item.profit;
+      if (p != null) {
+        total += p;
+        hasCost = true;
+      }
+    }
+  }
+  return hasCost ? total : null;
+});

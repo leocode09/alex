@@ -185,6 +185,19 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                                           ),
                                         ],
                                       ),
+                                      if (item.profit != null)
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Text(
+                                            'Profit: ${item.profit!.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: item.profit! >= 0
+                                                  ? Colors.green[700]
+                                                  : Colors.red[700],
+                                            ),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -229,6 +242,32 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           ),
                         ],
                       ),
+                      Builder(builder: (_) {
+                        final profit = _computeSaleProfit(_sale);
+                        if (profit == null) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Profit',
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                profit.toStringAsFixed(2),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: profit >= 0
+                                      ? Colors.green[700]
+                                      : Colors.red[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -346,6 +385,19 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
         ],
       ),
     );
+  }
+
+  double? _computeSaleProfit(Sale sale) {
+    double totalProfit = 0;
+    bool hasCost = false;
+    for (final item in sale.items) {
+      final p = item.profit;
+      if (p != null) {
+        totalProfit += p;
+        hasCost = true;
+      }
+    }
+    return hasCost ? totalProfit : null;
   }
 
   Map<String, int> _buildItemQuantities(List<SaleItem> items) {
