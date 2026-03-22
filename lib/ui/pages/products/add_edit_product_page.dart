@@ -522,6 +522,9 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     final packagePriceController = TextEditingController(
       text: existing?.packagePrice?.toString() ?? '',
     );
+    final packageCostPriceController = TextEditingController(
+      text: existing?.packageCostPrice?.toString() ?? '',
+    );
     final packageCountController = TextEditingController(
       text: existing != null ? '${existing.packageCount}' : '0',
     );
@@ -556,8 +559,20 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Package price (optional)',
+                  labelText: 'Selling price (optional)',
                   helperText: 'Leave empty = unit price × units',
+                  prefixText: '\$ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: packageCostPriceController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Cost price (optional)',
+                  helperText: 'What you pay for this package',
                   prefixText: '\$ ',
                   border: OutlineInputBorder(),
                 ),
@@ -607,6 +622,20 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   return;
                 }
               }
+              final costRaw = packageCostPriceController.text.trim();
+              double? pkgCostPrice;
+              if (costRaw.isNotEmpty) {
+                pkgCostPrice = double.tryParse(costRaw);
+                if (pkgCostPrice == null || pkgCostPrice < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Enter a valid cost price or leave empty'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+              }
               final pkgCount = int.tryParse(
                 packageCountController.text.trim(),
               );
@@ -627,6 +656,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   name: name,
                   unitsPerPackage: units,
                   packagePrice: pkgPrice,
+                  packageCostPrice: pkgCostPrice,
                   packageCount: hasManualCount ? pkgCount : 0,
                 );
                 if (isEdit && existingId != null) {

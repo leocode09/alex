@@ -32,6 +32,7 @@ class ProductPackage {
   final String name;
   final int unitsPerPackage;
   final double? packagePrice;
+  final double? packageCostPrice;
   final int packageCount;
 
   ProductPackage({
@@ -39,6 +40,7 @@ class ProductPackage {
     required this.name,
     required this.unitsPerPackage,
     this.packagePrice,
+    this.packageCostPrice,
     this.packageCount = 0,
   });
 
@@ -48,6 +50,7 @@ class ProductPackage {
       'name': name,
       'unitsPerPackage': unitsPerPackage,
       if (packagePrice != null) 'packagePrice': packagePrice,
+      if (packageCostPrice != null) 'packageCostPrice': packageCostPrice,
       'packageCount': packageCount,
     };
   }
@@ -60,6 +63,9 @@ class ProductPackage {
       packagePrice: map['packagePrice'] != null
           ? (map['packagePrice'] as num).toDouble()
           : null,
+      packageCostPrice: map['packageCostPrice'] != null
+          ? (map['packageCostPrice'] as num).toDouble()
+          : null,
       packageCount: (map['packageCount'] as num?)?.toInt() ?? 0,
     );
   }
@@ -69,6 +75,7 @@ class ProductPackage {
     String? name,
     int? unitsPerPackage,
     double? packagePrice,
+    double? packageCostPrice,
     int? packageCount,
   }) {
     return ProductPackage(
@@ -76,6 +83,7 @@ class ProductPackage {
       name: name ?? this.name,
       unitsPerPackage: unitsPerPackage ?? this.unitsPerPackage,
       packagePrice: packagePrice ?? this.packagePrice,
+      packageCostPrice: packageCostPrice ?? this.packageCostPrice,
       packageCount: packageCount ?? this.packageCount,
     );
   }

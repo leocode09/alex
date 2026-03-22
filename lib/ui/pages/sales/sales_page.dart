@@ -190,7 +190,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
           'packageId': packageId,
           'packageName': packageName,
           'unitsPerPackage': unitsPerPackage,
-          'costPrice': product.costPrice,
+          'costPrice': package?.packageCostPrice != null
+              ? package!.packageCostPrice! / package.unitsPerPackage
+              : product.costPrice,
         });
       }
     });

@@ -322,21 +322,39 @@ class ProductDetailsPage extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '\$${sell.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            if (p.packageCostPrice != null)
                               Text(
-                                '\$${sell.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 14),
+                                'Cost: \$${p.packageCostPrice!.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 11),
                               ),
+                            if (p.packageCostPrice != null)
+                              Text(
+                                'Profit: \$${(sell - p.packageCostPrice!).toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: (sell - p.packageCostPrice!) >= 0
+                                      ? Colors.green[700]
+                                      : Colors.red[700],
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              )
+                            else
                               Text(
                                 p.packagePrice != null ? 'fixed' : 'auto',
                                 style: TextStyle(
                                     color: Colors.grey[500], fontSize: 11),
                               ),
-                            ],
-                          ),
+                          ],
+                        ),
                         ],
                       ),
                     );
