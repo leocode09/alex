@@ -68,6 +68,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
             'packageId': item.packageId,
             'packageName': item.packageName,
             'unitsPerPackage': item.unitsPerPackage,
+            'costPrice': item.costPrice,
             'stock': null,
           });
         }
@@ -189,6 +190,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
           'packageId': packageId,
           'packageName': packageName,
           'unitsPerPackage': unitsPerPackage,
+          'costPrice': product.costPrice,
         });
       }
     });
@@ -422,6 +424,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
           packageId: item['packageId'],
           packageName: item['packageName'],
           unitsPerPackage: item['unitsPerPackage'],
+          costPrice: item['costPrice'] != null
+              ? (item['costPrice'] as num).toDouble()
+              : null,
         );
       }).toList();
 

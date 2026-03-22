@@ -362,15 +362,35 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w500)),
                         subtitle: Text(
-                          'Stock: ${product.stock}${product.category != null ? ' · ${product.category}' : ''}',
+                          'Stock: ${product.stock}${product.category != null ? ' · ${product.category}' : ''}'
+                          '${product.costPrice != null ? ' · Cost: \$${product.costPrice!.toStringAsFixed(2)}' : ''}',
                           style:
                               TextStyle(color: Colors.grey[500], fontSize: 12),
                         ),
-                        trailing: Text(
-                          product.price > 0
-                              ? '\$${product.price.toInt()}'
-                              : '—',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              product.price > 0
+                                  ? '\$${product.price.toStringAsFixed(2)}'
+                                  : '—',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            if (product.costPrice != null &&
+                                product.price > 0)
+                              Text(
+                                'Profit: \$${(product.price - product.costPrice!).toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: (product.price - product.costPrice!) > 0
+                                      ? Colors.green[700]
+                                      : Colors.red[700],
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     );

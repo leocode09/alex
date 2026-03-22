@@ -135,9 +135,28 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '${sale.items.length} items - ${sale.paymentMethod}',
-                              style: TextStyle(color: Colors.grey[600]),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${sale.items.length} items - ${sale.paymentMethod}',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                                Builder(builder: (_) {
+                                  final profit = _computeSaleProfit(sale);
+                                  if (profit == null) return const SizedBox.shrink();
+                                  return Text(
+                                    'Profit: \$${profit.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      color: profit >= 0
+                                          ? Colors.green[700]
+                                          : Colors.red[700],
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  );
+                                }),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -162,6 +181,19 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
         ),
       ],
     );
+  }
+
+  double? _computeSaleProfit(Sale sale) {
+    double totalProfit = 0;
+    bool hasCost = false;
+    for (final item in sale.items) {
+      final p = item.profit;
+      if (p != null) {
+        totalProfit += p;
+        hasCost = true;
+      }
+    }
+    return hasCost ? totalProfit : null;
   }
 
   List<Sale> _filterSales(List<Sale> sales, String query) {

@@ -458,6 +458,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                 packageId: item.packageId,
                 packageName: item.packageName,
                 unitsPerPackage: item.unitsPerPackage,
+                costPrice: item.costPrice,
               );
 
               await _updateSaleItems(updatedItems);
@@ -541,6 +542,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
             productName: product.name,
             quantity: quantity,
             price: product.price,
+            costPrice: product.costPrice,
           );
 
           final updatedItems = List<SaleItem>.from(_sale.items)..add(newItem);
@@ -1338,7 +1340,8 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                           return;
                         }
 
-                        await widget.onItemAdded(_selectedProduct!, quantity);
+                        await widget.onItemAdded(
+                            _selectedProduct!, quantity);
                         if (mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
