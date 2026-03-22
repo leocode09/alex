@@ -129,8 +129,8 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   bool get _hasPackages => _packages.isNotEmpty;
 
-  /// Greedily distributes total units across packages (largest first)
-  /// and stores the results back into [_packages] and [_computedLoose].
+  /// Independently calculates how many of each package the total stock
+  /// can yield: each package gets floor(total / unitsPerPackage).
   void _autoDistribute() {
     final total = int.tryParse(_stockController.text.trim()) ?? 0;
     if (!_hasPackages || total <= 0) {
@@ -139,24 +139,13 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
       return;
     }
 
-    final indices = List.generate(_packages.length, (i) => i);
-    indices.sort((a, b) =>
-        _packages[b].unitsPerPackage.compareTo(_packages[a].unitsPerPackage));
-
-    var remaining = total;
-    final counts = List<int>.filled(_packages.length, 0);
-    for (final i in indices) {
-      final u = _packages[i].unitsPerPackage;
-      if (u > 0 && remaining >= u) {
-        counts[i] = remaining ~/ u;
-        remaining -= counts[i] * u;
-      }
-    }
-
-    _computedLoose = remaining;
+    _computedLoose = 0;
     _packages = [
-      for (var i = 0; i < _packages.length; i++)
-        _packages[i].copyWith(packageCount: counts[i]),
+      for (final p in _packages)
+        p.copyWith(
+          packageCount:
+              p.unitsPerPackage > 0 ? total ~/ p.unitsPerPackage : 0,
+        ),
     ];
   }
 
@@ -480,12 +469,13 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
     final lines = <String>[];
     for (final p in _packages) {
-      lines.add(
-        '${p.name}: ${p.packageCount} pkg × ${p.unitsPerPackage} u = ${p.packageCount * p.unitsPerPackage} units',
-      );
-    }
-    if (_computedLoose > 0) {
-      lines.add('Loose units: $_computedLoose');
+      final remainder = total - p.packageCount * p.unitsPerPackage;
+      var line =
+          '${p.name}: ${p.packageCount} pkg × ${p.unitsPerPackage} u';
+      if (remainder > 0) {
+        line += ' + $remainder loose';
+      }
+      lines.add(line);
     }
 
     return Container(
