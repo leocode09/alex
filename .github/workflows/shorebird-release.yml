@@ -1,0 +1,77 @@
+# Shorebird Android release (registers a new release + uploads artifacts).
+# Requires repository secret: SHOREBIRD_TOKEN (create with `shorebird login:ci` locally).
+#
+# Triggers:
+#   - Manual: Actions → "Shorebird Release Android" → Run workflow
+#   - Automatic: push a version tag matching v* (e.g. v1.0.1) after bumping
+#     version in pubspec.yaml to match.
+name: Shorebird Release Android
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: shorebird-release-android-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check SHOREBIRD_TOKEN
+        run: |
+          if [ -z "${SHOREBIRD_TOKEN}" ]; then
+            echo "::error::Missing repository secret SHOREBIRD_TOKEN. Run \`shorebird login:ci\` locally, then GitHub → Settings → Secrets → Actions → New secret."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Shorebird release
+        id: shorebird_release
+        uses: shorebirdtech/shorebird-release@v1
+        with:
+          args: --artifact apk
+          flutter-version: latest
+          platform: android
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: shorebird-release-apk-${{ steps.shorebird_release.outputs.release-version }}
+          path: build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: warn
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: shorebird-release-aab-${{ steps.shorebird_release.outputs.release-version }}
+          path: build/app/outputs/bundle/release/*.aab
+          if-no-files-found: warn

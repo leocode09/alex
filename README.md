@@ -2,6 +2,7 @@
 
 [![Build Android APK](https://github.com/leocode09/alex/actions/workflows/build-apk.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/build-apk.yml)
 [![shorebird ci](https://api.shorebird.dev/api/v1/github/leocode09/alex/badge.svg)](https://console.shorebird.dev/ci)
+[![Shorebird Release Android](https://github.com/leocode09/alex/actions/workflows/shorebird-release.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/shorebird-release.yml)
 
 A new Flutter project.
 
@@ -20,17 +21,24 @@ samples, guidance on mobile development, and a full API reference.
 
 ## CI/CD
 
-This project uses GitHub Actions to automatically build Android APKs. The workflow:
+This project uses GitHub Actions to build Android APKs and (optionally) publish **Shorebird** releases.
 
-- **Triggers**: Runs on pushes and pull requests to main/master/develop branches, and can be manually triggered
-- **Build Status**: Track build status using the badge above (update YOUR_USERNAME and YOUR_REPO_NAME)
-- **Artifacts**: Built APKs are available as downloadable artifacts in the Actions tab for 30 days
-- **Status Tracking**: Build status is automatically tracked by GitHub and visible in:
-  - Pull request checks
-  - Commit status indicators
-  - Actions tab with detailed logs and summaries
+### Standard APK build
+
+- **Triggers**: Pushes and pull requests to main/master/develop, plus manual runs
+- **Artifacts**: Download the `release-apk` artifact from the workflow run summary
+
+### Shorebird release (automatic on version tags)
+
+Workflow: [shorebird-release.yml](.github/workflows/shorebird-release.yml)
+
+- **Manual run**: GitHub → Actions → **Shorebird Release Android** → Run workflow
+- **Automatic run**: Push a tag matching `v*` (e.g. `v1.0.1`) after updating `version:` in `pubspec.yaml` for that release. If the Shorebird release version already exists, the job will fail until you bump the version.
+- **Secret**: Add `SHOREBIRD_TOKEN` under repository **Settings → Secrets and variables → Actions**. Create the token locally with `shorebird login:ci` ([docs](https://docs.shorebird.dev/code-push/ci/github/)).
+- **Artifacts**: Each successful run uploads APK and AAB files from the Shorebird build.
 
 To view build status and download APKs:
-1. Go to the [Actions tab](https://github.com/leocode09/alex/actions) in your GitHub repository
-2. Click on the latest workflow run
-3. Download the `release-apk` artifact from the workflow summary
+
+1. Open the [Actions tab](https://github.com/leocode09/alex/actions)
+2. Select the workflow run
+3. Download the listed artifacts from the run summary
