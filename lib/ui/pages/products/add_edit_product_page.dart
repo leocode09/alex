@@ -1022,22 +1022,6 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   double? get _draftUnitPrice =>
       double.tryParse(_priceController.text.trim());
 
-  String _packageChipLabel(ProductPackage p) {
-    final countSuffix = _hasPackages && p.packageCount > 0
-        ? ' · ×${p.packageCount}'
-        : '';
-    final unit = _draftUnitPrice;
-    if (unit != null && unit > 0) {
-      final sell = sellingPriceForPackage(unitPrice: unit, pkg: p);
-      final source = p.packagePrice != null ? 'fixed' : 'auto';
-      return '${p.name} (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)$countSuffix';
-    }
-    if (p.packagePrice != null) {
-      return '${p.name} (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)$countSuffix';
-    }
-    return '${p.name} (${p.unitsPerPackage} u · set unit or package price)$countSuffix';
-  }
-
   Future<void> _showPackageEditorDialog({ProductPackage? existing}) async {
     final nameController = TextEditingController(text: existing?.name ?? '');
     final unitsController = TextEditingController(
