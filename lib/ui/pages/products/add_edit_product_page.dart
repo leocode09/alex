@@ -52,6 +52,10 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     }
   }
 
+  void _onPriceFieldChanged(String _) {
+    if (_hasPackages) setState(() {});
+  }
+
   /// Bottom-up: recalculate total units from manual package counts,
   /// then update the stock field (onChanged won't fire for programmatic sets).
   void _recomputeTotalFromPackages() {
@@ -297,9 +301,10 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                   child: _buildTextField(
                     controller: _priceController,
                     label: _hasPackages
-                        ? 'Unit price (optional)'
+                        ? 'Unit sell price (opt.)'
                         : 'Selling Price',
                     keyboardType: TextInputType.number,
+                    onChanged: _onPriceFieldChanged,
                     validator: (v) {
                       if (!_hasPackages) {
                         if (v == null || v.isEmpty) return 'Required';
@@ -318,7 +323,26 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                     },
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _costPriceController,
+                    label: _hasPackages
+                        ? 'Unit cost price (opt.)'
+                        : 'Cost Price',
+                    keyboardType: TextInputType.number,
+                    onChanged: _onPriceFieldChanged,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return null;
+                      final value = double.tryParse(v);
+                      if (value == null || value < 0) {
+                        return 'Enter a valid cost';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildTextField(
                     controller: _stockController,
@@ -384,31 +408,9 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    controller: _costPriceController,
-                    label: 'Cost Price',
-                    keyboardType: TextInputType.number,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return null;
-                      final value = double.tryParse(v);
-                      if (value == null || value < 0) {
-                        return 'Enter a valid cost';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildTextField(
-                    controller: _supplierController,
-                    label: 'Supplier',
-                  ),
-                ),
-              ],
+            _buildTextField(
+              controller: _supplierController,
+              label: 'Supplier',
             ),
           ],
         ),
@@ -506,7 +508,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final sell = _packageSellPrice(package);
-    final cost = package.packageCostPrice;
+    final cost = _packageCostPrice(package);
     final margin = (cost != null && sell != null) ? (sell - cost) : null;
 
     return Material(
@@ -636,14 +638,15 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
       ));
     }
     if (margin != null) {
-      spans.add(TextSpan(text: ' · Margin ', style: baseStyle));
+      spans.add(TextSpan(text: ' · ', style: baseStyle));
       spans.add(TextSpan(
         text: '\$${margin.toStringAsFixed(2)}',
         style: baseStyle?.copyWith(
-          color: margin < 0 ? cs.error : cs.onSurface,
+          color: margin < 0 ? cs.error : const Color(0xFF059669),
           fontWeight: FontWeight.w500,
         ),
       ));
+      spans.add(TextSpan(text: ' margin', style: baseStyle));
     }
     return Text.rich(TextSpan(children: spans));
   }
@@ -654,6 +657,15 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
       return sellingPriceForPackage(unitPrice: unit, pkg: p);
     }
     return p.packagePrice;
+  }
+
+  double? _packageCostPrice(ProductPackage p) {
+    if (p.packageCostPrice != null) return p.packageCostPrice;
+    final unit = _draftUnitCostPrice;
+    if (unit != null && unit > 0) {
+      return unit * p.unitsPerPackage;
+    }
+    return null;
   }
 
   Widget _buildDistributionDashboard(BuildContext context) {
@@ -724,6 +736,10 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
               final u = p.unitsPerPackage;
               final pkgsFromTotal = u > 0 ? total ~/ u : 0;
               final remainderForPackSize = u > 0 ? total % u : total;
+              final sell = _packageSellPrice(p);
+              final cost = _packageCostPrice(p);
+              final margin =
+                  (sell != null && cost != null) ? sell - cost : null;
               final rowBg =
                   i.isEven ? cs.surface : cs.surfaceContainerHighest;
               return Padding(
@@ -760,6 +776,15 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                                   color: cs.onSurfaceVariant,
                                 ),
                               ),
+                              if (sell != null || cost != null) ...[
+                                const SizedBox(height: 2),
+                                _buildDistRowPricing(
+                                  context,
+                                  sell: sell,
+                                  cost: cost,
+                                  margin: margin,
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -782,8 +807,44 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
   }
 
+  Widget _buildDistRowPricing(
+    BuildContext context, {
+    required double? sell,
+    required double? cost,
+    required double? margin,
+  }) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: cs.onSurfaceVariant,
+      fontSize: 11,
+    );
+    final parts = <InlineSpan>[];
+    if (sell != null) {
+      parts.add(TextSpan(text: 'Sell \$${sell.toStringAsFixed(2)}', style: style));
+    }
+    if (cost != null) {
+      if (parts.isNotEmpty) parts.add(TextSpan(text: ' · ', style: style));
+      parts.add(TextSpan(text: 'Cost \$${cost.toStringAsFixed(2)}', style: style));
+    }
+    if (margin != null) {
+      if (parts.isNotEmpty) parts.add(TextSpan(text: ' · ', style: style));
+      parts.add(TextSpan(
+        text: '\$${margin.toStringAsFixed(2)} margin',
+        style: style?.copyWith(
+          color: margin < 0 ? cs.error : const Color(0xFF059669),
+          fontWeight: FontWeight.w500,
+        ),
+      ));
+    }
+    return Text.rich(TextSpan(children: parts));
+  }
+
   double? get _draftUnitPrice =>
       double.tryParse(_priceController.text.trim());
+
+  double? get _draftUnitCostPrice =>
+      double.tryParse(_costPriceController.text.trim());
 
   Future<void> _showPackageEditorDialog({ProductPackage? existing}) async {
     final nameController = TextEditingController(text: existing?.name ?? '');
