@@ -35,42 +35,32 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   int _computedLoose = 0;
   bool _isLoading = false;
   bool _pinVerified = false;
-  bool _suppressStockListener = false;
 
   bool get isEditing => widget.productId != null;
 
   @override
   void initState() {
     super.initState();
-    _stockController.addListener(_onStockChanged);
     _checkPinAndLoadData();
   }
 
-  @override
-  void dispose() {
-    _stockController.removeListener(_onStockChanged);
-    super.dispose();
-  }
-
-  void _onStockChanged() {
-    if (_hasPackages && !_suppressStockListener) {
+  void _onStockChanged(String _) {
+    if (_hasPackages) {
       setState(() {
         _autoDistribute();
       });
     }
   }
 
-  /// Bottom-up: recalculate total units from manual package counts + loose,
-  /// then update the stock field without triggering a top-down redistribute.
+  /// Bottom-up: recalculate total units from manual package counts,
+  /// then update the stock field (onChanged won't fire for programmatic sets).
   void _recomputeTotalFromPackages() {
     final inPackages = _packages.fold<int>(
       0,
       (sum, p) => sum + p.packageCount * p.unitsPerPackage,
     );
     final total = inPackages + _computedLoose;
-    _suppressStockListener = true;
     _stockController.text = '$total';
-    _suppressStockListener = false;
   }
 
   Future<void> _checkPinAndLoadData() async {
@@ -367,6 +357,7 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
                     controller: _stockController,
                     label: 'Total units in stock',
                     keyboardType: TextInputType.number,
+                    onChanged: _onStockChanged,
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Required';
                       final value = int.tryParse(v);
@@ -677,11 +668,13 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     Widget? suffixIcon,
+    ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
