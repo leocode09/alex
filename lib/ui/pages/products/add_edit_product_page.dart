@@ -416,169 +416,57 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
   }
 
-  static const List<Color> _packageAccentColors = [
-    Color(0xFF6366F1),
-    Color(0xFF0EA5E9),
-    Color(0xFF10B981),
-    Color(0xFFF59E0B),
-    Color(0xFFEC4899),
-    Color(0xFF8B5CF6),
-  ];
-
-  Color _packageAccent(int index) =>
-      _packageAccentColors[index % _packageAccentColors.length];
-
   Widget _buildPackagesSection(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.primary.withValues(alpha: 0.08),
-            cs.tertiary.withValues(alpha: 0.06),
-            cs.surfaceContainerHighest.withValues(alpha: 0.4),
-          ],
-        ),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.6),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Stack(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Positioned(
-              right: -24,
-              top: -24,
-              child: Icon(
-                Icons.layers_rounded,
-                size: 120,
-                color: cs.primary.withValues(alpha: 0.06),
+            Text(
+              'Packages (optional)',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              cs.primary,
-                              cs.primary.withValues(alpha: 0.75),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.primary.withValues(alpha: 0.35),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.inventory_2_rounded,
-                          color: Colors.white,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Packages',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Optional selling units — each row shows live counts from total stock below.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+            const SizedBox(height: 6),
+            Text(
+              'Define alternate sell units. Package counts follow total stock unless you enter counts manually.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_packages.isEmpty)
+              _buildPackagesEmptyState(context)
+            else
+              ..._packages.asMap().entries.map((e) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _buildPackageTile(
+                    context,
+                    package: e.value,
+                    index: e.key,
                   ),
-                  const SizedBox(height: 18),
-                  if (_packages.isEmpty)
-                    _buildPackagesEmptyState(context)
-                  else
-                    ..._packages.asMap().entries.map((e) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _buildPackageTile(
-                          context,
-                          package: e.value,
-                          index: e.key,
-                        ),
-                      );
-                    }),
-                  const SizedBox(height: 6),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _showPackageEditorDialog(),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: cs.primary.withValues(alpha: 0.45),
-                            width: 1.5,
-                          ),
-                          color: cs.primary.withValues(alpha: 0.06),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_circle_outline_rounded,
-                                color: cs.primary, size: 22),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Add package',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: cs.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                );
+              }),
+            const SizedBox(height: 4),
+            OutlinedButton.icon(
+              onPressed: () => _showPackageEditorDialog(),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add package'),
+              style: OutlinedButton.styleFrom(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ],
@@ -588,37 +476,24 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   }
 
   Widget _buildPackagesEmptyState(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant),
       ),
-      child: Column(
-        children: [
-          Icon(Icons.local_shipping_outlined,
-              size: 40, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
-          const SizedBox(height: 10),
-          Text(
-            'No packages yet',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-            ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+        child: Text(
+          'No packages defined. Add one to sell by case, bundle, or other unit.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+            height: 1.4,
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Add case, half-case, bundle, etc. Stock math updates as you type total units.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: cs.onSurfaceVariant,
-              height: 1.4,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -630,160 +505,88 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
   }) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final accent = _packageAccent(index);
     final sell = _packageSellPrice(package);
     final cost = package.packageCostPrice;
+    final margin = (cost != null && sell != null) ? (sell - cost) : null;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showPackageEditorDialog(existing: package),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         child: Ink(
           decoration: BoxDecoration(
-            color: cs.surface.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.45)),
-            boxShadow: [
-              BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: index.isEven ? cs.surface : cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.outlineVariant),
           ),
-          child: IntrinsicHeight(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 5,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(15),
-                      bottomLeft: Radius.circular(15),
-                    ),
-                  ),
-                ),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                package.name,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              package.name,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: accent.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${package.unitsPerPackage} u/pack',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: accent,
-                                ),
-                              ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${package.unitsPerPackage} units / pkg',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            _buildMiniStat(
-                              context,
-                              Icons.sell_outlined,
-                              sell != null
-                                  ? '\$${sell.toStringAsFixed(2)}'
-                                  : '—',
-                              'Sell',
-                            ),
-                            if (cost != null)
-                              _buildMiniStat(
-                                context,
-                                Icons.payments_outlined,
-                                '\$${cost.toStringAsFixed(2)}',
-                                'Cost',
-                              ),
-                            if (cost != null && sell != null)
-                              _buildMiniStat(
-                                context,
-                                Icons.trending_up_rounded,
-                                '\$${(sell - cost).toStringAsFixed(2)}',
-                                'Margin',
-                                valueColor: (sell - cost) >= 0
-                                    ? const Color(0xFF059669)
-                                    : const Color(0xFFDC2626),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_hasPackages && package.packageCount > 0)
-                  Container(
-                    width: 56,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          accent.withValues(alpha: 0.15),
-                          accent.withValues(alpha: 0.05),
+                          ),
                         ],
                       ),
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(15),
-                        bottomRight: Radius.circular(15),
+                      const SizedBox(height: 6),
+                      _buildPackagePricingRichText(
+                        context,
+                        sell: sell,
+                        cost: cost,
+                        margin: margin,
                       ),
-                    ),
+                    ],
+                  ),
+                ),
+                if (_hasPackages && package.packageCount > 0) ...[
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 52,
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           '${package.packageCount}',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: accent,
-                            height: 1,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          'pkg',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                          'in stock',
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.close_rounded, color: cs.error, size: 20),
+                  icon: Icon(Icons.delete_outline, color: cs.onSurfaceVariant),
                   tooltip: 'Remove',
                   onPressed: () {
                     final hadManualCounts = _packages.any(
@@ -807,33 +610,42 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     );
   }
 
-  Widget _buildMiniStat(
-    BuildContext context,
-    IconData icon,
-    String value,
-    String label, {
-    Color? valueColor,
+  Widget _buildPackagePricingRichText(
+    BuildContext context, {
+    required double? sell,
+    required double? cost,
+    required double? margin,
   }) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: cs.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          '$label ',
-          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: valueColor ?? cs.onSurface,
-          ),
-        ),
-      ],
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final baseStyle = theme.textTheme.bodySmall?.copyWith(
+      color: cs.onSurfaceVariant,
+      height: 1.35,
     );
+    final spans = <InlineSpan>[
+      TextSpan(
+        text: sell != null ? 'Sell \$${sell.toStringAsFixed(2)}' : 'Sell —',
+        style: baseStyle,
+      ),
+    ];
+    if (cost != null) {
+      spans.add(TextSpan(text: ' · ', style: baseStyle));
+      spans.add(TextSpan(
+        text: 'Cost \$${cost.toStringAsFixed(2)}',
+        style: baseStyle,
+      ));
+    }
+    if (margin != null) {
+      spans.add(TextSpan(text: ' · Margin ', style: baseStyle));
+      spans.add(TextSpan(
+        text: '\$${margin.toStringAsFixed(2)}',
+        style: baseStyle?.copyWith(
+          color: margin < 0 ? cs.error : cs.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+      ));
+    }
+    return Text.rich(TextSpan(children: spans));
   }
 
   double? _packageSellPrice(ProductPackage p) {
@@ -850,165 +662,116 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
     final total = int.tryParse(_stockController.text.trim()) ?? 0;
 
     if (total <= 0) {
-      return Container(
-        padding: const EdgeInsets.all(16),
+      return DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(8),
+          color: cs.surfaceContainerLow,
+          border: Border.all(color: cs.outlineVariant),
         ),
-        child: Row(
-          children: [
-            Icon(Icons.calculate_outlined, color: cs.primary, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Enter total units in stock to preview how many of each package that inventory represents.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.35,
-                ),
-              ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Text(
+            'Enter total units in stock to see how many full packages of each size that quantity represents.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.4,
             ),
-          ],
+          ),
         ),
       );
     }
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.secondaryContainer.withValues(alpha: 0.55),
-            cs.primaryContainer.withValues(alpha: 0.35),
-          ],
-        ),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(8),
+        color: cs.surfaceContainerLow,
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.auto_awesome_motion_rounded,
-                    color: cs.primary, size: 22),
-                const SizedBox(width: 8),
                 Text(
-                  'Live preview',
+                  'Distribution preview',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: cs.primary,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$total units',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: cs.onPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
+                Text(
+                  '$total units',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
-              'Independent counts from your total — same stock, different pack sizes.',
+              'Each line is independent: full packages of that size that fit in the total.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
-                fontSize: 11,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             ..._packages.asMap().entries.map((e) {
               final p = e.value;
               final i = e.key;
-              final accent = _packageAccent(i);
               final u = p.unitsPerPackage;
-              final pkgsFromTotal =
-                  u > 0 ? total ~/ u : 0;
-              final remainderForPackSize =
-                  u > 0 ? total % u : total;
+              final pkgsFromTotal = u > 0 ? total ~/ u : 0;
+              final remainderForPackSize = u > 0 ? total % u : total;
+              final rowBg =
+                  i.isEven ? cs.surface : cs.surfaceContainerHighest;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.only(bottom: 6),
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: cs.surface.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: accent.withValues(alpha: 0.35),
-                    ),
+                    color: rowBg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: cs.outlineVariant),
                   ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: accent.withValues(alpha: 0.15),
-                        child: Text(
-                          '$u',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            color: accent,
-                            fontSize: 13,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                p.name,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$pkgsFromTotal × $u units'
+                                '${remainderForPackSize > 0 ? ' · $remainderForPackSize remainder' : ''}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              p.name,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              '$pkgsFromTotal × $u units'
-                              '${remainderForPackSize > 0 ? ' · +$remainderForPackSize loose (this size)' : ''}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        Text(
+                          '$pkgsFromTotal',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '$pkgsFromTotal',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              color: accent,
-                              height: 1,
-                            ),
-                          ),
-                          Text(
-                            'packages',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
