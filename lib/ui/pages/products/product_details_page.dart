@@ -261,31 +261,99 @@ class ProductDetailsPage extends ConsumerWidget {
                       '${((product.price - product.costPrice!) / product.price * 100).toStringAsFixed(1)}%'),
                 _buildDetailRow('Description', product.description ?? '-'),
                 if (product.packages.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text('Packages',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
-                  Text('Packages',
-                      style: TextStyle(
-                          color: Colors.grey[500], fontSize: 14)),
-                  const SizedBox(height: 4),
-                  ...product.packages.where((p) => p.packageCount > 0).map((p) {
+                  ...product.packages.map((p) {
                     final sell = sellingPriceForPackage(
                       unitPrice: product.price,
                       pkg: p,
                     );
-                    final src = p.packagePrice != null ? 'fixed' : 'auto';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Text(
-                        '${p.name}: ${p.packageCount} pkg × ${p.unitsPerPackage} u = ${p.packageCount * p.unitsPerPackage} units · \$${sell.toStringAsFixed(2)} ($src)',
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${p.unitsPerPackage}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  p.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${p.unitsPerPackage} units per pack',
+                                  style: TextStyle(
+                                      color: Colors.grey[600], fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '\$${sell.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              Text(
+                                p.packagePrice != null ? 'fixed' : 'auto',
+                                style: TextStyle(
+                                    color: Colors.grey[500], fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     );
                   }),
                   if (product.looseStock > 0)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        'Loose units: ${product.looseStock}',
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.grain, size: 16, color: Colors.grey[500]),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${product.looseStock} loose units',
+                            style: TextStyle(
+                                color: Colors.grey[600], fontSize: 13),
+                          ),
+                        ],
                       ),
                     ),
                   const SizedBox(height: 8),

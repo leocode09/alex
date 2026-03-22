@@ -1240,34 +1240,74 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final item = _cart[index];
+                          final pkgName = item['packageName'] as String?;
+                          final unitsPerPkg = item['unitsPerPackage'] as int?;
+                          final qty = item['quantity'] as int;
+                          final lineTotal =
+                              (item['price'] as num).toDouble() * qty;
+
+                          // Derive clean product name (strip "(package)" suffix)
+                          String displayName = item['name'] as String;
+                          if (pkgName != null &&
+                              displayName.endsWith('($pkgName)')) {
+                            displayName = displayName
+                                .substring(
+                                    0,
+                                    displayName.length -
+                                        pkgName.length -
+                                        3)
+                                .trim();
+                          }
 
                           return Container(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 8),
+                                vertical: 10, horizontal: 8),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(item['name'],
+                                      Text(displayName,
                                           style: const TextStyle(
-                                              fontWeight: FontWeight.w500)),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14)),
+                                      if (pkgName != null) ...[
+                                        const SizedBox(height: 3),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue[50],
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            '$pkgName · ${unitsPerPkg ?? 1}u per pack',
+                                            style: TextStyle(
+                                                color: Colors.blue[800],
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 3),
                                       InkWell(
                                         onTap: () => _showEditPriceDialog(
                                             context, index),
                                         child: Row(
                                           children: [
                                             Text(
-                                              '\$${item['price'].toStringAsFixed(2)}',
+                                              '\$${(item['price'] as num).toStringAsFixed(2)}${pkgName != null ? ' / pack' : ' / unit'}',
                                               style: TextStyle(
                                                   color: Colors.grey[600],
                                                   fontSize: 12),
                                             ),
                                             const SizedBox(width: 4),
                                             Icon(Icons.edit,
-                                                size: 14,
+                                                size: 12,
                                                 color: Colors.blue[700]),
                                           ],
                                         ),
@@ -1275,29 +1315,57 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                     ],
                                   ),
                                 ),
-                                Row(
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                          Icons.remove_circle_outline,
-                                          size: 28),
-                                      onPressed: () => _removeFromCart(index),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        InkWell(
+                                          onTap: () => _removeFromCart(index),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          child: const Icon(
+                                              Icons.remove_circle_outline,
+                                              size: 26),
+                                        ),
+                                        SizedBox(
+                                          width: 32,
+                                          child: Text(
+                                            '$qty',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15),
+                                          ),
+                                        ),
+                                        InkWell(
+                                          onTap: () =>
+                                              _onCartItemIncrement(index),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          child: const Icon(
+                                              Icons.add_circle_outline,
+                                              size: 26),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(
-                                      width: 32,
-                                      child: Text(
-                                        '${item['quantity']}',
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '\$${lineTotal.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13),
+                                    ),
+                                    if (pkgName != null &&
+                                        unitsPerPkg != null &&
+                                        unitsPerPkg > 1)
+                                      Text(
+                                        '${qty * unitsPerPkg} units total',
+                                        style: TextStyle(
+                                            color: Colors.grey[500],
+                                            fontSize: 11),
                                       ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.add_circle_outline,
-                                          size: 28),
-                                      onPressed: () =>
-                                          _onCartItemIncrement(index),
-                                    ),
                                   ],
                                 ),
                               ],
@@ -1415,7 +1483,7 @@ class _PackagePickerSheet extends StatelessWidget {
       if (product.price > 0)
         ProductPackage(
           id: productPackageSingleItemId,
-          name: '1 item',
+          name: 'Single',
           unitsPerPackage: 1,
         ),
       ...product.packages,
@@ -1423,30 +1491,122 @@ class _PackagePickerSheet extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Select package for ${product.name}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            Text(
+              product.name,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Choose how to sell',
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            ),
+            const SizedBox(height: 12),
             ...options.map((pkg) {
               final price = sellingPriceForPackage(
                 unitPrice: product.price,
                 pkg: pkg,
               );
-              return ListTile(
-                title: Text(pkg.name),
-                subtitle: Text(
-                  '${pkg.unitsPerPackage} units - \$${price.toStringAsFixed(2)}',
+              final unitPriceEach = pkg.unitsPerPackage > 0
+                  ? price / pkg.unitsPerPackage
+                  : price;
+              final isSingle = pkg.unitsPerPackage == 1;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () => onSelect(pkg),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isSingle
+                                ? Colors.grey[100]
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${pkg.unitsPerPackage}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isSingle
+                                    ? Colors.grey[700]
+                                    : Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pkg.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 15),
+                              ),
+                              Text(
+                                isSingle
+                                    ? '1 unit'
+                                    : '${pkg.unitsPerPackage} units per pack',
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '\$${price.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            if (!isSingle)
+                              Text(
+                                '\$${unitPriceEach.toStringAsFixed(2)}/unit',
+                                style: TextStyle(
+                                    color: Colors.grey[500], fontSize: 11),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                onTap: () => onSelect(pkg),
               );
             }),
           ],

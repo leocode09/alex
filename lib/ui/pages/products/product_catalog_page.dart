@@ -361,11 +361,44 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                         title: Text(product.name,
                             style:
                                 const TextStyle(fontWeight: FontWeight.w500)),
-                        subtitle: Text(
-                          'Stock: ${product.stock}${product.category != null ? ' · ${product.category}' : ''}'
-                          '${product.costPrice != null ? ' · Cost: \$${product.costPrice!.toStringAsFixed(2)}' : ''}',
-                          style:
-                              TextStyle(color: Colors.grey[500], fontSize: 12),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 2),
+                            Text(
+                              'Stock: ${product.stock}${product.category != null ? ' · ${product.category}' : ''}',
+                              style: TextStyle(
+                                  color: Colors.grey[500], fontSize: 12),
+                            ),
+                            if (product.packages.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: product.packages.map((p) {
+                                    final sell = sellingPriceForPackage(
+                                        unitPrice: product.price, pkg: p);
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue[50],
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '${p.name} (${p.unitsPerPackage}u) \$${sell.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                            color: Colors.blue[800],
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                          ],
                         ),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -381,11 +414,12 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                             if (product.costPrice != null &&
                                 product.price > 0)
                               Text(
-                                'Profit: \$${(product.price - product.costPrice!).toStringAsFixed(2)}',
+                                '+\$${(product.price - product.costPrice!).toStringAsFixed(2)}',
                                 style: TextStyle(
-                                  color: (product.price - product.costPrice!) > 0
-                                      ? Colors.green[700]
-                                      : Colors.red[700],
+                                  color:
+                                      (product.price - product.costPrice!) > 0
+                                          ? Colors.green[700]
+                                          : Colors.red[700],
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),
