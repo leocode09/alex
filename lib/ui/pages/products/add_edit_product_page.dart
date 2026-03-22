@@ -480,11 +480,9 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
     final lines = <String>[];
     for (final p in _packages) {
-      if (p.packageCount > 0) {
-        lines.add(
-          '${p.name}: ${p.packageCount} pkg × ${p.unitsPerPackage} u = ${p.packageCount * p.unitsPerPackage} units',
-        );
-      }
+      lines.add(
+        '${p.name}: ${p.packageCount} pkg × ${p.unitsPerPackage} u = ${p.packageCount * p.unitsPerPackage} units',
+      );
     }
     if (_computedLoose > 0) {
       lines.add('Loose units: $_computedLoose');
@@ -520,16 +518,19 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
       double.tryParse(_priceController.text.trim());
 
   String _packageChipLabel(ProductPackage p) {
+    final countSuffix = _hasPackages && p.packageCount > 0
+        ? ' · ×${p.packageCount}'
+        : '';
     final unit = _draftUnitPrice;
     if (unit != null && unit > 0) {
       final sell = sellingPriceForPackage(unitPrice: unit, pkg: p);
       final source = p.packagePrice != null ? 'fixed' : 'auto';
-      return '${p.name} (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)';
+      return '${p.name} (${p.unitsPerPackage} u) · \$${sell.toStringAsFixed(2)} ($source)$countSuffix';
     }
     if (p.packagePrice != null) {
-      return '${p.name} (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)';
+      return '${p.name} (${p.unitsPerPackage} u) · \$${p.packagePrice!.toStringAsFixed(2)} (fixed)$countSuffix';
     }
-    return '${p.name} (${p.unitsPerPackage} u · set unit or package price)';
+    return '${p.name} (${p.unitsPerPackage} u · set unit or package price)$countSuffix';
   }
 
   Future<void> _showPackageEditorDialog({ProductPackage? existing}) async {
