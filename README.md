@@ -1,6 +1,7 @@
 # ALEX
 
 [![Build Android APK](https://github.com/leocode09/alex/actions/workflows/build-apk.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/build-apk.yml)
+[![shorebird ci](https://api.shorebird.dev/api/v1/github/leocode09/alex/badge.svg)](https://console.shorebird.dev/ci)
 
 A new Flutter project.
 
