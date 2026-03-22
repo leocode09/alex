@@ -43,6 +43,7 @@ dependencies:
   # Bluetooth Sync
   flutter_blue_plus: ^1.32.0
   permission_handler: ^11.3.1
+  shorebird_code_push: ^2.0.5
 
 dev_dependencies:
   flutter_launcher_icons: ^0.11.0
@@ -60,6 +61,7 @@ flutter:
   uses-material-design: true
   
   assets:
+    - shorebird.yaml
     - assets/logo.jpg
     - assets/fonts/
   
