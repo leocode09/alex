@@ -256,6 +256,77 @@ class _SalesPageState extends ConsumerState<SalesPage>
     HapticFeedback.lightImpact();
   }
 
+  /// Max line quantity (packs or units) for this cart row given live catalog stock
+  /// and other cart lines for the same product.
+  int _maxLineQuantityForIndex(Product product, int index) {
+    final item = _cart[index];
+    final unitsPer = item['unitsPerPackage'] as int? ?? 1;
+    final currentQty = item['quantity'] as int;
+    final thisLineBase = currentQty * unitsPer;
+    final totalBase = _getCartQuantity(product);
+    final otherLinesBase = totalBase - thisLineBase;
+    final maxBase = product.stock - otherLinesBase;
+    if (maxBase < unitsPer) return 0;
+    return unitsPer == 1 ? maxBase : maxBase ~/ unitsPer;
+  }
+
+  Future<void> _commitCartLineQuantity(int index, String raw) async {
+    final t = raw.trim();
+    if (t.isEmpty) {
+      return;
+    }
+    final parsed = int.tryParse(t);
+    if (parsed == null) {
+      return;
+    }
+    if (parsed <= 0) {
+      setState(() {
+        _cart.removeAt(index);
+      });
+      _saveCart();
+      HapticFeedback.lightImpact();
+      return;
+    }
+
+    final item = _cart[index];
+    final products = await ref.read(productsProvider.future);
+    Product? product;
+    for (final p in products) {
+      if (p.id == item['id']) {
+        product = p;
+        break;
+      }
+    }
+    if (!mounted || product == null) {
+      return;
+    }
+
+    final maxLine = _maxLineQuantityForIndex(product, index);
+    var next = parsed;
+    if (parsed > maxLine) {
+      next = maxLine;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Not enough stock for ${product.name}')),
+        );
+      }
+    }
+    if (next < 1) {
+      setState(() {
+        _cart.removeAt(index);
+      });
+      _saveCart();
+      HapticFeedback.lightImpact();
+      return;
+    }
+
+    setState(() {
+      _cart[index]['quantity'] = next;
+    });
+    _saveCart();
+    HapticFeedback.lightImpact();
+  }
+
   Future<void> _showEditPriceDialog(BuildContext context, int index) async {
     final allowed = await PinProtection.requirePinIfNeeded(
       context,
@@ -1331,15 +1402,13 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                               Icons.remove_circle_outline,
                                               size: 26),
                                         ),
-                                        SizedBox(
-                                          width: 32,
-                                          child: Text(
-                                            '$qty',
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 15),
-                                          ),
+                                        _CartQuantityField(
+                                          key: ValueKey(
+                                              '${item['id']}_${item['packageId'] ?? ''}'),
+                                          quantity: qty,
+                                          onCommitted: (text) =>
+                                              _commitCartLineQuantity(
+                                                  index, text),
                                         ),
                                         InkWell(
                                           onTap: () =>
@@ -1467,6 +1536,83 @@ class _SalesPageState extends ConsumerState<SalesPage>
         });
       }
     }
+  }
+}
+
+class _CartQuantityField extends StatefulWidget {
+  const _CartQuantityField({
+    super.key,
+    required this.quantity,
+    required this.onCommitted,
+  });
+
+  final int quantity;
+  final Future<void> Function(String text) onCommitted;
+
+  @override
+  State<_CartQuantityField> createState() => _CartQuantityFieldState();
+}
+
+class _CartQuantityFieldState extends State<_CartQuantityField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.quantity}');
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus) {
+      _submit();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_CartQuantityField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.quantity != oldWidget.quantity && !_focusNode.hasFocus) {
+      _controller.text = '${widget.quantity}';
+    }
+  }
+
+  Future<void> _submit() async {
+    await widget.onCommitted(_controller.text);
+    if (mounted) {
+      _controller.text = '${widget.quantity}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        decoration: const InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(vertical: 2),
+        ),
+        onSubmitted: (_) => _focusNode.unfocus(),
+      ),
+    );
   }
 }
 
