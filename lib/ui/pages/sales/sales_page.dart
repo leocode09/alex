@@ -124,15 +124,36 @@ class _SalesPageState extends ConsumerState<SalesPage>
     return _subtotal;
   }
 
-  List<Product> _getFilteredProducts(List<Product> allProducts) {
+  List<_CatalogEntry> _getFilteredEntries(List<Product> allProducts) {
     final query = _searchController.text.toLowerCase();
-    return allProducts.where((product) {
+    final filtered = allProducts.where((product) {
       final matchesCategory =
           _selectedCategory == 'All' || product.category == _selectedCategory;
       final matchesSearch =
           query.isEmpty || product.name.toLowerCase().contains(query);
       return matchesCategory && matchesSearch;
-    }).toList();
+    });
+    final entries = <_CatalogEntry>[];
+    for (final product in filtered) {
+      if (product.packages.isEmpty) {
+        entries.add(_CatalogEntry(product));
+      } else {
+        if (product.price > 0) {
+          entries.add(_CatalogEntry(
+            product,
+            ProductPackage(
+              id: productPackageSingleItemId,
+              name: 'Single',
+              unitsPerPackage: 1,
+            ),
+          ));
+        }
+        for (final pkg in product.packages) {
+          entries.add(_CatalogEntry(product, pkg));
+        }
+      }
+    }
+    return entries;
   }
 
   int _getCartQuantity(Product product) {
@@ -147,6 +168,29 @@ class _SalesPageState extends ConsumerState<SalesPage>
   void _removeProductFromCart(Product product) {
     setState(() {
       _cart.removeWhere((item) => item['id'] == product.id);
+    });
+    _saveCart();
+    HapticFeedback.mediumImpact();
+  }
+
+  int _getEntryCartQuantity(_CatalogEntry entry) {
+    final matchPkgId = entry.package?.id;
+    return _cart.fold<int>(0, (sum, item) {
+      if (item['id'] != entry.product.id) return sum;
+      final itemPkgId = item['packageId'] as String?;
+      if (itemPkgId != matchPkgId) return sum;
+      return sum + (item['quantity'] as int? ?? 0);
+    });
+  }
+
+  void _removeEntryFromCart(_CatalogEntry entry) {
+    final matchPkgId = entry.package?.id;
+    setState(() {
+      _cart.removeWhere((item) {
+        if (item['id'] != entry.product.id) return false;
+        final itemPkgId = item['packageId'] as String?;
+        return itemPkgId == matchPkgId;
+      });
     });
     _saveCart();
     HapticFeedback.mediumImpact();
@@ -1164,7 +1208,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
               Expanded(
                 child: productsAsync.when(
                   data: (products) {
-                    final filtered = _getFilteredProducts(products);
+                    final filtered = _getFilteredEntries(products);
                     if (filtered.isEmpty) {
                       return Center(
                         child: Column(
@@ -1217,19 +1261,37 @@ class _SalesPageState extends ConsumerState<SalesPage>
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
-                        childAspectRatio: 0.8,
+                        childAspectRatio: 0.75,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                       ),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
-                        final product = filtered[index];
-                        final cartQuantity = _getCartQuantity(product);
+                        final entry = filtered[index];
+                        final product = entry.product;
+                        final pkg = entry.package;
+                        final cartQuantity =
+                            _getEntryCartQuantity(entry);
                         final isInCart = cartQuantity > 0;
+                        final displayPrice = pkg != null
+                            ? sellingPriceForPackage(
+                                unitPrice: product.price, pkg: pkg)
+                            : product.price;
+                        final isSingleEntry =
+                            pkg?.id == productPackageSingleItemId;
+                        final isPackageEntry =
+                            pkg != null && !isSingleEntry;
+                        final stockCount = isPackageEntry
+                            ? pkg.packageCount
+                            : isSingleEntry
+                                ? product.looseStock
+                                : product.stock;
 
                         return InkWell(
-                          onTap: () => _onProductTap(product),
-                          onLongPress: () => _removeProductFromCart(product),
+                          onTap: () =>
+                              _addToCart(product, package: pkg),
+                          onLongPress: () =>
+                              _removeEntryFromCart(entry),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             decoration: BoxDecoration(
@@ -1259,19 +1321,32 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                               const BorderRadius.vertical(
                                                   top: Radius.circular(8)),
                                         ),
-                                        child: Stack(
-                                          children: [
-                                            Center(
-                                              child: Icon(
-                                                  Icons.inventory_2_outlined,
-                                                  color: isInCart
-                                                      ? Theme.of(context)
-                                                          .colorScheme
-                                                          .primary
-                                                      : Colors.grey[400],
-                                                  size: 32),
-                                            ),
-                                          ],
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.inventory_2_outlined,
+                                                color: isInCart
+                                                    ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                    : Colors.grey[400],
+                                                size: 32,
+                                              ),
+                                              if (isPackageEntry)
+                                                Text(
+                                                  '×${pkg.unitsPerPackage}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1289,15 +1364,51 @@ class _SalesPageState extends ConsumerState<SalesPage>
                                                 fontWeight: FontWeight.w500,
                                                 fontSize: 12),
                                           ),
+                                          if (pkg != null) ...[
+                                            const SizedBox(height: 2),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: isSingleEntry
+                                                    ? Colors.grey[200]
+                                                    : Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                        .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                pkg.name,
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isSingleEntry
+                                                      ? Colors.grey[700]
+                                                      : Theme.of(context)
+                                                          .colorScheme
+                                                          .primary,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(height: 2),
                                           Text(
-                                            '\$${product.price.toStringAsFixed(2)}',
+                                            '\$${displayPrice.toStringAsFixed(2)}',
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 11),
                                           ),
                                           Text(
-                                            'Stock: ${product.stock}',
+                                            isPackageEntry
+                                                ? 'Stock: $stockCount pks'
+                                                : 'Stock: $stockCount',
                                             style: TextStyle(
                                                 color: Colors.grey[500],
                                                 fontSize: 10),
@@ -1657,6 +1768,12 @@ class _CartQuantityFieldState extends State<_CartQuantityField> {
       ),
     );
   }
+}
+
+class _CatalogEntry {
+  final Product product;
+  final ProductPackage? package;
+  const _CatalogEntry(this.product, [this.package]);
 }
 
 class _PackagePickerSheet extends StatelessWidget {
