@@ -200,11 +200,54 @@ class _SalesPageState extends ConsumerState<SalesPage>
     HapticFeedback.lightImpact();
   }
 
+  ProductPackage? _packageFromCartItem(Product product, Map<String, dynamic> item) {
+    final pkgId = item['packageId'] as String?;
+    if (pkgId == null) return null;
+    try {
+      return product.packages.firstWhere((p) => p.id == pkgId);
+    } catch (_) {
+      return ProductPackage(
+        id: pkgId,
+        name: item['packageName'] as String? ?? '',
+        unitsPerPackage: item['unitsPerPackage'] as int? ?? 1,
+      );
+    }
+  }
+
   Future<void> _onProductTap(Product product) async {
     if (product.packages.isEmpty) {
       _addToCart(product);
       return;
     }
+
+    final linesForProduct =
+        _cart.where((item) => item['id'] == product.id).toList();
+
+    if (linesForProduct.length == 1) {
+      final pkg = _packageFromCartItem(product, linesForProduct.first);
+      _addToCart(product, package: pkg);
+      return;
+    }
+
+    if (linesForProduct.length > 1) {
+      final selected = await showModalBottomSheet<ProductPackage>(
+        context: context,
+        builder: (ctx) => _PackagePickerSheet(
+          product: product,
+          onSelect: (pkg) => Navigator.pop(ctx, pkg),
+        ),
+      );
+      if (selected != null && mounted) {
+        _addToCart(product, package: selected);
+      }
+      return;
+    }
+
+    if (product.packages.length == 1) {
+      _addToCart(product, package: product.packages.first);
+      return;
+    }
+
     final selected = await showModalBottomSheet<ProductPackage>(
       context: context,
       builder: (ctx) => _PackagePickerSheet(

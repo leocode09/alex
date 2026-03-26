@@ -16,3 +16,4 @@
 - PIN protection guards sensitive operations (add/edit/delete products, create sales, edit receipts, apply discounts, etc.) via `PinProtection` helper and `PinService`
 - Multi-device sync over LAN (`LanSyncService`) and Wi-Fi Direct (`WifiDirectSyncService`) exchanges full catalog data so product edits propagate between nearby devices
 - Shorebird OTA (code push) is integrated for Dart-only updates without rebuilding the APK; `shorebird.yaml` at project root, `shorebird_code_push` in pubspec, auto-update check via `ShorebirdUpdater` in `main.dart`
+- Sales cart line quantity can be entered as digits in the field between −/+ (commits on blur or keyboard done; stock-aware caps; 0 removes the line), not only via the stepper buttons
