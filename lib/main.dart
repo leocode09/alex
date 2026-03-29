@@ -67,6 +67,9 @@ class POSApp extends ConsumerWidget {
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
           routerConfig: router,
+          builder: (context, child) {
+            return LanSyncWatcher(child: child ?? const SizedBox.shrink());
+          },
         ),
       ),
     );

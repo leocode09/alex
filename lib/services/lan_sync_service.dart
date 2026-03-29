@@ -322,7 +322,11 @@ class LanSyncService extends ChangeNotifier {
   Future<void> _bindServerSocket() async {
     final old = _server;
     _server = null;
-    await old?.close().catchError((_) {});
+    try {
+      await old?.close();
+    } catch (_) {
+      // Best-effort close of previous server socket.
+    }
     final server = await ServerSocket.bind(
       InternetAddress.anyIPv4,
       tcpPort,
@@ -686,7 +690,6 @@ class LanSyncService extends ChangeNotifier {
     _pendingConnections.remove(peerId);
 
     final remoteAddress = connection.socket.remoteAddress;
-    final existingPeer = _peers[peerId];
     _peers[peerId] = LanPeer(
       id: peerId,
       name: peerName,
