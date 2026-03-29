@@ -20,6 +20,7 @@ class ProductRepository {
   final InventoryMovementRepository _inventoryMovementRepo =
       InventoryMovementRepository();
   static const String _productsKey = 'products';
+  static const String _deletedProductIdsKey = 'deleted_product_ids';
   static const Uuid _uuid = Uuid();
 
   // Get all products
@@ -148,7 +149,7 @@ class ProductRepository {
     return success ? 1 : 0;
   }
 
-  // Delete product
+  // Delete product and record its ID as a tombstone for sync propagation
   Future<int> deleteProduct(String id) async {
     final products = await getAllProducts();
     final initialLength = products.length;
@@ -157,7 +158,39 @@ class ProductRepository {
     if (products.length == initialLength) return 0;
 
     final success = await _saveProducts(products);
+    if (success) {
+      await addDeletedProductIds([id]);
+    }
     return success ? 1 : 0;
+  }
+
+  Future<List<String>> getDeletedProductIds() async {
+    final jsonData = await _storage.getData(_deletedProductIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedProductIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedProductIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(_deletedProductIdsKey, jsonEncode(existing.toList()));
+  }
+
+  Future<void> applyDeletedProductIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final products = await getAllProducts();
+    final filtered = products.where((p) => !deletedSet.contains(p.id)).toList();
+    if (filtered.length < products.length) {
+      await _saveProducts(filtered);
+    }
+    await addDeletedProductIds(ids);
   }
 
   // Update stock

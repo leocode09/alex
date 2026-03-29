@@ -31,6 +31,7 @@ class LanSyncService extends ChangeNotifier {
   static const Duration _connectionIdleTimeout = Duration(seconds: 35);
   static const Duration _pingInterval = Duration(seconds: 12);
   static const int _maxSyncRetryAttempts = 5;
+  static const int _maxReconnectAttempts = 8;
 
   final SyncService _syncService = SyncService();
   final RecentMessageCache _messageCache =
@@ -43,6 +44,14 @@ class LanSyncService extends ChangeNotifier {
   Timer? _announceTimer;
   Timer? _connectionHealthTimer;
   Timer? _retryTimer;
+  Timer? _discoveryRestartTimer;
+  Timer? _serverRestartTimer;
+
+  final Map<String, Timer> _reconnectTimers = {};
+  final Map<String, int> _reconnectAttempts = {};
+
+  final StreamController<LanConnectionEvent> _connectionEventController =
+      StreamController<LanConnectionEvent>.broadcast();
 
   final Map<String, LanPeer> _peers = <String, LanPeer>{};
   final Map<String, _LanConnection> _connections = <String, _LanConnection>{};
@@ -89,6 +98,9 @@ class LanSyncService extends ChangeNotifier {
   List<String> get connectedPeers =>
       _connections.values.map((connection) => connection.displayName).toList();
 
+  Stream<LanConnectionEvent> get connectionEvents =>
+      _connectionEventController.stream;
+
   Future<void> initialize() async {
     if (kIsWeb) {
       if (_deviceName == null || _deviceName!.trim().isEmpty) {
@@ -130,22 +142,8 @@ class LanSyncService extends ChangeNotifier {
     _lastError = null;
     await _ensureDeviceInfo();
     try {
-      _server = await ServerSocket.bind(
-        InternetAddress.anyIPv4,
-        tcpPort,
-        shared: true,
-      );
-      _server!.listen(
-        (socket) => _handleLanSocket(socket, outbound: false),
-        onError: (error) => _addLog('LAN server error: $error'),
-      );
-
-      _discoverySocket = await _openDiscoverySocket();
-      _discoverySocket!.broadcastEnabled = true;
-      _discoverySocket!.listen(
-        _handleLanDatagram,
-        onError: (error) => _addLog('LAN discovery error: $error'),
-      );
+      await _bindServerSocket();
+      await _bindDiscoverySocket();
 
       _announceTimer?.cancel();
       _announceTimer = Timer.periodic(
@@ -176,14 +174,24 @@ class LanSyncService extends ChangeNotifier {
   }
 
   Future<void> stop() async {
+    _running = false;
+    _status = 'stopped';
+
     _announceTimer?.cancel();
     _announceTimer = null;
-
     _connectionHealthTimer?.cancel();
     _connectionHealthTimer = null;
-
     _retryTimer?.cancel();
     _retryTimer = null;
+    _discoveryRestartTimer?.cancel();
+    _discoveryRestartTimer = null;
+    _serverRestartTimer?.cancel();
+    _serverRestartTimer = null;
+    for (final timer in _reconnectTimers.values) {
+      timer.cancel();
+    }
+    _reconnectTimers.clear();
+    _reconnectAttempts.clear();
 
     _discoverySocket?.close();
     _discoverySocket = null;
@@ -209,8 +217,6 @@ class LanSyncService extends ChangeNotifier {
     _pendingConnections.clear();
     _peers.clear();
 
-    _running = false;
-    _status = 'stopped';
     _pendingSync = false;
     _lastSyncAt = null;
     _syncDebounceTimer?.cancel();
@@ -220,6 +226,20 @@ class LanSyncService extends ChangeNotifier {
     _messageCache.clear();
     _chunkAssembler.clear();
     notifyListeners();
+  }
+
+  Future<void> onNetworkResume() async {
+    if (!_running) {
+      return;
+    }
+    await refreshLocalAddresses();
+    _sendLanAnnounce();
+    for (final peer in _peers.values.toList()) {
+      if (!_connections.containsKey(peer.id) &&
+          !_pendingConnections.contains(peer.id)) {
+        _maybeConnectToLanPeer(peer);
+      }
+    }
   }
 
   Future<void> refreshLocalAddresses() async {
@@ -274,6 +294,119 @@ class LanSyncService extends ChangeNotifier {
       _addLog('LAN connect failed to $host:$port: $e');
       notifyListeners();
     }
+  }
+
+  Future<void> _bindDiscoverySocket() async {
+    final old = _discoverySocket;
+    _discoverySocket = null;
+    old?.close();
+    final socket = await _openDiscoverySocket();
+    socket.broadcastEnabled = true;
+    _discoverySocket = socket;
+    socket.listen(
+      _handleLanDatagram,
+      onError: (error) {
+        _addLog('LAN discovery error: $error');
+        if (_running && _discoverySocket == socket) {
+          _scheduleDiscoveryRestart();
+        }
+      },
+      onDone: () {
+        if (_running && _discoverySocket == socket) {
+          _scheduleDiscoveryRestart();
+        }
+      },
+    );
+  }
+
+  Future<void> _bindServerSocket() async {
+    final old = _server;
+    _server = null;
+    await old?.close().catchError((_) {});
+    final server = await ServerSocket.bind(
+      InternetAddress.anyIPv4,
+      tcpPort,
+      shared: true,
+    );
+    _server = server;
+    server.listen(
+      (socket) => _handleLanSocket(socket, outbound: false),
+      onError: (error) {
+        _addLog('LAN server error: $error');
+        if (_running && _server == server) _scheduleServerRestart();
+      },
+      onDone: () {
+        if (_running && _server == server) _scheduleServerRestart();
+      },
+    );
+  }
+
+  void _scheduleDiscoveryRestart() {
+    _discoveryRestartTimer?.cancel();
+    _discoveryRestartTimer = Timer(const Duration(seconds: 3), () async {
+      if (!_running) return;
+      try {
+        await _bindDiscoverySocket();
+        _addLog('LAN discovery socket recovered.');
+      } catch (e) {
+        _addLog('LAN discovery restart failed: $e');
+        if (_running) _scheduleDiscoveryRestart();
+      }
+    });
+  }
+
+  void _scheduleServerRestart() {
+    _serverRestartTimer?.cancel();
+    _serverRestartTimer = Timer(const Duration(seconds: 3), () async {
+      if (!_running) return;
+      try {
+        await _bindServerSocket();
+        _addLog('LAN server socket recovered.');
+      } catch (e) {
+        _addLog('LAN server restart failed: $e');
+        if (_running) _scheduleServerRestart();
+      }
+    });
+  }
+
+  void _scheduleReconnect(String peerId) {
+    if (!_running || _connections.containsKey(peerId)) {
+      _clearReconnectState(peerId);
+      return;
+    }
+    final attempt = _reconnectAttempts[peerId] ?? 0;
+    if (attempt >= _maxReconnectAttempts) {
+      _clearReconnectState(peerId);
+      return;
+    }
+    _reconnectTimers[peerId]?.cancel();
+    final seconds = (2 << attempt).clamp(2, 30);
+    _reconnectTimers[peerId] = Timer(Duration(seconds: seconds), () {
+      _reconnectTimers.remove(peerId);
+      _attemptReconnect(peerId);
+    });
+  }
+
+  void _attemptReconnect(String peerId) {
+    if (!_running ||
+        _connections.containsKey(peerId) ||
+        _pendingConnections.contains(peerId)) {
+      _clearReconnectState(peerId);
+      return;
+    }
+    final peer = _peers[peerId];
+    if (peer == null) {
+      _clearReconnectState(peerId);
+      return;
+    }
+    _reconnectAttempts[peerId] = (_reconnectAttempts[peerId] ?? 0) + 1;
+    _pendingConnections.add(peerId);
+    unawaited(_connectToLanPeer(peer));
+  }
+
+  void _clearReconnectState(String peerId) {
+    _reconnectAttempts.remove(peerId);
+    _reconnectTimers.remove(peerId)?.cancel();
   }
 
   Future<void> triggerSync({String reason = 'update'}) async {
@@ -562,16 +695,20 @@ class LanSyncService extends ChangeNotifier {
       lastSeen: DateTime.now(),
     );
 
+    _clearReconnectState(peerId);
     _addLog(
       'LAN connected.',
       deviceId: peerId,
       deviceName: peerName,
     );
-    if (existingPeer == null) {
-      notifyListeners();
-    } else {
-      notifyListeners();
+    if (!_connectionEventController.isClosed) {
+      _connectionEventController.add(LanConnectionEvent(
+        type: LanConnectionEventType.connected,
+        peerId: peerId,
+        peerName: peerName,
+      ));
     }
+    notifyListeners();
 
     unawaited(triggerSync(reason: 'lan_connected'));
   }
@@ -588,6 +725,14 @@ class LanSyncService extends ChangeNotifier {
         deviceId: peerId,
         deviceName: name,
       );
+      if (!_connectionEventController.isClosed) {
+        _connectionEventController.add(LanConnectionEvent(
+          type: LanConnectionEventType.disconnected,
+          peerId: peerId,
+          peerName: name,
+        ));
+      }
+      _scheduleReconnect(peerId);
     }
 
     if (error != null) {
@@ -1132,6 +1277,15 @@ class LanSyncService extends ChangeNotifier {
       }
     }
 
+    for (final peerId in _reconnectAttempts.keys.toList()) {
+      if (_connections.containsKey(peerId)) {
+        _clearReconnectState(peerId);
+      } else if (!_reconnectTimers.containsKey(peerId) &&
+          !_pendingConnections.contains(peerId)) {
+        _scheduleReconnect(peerId);
+      }
+    }
+
     if (_pendingSync && isConnected && !_sending && _retryTimer == null) {
       unawaited(_flushPendingSync());
     }
@@ -1270,6 +1424,21 @@ class LanSyncAction {
   final String message;
   final String deviceId;
   final String deviceName;
+}
+
+enum LanConnectionEventType { connected, disconnected }
+
+@immutable
+class LanConnectionEvent {
+  const LanConnectionEvent({
+    required this.type,
+    required this.peerId,
+    required this.peerName,
+  });
+
+  final LanConnectionEventType type;
+  final String peerId;
+  final String peerName;
 }
 
 @immutable

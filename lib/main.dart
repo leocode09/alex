@@ -9,6 +9,7 @@ import 'providers/theme_mode_provider.dart';
 import 'routes.dart';
 import 'ui/themes/app_theme.dart';
 import 'ui/widgets/time_tamper_watcher.dart';
+import 'ui/widgets/lan_sync_watcher.dart';
 import 'ui/widgets/wifi_direct_sync_watcher.dart';
 
 void main() async {

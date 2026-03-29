@@ -73,6 +73,7 @@ class SyncService {
       final expenses = await _expenseRepo.getAllExpenses();
       final sales = await _saleRepo.getAllSales();
       final stores = await _storeRepo.getAllStores();
+      final deletedProductIds = await _productRepo.getDeletedProductIds();
 
       return SyncData(
         products: products,
@@ -82,6 +83,7 @@ class SyncService {
         expenses: expenses,
         sales: sales,
         stores: stores,
+        deletedProductIds: deletedProductIds,
         deviceId: deviceId,
       );
     } catch (e) {
@@ -142,6 +144,10 @@ class SyncService {
   }) async {
     try {
       final syncResult = SyncResult();
+
+      if (incomingData.deletedProductIds.isNotEmpty) {
+        await _productRepo.applyDeletedProductIds(incomingData.deletedProductIds);
+      }
 
       switch (strategy) {
         case SyncStrategy.replace:
@@ -241,6 +247,7 @@ class SyncService {
 
   // Merge strategies (keep newer items based on updatedAt/createdAt)
   Future<int> _mergeProducts(List<Product> incomingProducts) async {
+    final deletedIds = (await _productRepo.getDeletedProductIds()).toSet();
     final existingProducts = await _productRepo.getAllProducts();
     final Map<String, Product> productMap = {
       for (var p in existingProducts) p.id: p
@@ -248,6 +255,7 @@ class SyncService {
 
     int imported = 0;
     for (var incoming in incomingProducts) {
+      if (deletedIds.contains(incoming.id)) continue;
       final existing = productMap[incoming.id];
       if (existing == null || incoming.updatedAt.isAfter(existing.updatedAt)) {
         productMap[incoming.id] = incoming;

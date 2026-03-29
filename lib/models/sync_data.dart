@@ -15,6 +15,7 @@ class SyncData {
   final List<Expense> expenses;
   final List<Sale> sales;
   final List<Store> stores;
+  final List<String> deletedProductIds;
   final DateTime syncTimestamp;
   final String deviceId;
   final String syncVersion;
@@ -27,6 +28,7 @@ class SyncData {
     required this.expenses,
     required this.sales,
     required this.stores,
+    this.deletedProductIds = const [],
     DateTime? syncTimestamp,
     required this.deviceId,
     this.syncVersion = '1.0.0',
@@ -42,6 +44,7 @@ class SyncData {
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'sales': sales.map((s) => s.toMap()).toList(),
       'stores': stores.map((s) => s.toMap()).toList(),
+      'deletedProductIds': deletedProductIds,
       'syncTimestamp': syncTimestamp.toIso8601String(),
       'deviceId': deviceId,
       'syncVersion': syncVersion,
@@ -84,6 +87,8 @@ class SyncData {
         stores: (json['stores'] as List? ?? [])
             .map((s) => Store.fromMap(s as Map<String, dynamic>))
             .toList(),
+        deletedProductIds: (json['deletedProductIds'] as List? ?? [])
+            .cast<String>(),
         syncTimestamp: json['syncTimestamp'] != null
             ? DateTime.parse(json['syncTimestamp'] as String)
             : DateTime.now(),
@@ -119,6 +124,7 @@ class SyncData {
       expenses: [],
       sales: [],
       stores: [],
+      deletedProductIds: [],
       deviceId: deviceId,
     );
   }
@@ -131,6 +137,7 @@ class SyncData {
     List<Expense>? expenses,
     List<Sale>? sales,
     List<Store>? stores,
+    List<String>? deletedProductIds,
     DateTime? syncTimestamp,
     String? deviceId,
     String? syncVersion,
@@ -143,6 +150,7 @@ class SyncData {
       expenses: expenses ?? this.expenses,
       sales: sales ?? this.sales,
       stores: stores ?? this.stores,
+      deletedProductIds: deletedProductIds ?? this.deletedProductIds,
       syncTimestamp: syncTimestamp ?? this.syncTimestamp,
       deviceId: deviceId ?? this.deviceId,
       syncVersion: syncVersion ?? this.syncVersion,
