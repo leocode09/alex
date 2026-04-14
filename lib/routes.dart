@@ -318,8 +318,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/pin-setup';
       }
 
-      // PIN is set and required for login but not unlocked (need PIN entry)
-      if (isPinSet && requireLoginPin && !isUnlocked && !isOnPinEntry) {
+      // PIN is set and required for login but not unlocked (need PIN entry).
+      // Skip when on time-lock: that flow verifies PIN via PinProtection on the
+      // tamper page; sending users to /pin-entry would loop (tamper redirect wins).
+      if (isPinSet &&
+          requireLoginPin &&
+          !isUnlocked &&
+          !isOnPinEntry &&
+          !isOnTimeLock) {
         return '/pin-entry';
       }
 
