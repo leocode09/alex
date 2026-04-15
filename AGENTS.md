@@ -14,6 +14,8 @@
 - `Product.stock` is the canonical total base-unit count; `looseStock + Σ(packageCount × unitsPerPackage)` must equal `stock`
 - Device name (`lan_device_name` in SharedPreferences) is used for sales attribution (`Sale.employeeId`) and receipt seller identification
 - PIN protection guards sensitive operations (add/edit/delete products, create sales, edit receipts, apply discounts, etc.) via `PinProtection` helper and `PinService`
-- Multi-device sync over LAN (`LanSyncService`) and Wi-Fi Direct (`WifiDirectSyncService`) exchanges full catalog data so product edits propagate between nearby devices
+- Multi-device catalog sync uses LAN (`LanSyncService`) and Wi-Fi Direct (`WifiDirectSyncService`) only—QR code catalog sync is not part of the app; peers exchange full `SyncData` so catalog changes propagate between nearby devices
+- Product deletes are tracked as tombstones (`deletedProductIds` on `SyncData`, persisted via `ProductRepository`) and applied on merge import so deletions propagate over LAN/Wi-Fi Direct
+- On the sales page, multi-package products render as one catalog card per package (and a Single line when applicable); tap adds that package/Single line without a package picker sheet
 - Shorebird OTA (code push) is integrated for Dart-only updates without rebuilding the APK; `shorebird.yaml` at project root, `shorebird_code_push` in pubspec, auto-update check via `ShorebirdUpdater` in `main.dart`
 - Sales cart line quantity can be entered as digits in the field between −/+ (commits on blur or keyboard done; stock-aware caps; 0 removes the line), not only via the stepper buttons
