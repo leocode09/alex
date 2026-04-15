@@ -125,7 +125,7 @@ class MainScaffold extends StatelessWidget {
       ),
       const _NavItem(
         slotIndex: 2,
-        label: 'Products',
+        label: 'Inventory',
         icon: Icons.inventory_2_outlined,
         selectedIcon: Icons.inventory_2,
         route: '/products',

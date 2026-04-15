@@ -45,7 +45,7 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products',
+        title: const Text('Inventory',
             style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: false,
         actions: [
@@ -123,7 +123,7 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Search products...',
+                    hintText: 'Search inventory...',
                     prefixIcon: const Icon(Icons.search, size: 20),
                     contentPadding:
                         const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
