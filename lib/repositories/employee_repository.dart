@@ -5,6 +5,7 @@ import '../services/database_helper.dart';
 class EmployeeRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _employeesKey = 'employees';
+  static const String _deletedIdsKey = 'deleted_employee_ids';
 
   // Get all employees
   Future<List<Employee>> getAllEmployees() async {
@@ -74,16 +75,51 @@ class EmployeeRepository {
     }
   }
 
-  // Delete employee
+  // Delete employee (records tombstone for cross-device sync propagation)
   Future<bool> deleteEmployee(String id) async {
     try {
       final employees = await getAllEmployees();
+      final initialLength = employees.length;
       employees.removeWhere((e) => e.id == id);
-      return await _saveEmployees(employees);
+      final success = await _saveEmployees(employees);
+      if (success && employees.length < initialLength) {
+        await addDeletedEmployeeIds([id]);
+      }
+      return success;
     } catch (e) {
       print('Error deleting employee: $e');
       return false;
     }
+  }
+
+  Future<List<String>> getDeletedEmployeeIds() async {
+    final jsonData = await _storage.getData(_deletedIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedEmployeeIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedEmployeeIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+  }
+
+  Future<void> applyDeletedEmployeeIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final employees = await getAllEmployees();
+    final filtered =
+        employees.where((e) => !deletedSet.contains(e.id)).toList();
+    if (filtered.length < employees.length) {
+      await _saveEmployees(filtered);
+    }
+    await addDeletedEmployeeIds(ids);
   }
 
   // Replace all employees (for sync)

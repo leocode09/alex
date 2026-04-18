@@ -31,6 +31,7 @@ class MoneyRepository {
 
   static const String _accountsKey = 'money_accounts';
   static const String _historyKey = 'money_account_history';
+  static const String _deletedAccountIdsKey = 'deleted_money_account_ids';
 
   Future<List<MoneyAccount>> getAllAccounts() async {
     try {
@@ -210,6 +211,7 @@ class MoneyRepository {
     if (!savedAccounts) {
       return MoneyActionResult.fail('Failed to delete account.');
     }
+    await addDeletedMoneyAccountIds([accountId]);
 
     final historyRecord = AccountHistoryRecord(
       id: 'mh_${_uuid.v4()}',
@@ -363,6 +365,45 @@ class MoneyRepository {
     final history = await _readHistory();
     history.add(record);
     return _saveHistory(history);
+  }
+
+  Future<bool> replaceAllAccounts(List<MoneyAccount> accounts) async {
+    return _saveAccounts(accounts);
+  }
+
+  Future<bool> replaceAllHistory(List<AccountHistoryRecord> history) async {
+    return _saveHistory(history);
+  }
+
+  Future<List<String>> getDeletedMoneyAccountIds() async {
+    final jsonData = await _storage.getData(_deletedAccountIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedMoneyAccountIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedMoneyAccountIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(
+        _deletedAccountIdsKey, jsonEncode(existing.toList()));
+  }
+
+  Future<void> applyDeletedMoneyAccountIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final accounts = await _readAccounts();
+    final filtered =
+        accounts.where((a) => !deletedSet.contains(a.id)).toList();
+    if (filtered.length < accounts.length) {
+      await _saveAccounts(filtered);
+    }
+    await addDeletedMoneyAccountIds(ids);
   }
 
   Future<MoneyActionResult> updateHistoryRecord({

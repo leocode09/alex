@@ -9,6 +9,9 @@ import '../models/employee.dart';
 import '../models/expense.dart';
 import '../models/sale.dart';
 import '../models/store.dart';
+import '../models/money_account.dart';
+import '../models/account_history_record.dart';
+import '../models/inventory_movement.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/category_repository.dart';
 import '../repositories/customer_repository.dart';
@@ -16,6 +19,8 @@ import '../repositories/employee_repository.dart';
 import '../repositories/expense_repository.dart';
 import '../repositories/sale_repository.dart';
 import '../repositories/store_repository.dart';
+import '../repositories/money_repository.dart';
+import '../repositories/inventory_movement_repository.dart';
 import 'sync_event_bus.dart';
 
 enum SyncStrategy {
@@ -32,6 +37,9 @@ class SyncService {
   final ExpenseRepository _expenseRepo = ExpenseRepository();
   final SaleRepository _saleRepo = SaleRepository();
   final StoreRepository _storeRepo = StoreRepository();
+  final MoneyRepository _moneyRepo = MoneyRepository();
+  final InventoryMovementRepository _movementRepo =
+      InventoryMovementRepository();
 
   /// Get unique device identifier
   Future<String> getDeviceId() async {
@@ -39,17 +47,14 @@ class SyncService {
       final deviceInfo = DeviceInfoPlugin();
       String? deviceId;
 
-      // Try to get Android device ID
       try {
         final androidInfo = await deviceInfo.androidInfo;
         deviceId = androidInfo.id;
       } catch (e) {
-        // Not Android, try iOS
         try {
           final iosInfo = await deviceInfo.iosInfo;
           deviceId = iosInfo.identifierForVendor;
         } catch (e) {
-          // Fallback to a generated ID
           deviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
         }
       }
@@ -61,7 +66,7 @@ class SyncService {
     }
   }
 
-  /// Export all data from the device
+  /// Export all data (including money, inventory, and tombstones)
   Future<SyncData> exportAllData() async {
     try {
       final deviceId = await getDeviceId();
@@ -73,7 +78,18 @@ class SyncService {
       final expenses = await _expenseRepo.getAllExpenses();
       final sales = await _saleRepo.getAllSales();
       final stores = await _storeRepo.getAllStores();
+      final moneyAccounts = await _moneyRepo.getAllAccounts();
+      final moneyHistory = await _moneyRepo.getAllHistory();
+      final inventoryMovements = await _movementRepo.getAllMovements();
+
       final deletedProductIds = await _productRepo.getDeletedProductIds();
+      final deletedCategoryIds = await _categoryRepo.getDeletedCategoryIds();
+      final deletedCustomerIds = await _customerRepo.getDeletedCustomerIds();
+      final deletedEmployeeIds = await _employeeRepo.getDeletedEmployeeIds();
+      final deletedExpenseIds = await _expenseRepo.getDeletedExpenseIds();
+      final deletedStoreIds = await _storeRepo.getDeletedStoreIds();
+      final deletedMoneyAccountIds =
+          await _moneyRepo.getDeletedMoneyAccountIds();
 
       return SyncData(
         products: products,
@@ -83,7 +99,16 @@ class SyncService {
         expenses: expenses,
         sales: sales,
         stores: stores,
+        moneyAccounts: moneyAccounts,
+        moneyHistory: moneyHistory,
+        inventoryMovements: inventoryMovements,
         deletedProductIds: deletedProductIds,
+        deletedCategoryIds: deletedCategoryIds,
+        deletedCustomerIds: deletedCustomerIds,
+        deletedEmployeeIds: deletedEmployeeIds,
+        deletedExpenseIds: deletedExpenseIds,
+        deletedStoreIds: deletedStoreIds,
+        deletedMoneyAccountIds: deletedMoneyAccountIds,
         deviceId: deviceId,
       );
     } catch (e) {
@@ -92,18 +117,15 @@ class SyncService {
     }
   }
 
-  /// Convert SyncData to JSON string for transport
   String syncDataToJson(SyncData syncData) {
     try {
-      final jsonString = jsonEncode(syncData.toJson());
-      return jsonString;
+      return jsonEncode(syncData.toJson());
     } catch (e) {
       print('Error converting sync data to JSON: $e');
       rethrow;
     }
   }
 
-  /// Parse JSON string to SyncData
   SyncData jsonToSyncData(String jsonString) {
     try {
       final Map<String, dynamic> json = jsonDecode(jsonString);
@@ -114,30 +136,15 @@ class SyncService {
     }
   }
 
-  /// Compress JSON for transport efficiency (placeholder for future implementation)
   Uint8List compressData(String jsonString) {
-    try {
-      // Convert string to bytes
-      // For now, just return the bytes. Could add gzip compression later if needed
-      return Uint8List.fromList(utf8.encode(jsonString));
-    } catch (e) {
-      print('Error compressing data: $e');
-      rethrow;
-    }
+    return Uint8List.fromList(utf8.encode(jsonString));
   }
 
-  /// Decompress data payload (placeholder for future implementation)
   String decompressData(Uint8List compressedData) {
-    try {
-      // For now, just decode the bytes. Could add gzip decompression later if needed
-      return utf8.decode(compressedData);
-    } catch (e) {
-      print('Error decompressing data: $e');
-      rethrow;
-    }
+    return utf8.decode(compressedData);
   }
 
-  /// Import and merge data with specified strategy
+  /// Import and merge data with specified strategy.
   Future<SyncResult> importData(
     SyncData incomingData, {
     SyncStrategy strategy = SyncStrategy.merge,
@@ -145,9 +152,9 @@ class SyncService {
     try {
       final syncResult = SyncResult();
 
-      if (incomingData.deletedProductIds.isNotEmpty) {
-        await _productRepo.applyDeletedProductIds(incomingData.deletedProductIds);
-      }
+      // Apply all tombstones up-front so incoming records for deleted ids
+      // are filtered during the merge phase below.
+      await _applyTombstones(incomingData);
 
       switch (strategy) {
         case SyncStrategy.replace:
@@ -163,6 +170,12 @@ class SyncService {
               await _replaceExpenses(incomingData.expenses);
           syncResult.salesImported = await _replaceSales(incomingData.sales);
           syncResult.storesImported = await _replaceStores(incomingData.stores);
+          syncResult.moneyAccountsImported =
+              await _replaceMoneyAccounts(incomingData.moneyAccounts);
+          syncResult.moneyHistoryImported =
+              await _replaceMoneyHistory(incomingData.moneyHistory);
+          syncResult.inventoryMovementsImported = await _replaceMovements(
+              incomingData.inventoryMovements);
           break;
 
         case SyncStrategy.merge:
@@ -178,6 +191,12 @@ class SyncService {
               await _mergeExpenses(incomingData.expenses);
           syncResult.salesImported = await _mergeSales(incomingData.sales);
           syncResult.storesImported = await _mergeStores(incomingData.stores);
+          syncResult.moneyAccountsImported =
+              await _mergeMoneyAccounts(incomingData.moneyAccounts);
+          syncResult.moneyHistoryImported =
+              await _mergeMoneyHistory(incomingData.moneyHistory);
+          syncResult.inventoryMovementsImported =
+              await _mergeMovements(incomingData.inventoryMovements);
           break;
 
         case SyncStrategy.append:
@@ -193,6 +212,12 @@ class SyncService {
               await _appendExpenses(incomingData.expenses);
           syncResult.salesImported = await _appendSales(incomingData.sales);
           syncResult.storesImported = await _appendStores(incomingData.stores);
+          syncResult.moneyAccountsImported =
+              await _appendMoneyAccounts(incomingData.moneyAccounts);
+          syncResult.moneyHistoryImported =
+              await _appendMoneyHistory(incomingData.moneyHistory);
+          syncResult.inventoryMovementsImported =
+              await _appendMovements(incomingData.inventoryMovements);
           break;
       }
 
@@ -206,6 +231,31 @@ class SyncService {
         success: false,
         message: 'Sync failed: $e',
       );
+    }
+  }
+
+  Future<void> _applyTombstones(SyncData incoming) async {
+    if (incoming.deletedProductIds.isNotEmpty) {
+      await _productRepo.applyDeletedProductIds(incoming.deletedProductIds);
+    }
+    if (incoming.deletedCategoryIds.isNotEmpty) {
+      await _categoryRepo.applyDeletedCategoryIds(incoming.deletedCategoryIds);
+    }
+    if (incoming.deletedCustomerIds.isNotEmpty) {
+      await _customerRepo.applyDeletedCustomerIds(incoming.deletedCustomerIds);
+    }
+    if (incoming.deletedEmployeeIds.isNotEmpty) {
+      await _employeeRepo.applyDeletedEmployeeIds(incoming.deletedEmployeeIds);
+    }
+    if (incoming.deletedExpenseIds.isNotEmpty) {
+      await _expenseRepo.applyDeletedExpenseIds(incoming.deletedExpenseIds);
+    }
+    if (incoming.deletedStoreIds.isNotEmpty) {
+      await _storeRepo.applyDeletedStoreIds(incoming.deletedStoreIds);
+    }
+    if (incoming.deletedMoneyAccountIds.isNotEmpty) {
+      await _moneyRepo.applyDeletedMoneyAccountIds(
+          incoming.deletedMoneyAccountIds);
     }
   }
 
@@ -245,6 +295,21 @@ class SyncService {
     return stores.length;
   }
 
+  Future<int> _replaceMoneyAccounts(List<MoneyAccount> accounts) async {
+    await _moneyRepo.replaceAllAccounts(accounts);
+    return accounts.length;
+  }
+
+  Future<int> _replaceMoneyHistory(List<AccountHistoryRecord> history) async {
+    await _moneyRepo.replaceAllHistory(history);
+    return history.length;
+  }
+
+  Future<int> _replaceMovements(List<InventoryMovement> movements) async {
+    await _movementRepo.replaceAllMovements(movements);
+    return movements.length;
+  }
+
   // Merge strategies (keep newer items based on updatedAt/createdAt)
   Future<int> _mergeProducts(List<Product> incomingProducts) async {
     final deletedIds = (await _productRepo.getDeletedProductIds()).toSet();
@@ -268,6 +333,7 @@ class SyncService {
   }
 
   Future<int> _mergeCategories(List<Category> incomingCategories) async {
+    final deletedIds = (await _categoryRepo.getDeletedCategoryIds()).toSet();
     final existingCategories = await _categoryRepo.getAllCategories();
     final Map<String, Category> categoryMap = {
       for (var c in existingCategories) c.id: c
@@ -275,6 +341,7 @@ class SyncService {
 
     int imported = 0;
     for (var incoming in incomingCategories) {
+      if (deletedIds.contains(incoming.id)) continue;
       final existing = categoryMap[incoming.id];
       if (existing == null || incoming.updatedAt.isAfter(existing.updatedAt)) {
         categoryMap[incoming.id] = incoming;
@@ -287,6 +354,7 @@ class SyncService {
   }
 
   Future<int> _mergeCustomers(List<Customer> incomingCustomers) async {
+    final deletedIds = (await _customerRepo.getDeletedCustomerIds()).toSet();
     final existingCustomers = await _customerRepo.getAllCustomers();
     final Map<String, Customer> customerMap = {
       for (var c in existingCustomers) c.id: c
@@ -294,8 +362,11 @@ class SyncService {
 
     int imported = 0;
     for (var incoming in incomingCustomers) {
+      if (deletedIds.contains(incoming.id)) continue;
       final existing = customerMap[incoming.id];
-      if (existing == null || incoming.joinDate.isAfter(existing.joinDate)) {
+      if (existing == null ||
+          incoming.updatedAt.isAfter(existing.updatedAt) ||
+          incoming.joinDate.isAfter(existing.joinDate)) {
         customerMap[incoming.id] = incoming;
         imported++;
       }
@@ -306,6 +377,7 @@ class SyncService {
   }
 
   Future<int> _mergeEmployees(List<Employee> incomingEmployees) async {
+    final deletedIds = (await _employeeRepo.getDeletedEmployeeIds()).toSet();
     final existingEmployees = await _employeeRepo.getAllEmployees();
     final Map<String, Employee> employeeMap = {
       for (var e in existingEmployees) e.id: e
@@ -313,8 +385,11 @@ class SyncService {
 
     int imported = 0;
     for (var incoming in incomingEmployees) {
+      if (deletedIds.contains(incoming.id)) continue;
       final existing = employeeMap[incoming.id];
-      if (existing == null || incoming.joinDate.isAfter(existing.joinDate)) {
+      if (existing == null ||
+          incoming.updatedAt.isAfter(existing.updatedAt) ||
+          incoming.joinDate.isAfter(existing.joinDate)) {
         employeeMap[incoming.id] = incoming;
         imported++;
       }
@@ -325,6 +400,7 @@ class SyncService {
   }
 
   Future<int> _mergeExpenses(List<Expense> incomingExpenses) async {
+    final deletedIds = (await _expenseRepo.getDeletedExpenseIds()).toSet();
     final existingExpenses = await _expenseRepo.getAllExpenses();
     final Map<String, Expense> expenseMap = {
       for (var e in existingExpenses) e.id: e
@@ -332,6 +408,7 @@ class SyncService {
 
     int imported = 0;
     for (var incoming in incomingExpenses) {
+      if (deletedIds.contains(incoming.id)) continue;
       final existing = expenseMap[incoming.id];
       if (existing == null || incoming.updatedAt.isAfter(existing.updatedAt)) {
         expenseMap[incoming.id] = incoming;
@@ -360,13 +437,17 @@ class SyncService {
   }
 
   Future<int> _mergeStores(List<Store> incomingStores) async {
+    final deletedIds = (await _storeRepo.getDeletedStoreIds()).toSet();
     final existingStores = await _storeRepo.getAllStores();
     final Map<String, Store> storeMap = {for (var s in existingStores) s.id: s};
 
     int imported = 0;
     for (var incoming in incomingStores) {
+      if (deletedIds.contains(incoming.id)) continue;
       final existing = storeMap[incoming.id];
-      if (existing == null || incoming.createdAt.isAfter(existing.createdAt)) {
+      if (existing == null ||
+          incoming.updatedAt.isAfter(existing.updatedAt) ||
+          incoming.createdAt.isAfter(existing.createdAt)) {
         storeMap[incoming.id] = incoming;
         imported++;
       }
@@ -376,110 +457,188 @@ class SyncService {
     return imported;
   }
 
-  // Append strategies (only add new items)
-  Future<int> _appendProducts(List<Product> incomingProducts) async {
-    final existingProducts = await _productRepo.getAllProducts();
-    final existingIds = existingProducts.map((p) => p.id).toSet();
+  Future<int> _mergeMoneyAccounts(List<MoneyAccount> incoming) async {
+    final deletedIds =
+        (await _moneyRepo.getDeletedMoneyAccountIds()).toSet();
+    final existing = await _moneyRepo.getAllAccounts();
+    final Map<String, MoneyAccount> accountMap = {
+      for (var a in existing) a.id: a
+    };
 
-    final newProducts =
-        incomingProducts.where((p) => !existingIds.contains(p.id)).toList();
-
-    if (newProducts.isNotEmpty) {
-      existingProducts.addAll(newProducts);
-      await _productRepo.replaceAllProducts(existingProducts);
+    int imported = 0;
+    for (var acc in incoming) {
+      if (deletedIds.contains(acc.id)) continue;
+      final current = accountMap[acc.id];
+      if (current == null || acc.updatedAt.isAfter(current.updatedAt)) {
+        accountMap[acc.id] = acc;
+        imported++;
+      }
     }
 
-    return newProducts.length;
+    await _moneyRepo.replaceAllAccounts(accountMap.values.toList());
+    return imported;
+  }
+
+  Future<int> _mergeMoneyHistory(List<AccountHistoryRecord> incoming) async {
+    // Money history records are immutable; merge is id-dedupe append.
+    final existing = await _moneyRepo.getAllHistory();
+    final Map<String, AccountHistoryRecord> map = {
+      for (var r in existing) r.id: r
+    };
+
+    int imported = 0;
+    for (var r in incoming) {
+      if (!map.containsKey(r.id)) {
+        map[r.id] = r;
+        imported++;
+      }
+    }
+
+    final merged = map.values.toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    await _moneyRepo.replaceAllHistory(merged);
+    return imported;
+  }
+
+  Future<int> _mergeMovements(List<InventoryMovement> incoming) async {
+    // Inventory movements are immutable; merge is id-dedupe append.
+    final existing = await _movementRepo.getAllMovements();
+    final Map<String, InventoryMovement> map = {
+      for (var m in existing) m.id: m
+    };
+
+    int imported = 0;
+    for (var m in incoming) {
+      if (!map.containsKey(m.id)) {
+        map[m.id] = m;
+        imported++;
+      }
+    }
+
+    final merged = map.values.toList();
+    await _movementRepo.replaceAllMovements(merged);
+    return imported;
+  }
+
+  // Append strategies (only add new items)
+  Future<int> _appendProducts(List<Product> incomingProducts) async {
+    final existing = await _productRepo.getAllProducts();
+    final existingIds = existing.map((p) => p.id).toSet();
+    final newItems =
+        incomingProducts.where((p) => !existingIds.contains(p.id)).toList();
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _productRepo.replaceAllProducts(existing);
+    }
+    return newItems.length;
   }
 
   Future<int> _appendCategories(List<Category> incomingCategories) async {
-    final existingCategories = await _categoryRepo.getAllCategories();
-    final existingIds = existingCategories.map((c) => c.id).toSet();
-
-    final newCategories =
+    final existing = await _categoryRepo.getAllCategories();
+    final existingIds = existing.map((c) => c.id).toSet();
+    final newItems =
         incomingCategories.where((c) => !existingIds.contains(c.id)).toList();
-
-    if (newCategories.isNotEmpty) {
-      existingCategories.addAll(newCategories);
-      await _categoryRepo.replaceAllCategories(existingCategories);
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _categoryRepo.replaceAllCategories(existing);
     }
-
-    return newCategories.length;
+    return newItems.length;
   }
 
   Future<int> _appendCustomers(List<Customer> incomingCustomers) async {
-    final existingCustomers = await _customerRepo.getAllCustomers();
-    final existingIds = existingCustomers.map((c) => c.id).toSet();
-
-    final newCustomers =
+    final existing = await _customerRepo.getAllCustomers();
+    final existingIds = existing.map((c) => c.id).toSet();
+    final newItems =
         incomingCustomers.where((c) => !existingIds.contains(c.id)).toList();
-
-    if (newCustomers.isNotEmpty) {
-      existingCustomers.addAll(newCustomers);
-      await _customerRepo.replaceAllCustomers(existingCustomers);
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _customerRepo.replaceAllCustomers(existing);
     }
-
-    return newCustomers.length;
+    return newItems.length;
   }
 
   Future<int> _appendEmployees(List<Employee> incomingEmployees) async {
-    final existingEmployees = await _employeeRepo.getAllEmployees();
-    final existingIds = existingEmployees.map((e) => e.id).toSet();
-
-    final newEmployees =
+    final existing = await _employeeRepo.getAllEmployees();
+    final existingIds = existing.map((e) => e.id).toSet();
+    final newItems =
         incomingEmployees.where((e) => !existingIds.contains(e.id)).toList();
-
-    if (newEmployees.isNotEmpty) {
-      existingEmployees.addAll(newEmployees);
-      await _employeeRepo.replaceAllEmployees(existingEmployees);
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _employeeRepo.replaceAllEmployees(existing);
     }
-
-    return newEmployees.length;
+    return newItems.length;
   }
 
   Future<int> _appendExpenses(List<Expense> incomingExpenses) async {
-    final existingExpenses = await _expenseRepo.getAllExpenses();
-    final existingIds = existingExpenses.map((e) => e.id).toSet();
-
-    final newExpenses =
+    final existing = await _expenseRepo.getAllExpenses();
+    final existingIds = existing.map((e) => e.id).toSet();
+    final newItems =
         incomingExpenses.where((e) => !existingIds.contains(e.id)).toList();
-
-    if (newExpenses.isNotEmpty) {
-      existingExpenses.addAll(newExpenses);
-      await _expenseRepo.replaceAllExpenses(existingExpenses);
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _expenseRepo.replaceAllExpenses(existing);
     }
-
-    return newExpenses.length;
+    return newItems.length;
   }
 
   Future<int> _appendSales(List<Sale> incomingSales) async {
-    final existingSales = await _saleRepo.getAllSales();
-    final existingIds = existingSales.map((s) => s.id).toSet();
-
-    final newSales =
+    final existing = await _saleRepo.getAllSales();
+    final existingIds = existing.map((s) => s.id).toSet();
+    final newItems =
         incomingSales.where((s) => !existingIds.contains(s.id)).toList();
-
-    if (newSales.isNotEmpty) {
-      existingSales.addAll(newSales);
-      await _saleRepo.replaceAllSales(existingSales);
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _saleRepo.replaceAllSales(existing);
     }
-
-    return newSales.length;
+    return newItems.length;
   }
 
   Future<int> _appendStores(List<Store> incomingStores) async {
-    final existingStores = await _storeRepo.getAllStores();
-    final existingIds = existingStores.map((s) => s.id).toSet();
-
-    final newStores =
+    final existing = await _storeRepo.getAllStores();
+    final existingIds = existing.map((s) => s.id).toSet();
+    final newItems =
         incomingStores.where((s) => !existingIds.contains(s.id)).toList();
-
-    if (newStores.isNotEmpty) {
-      existingStores.addAll(newStores);
-      await _storeRepo.replaceAllStores(existingStores);
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _storeRepo.replaceAllStores(existing);
     }
+    return newItems.length;
+  }
 
-    return newStores.length;
+  Future<int> _appendMoneyAccounts(List<MoneyAccount> incoming) async {
+    final existing = await _moneyRepo.getAllAccounts();
+    final existingIds = existing.map((a) => a.id).toSet();
+    final newItems =
+        incoming.where((a) => !existingIds.contains(a.id)).toList();
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _moneyRepo.replaceAllAccounts(existing);
+    }
+    return newItems.length;
+  }
+
+  Future<int> _appendMoneyHistory(List<AccountHistoryRecord> incoming) async {
+    final existing = await _moneyRepo.getAllHistory();
+    final existingIds = existing.map((r) => r.id).toSet();
+    final newItems =
+        incoming.where((r) => !existingIds.contains(r.id)).toList();
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _moneyRepo.replaceAllHistory(existing);
+    }
+    return newItems.length;
+  }
+
+  Future<int> _appendMovements(List<InventoryMovement> incoming) async {
+    final existing = await _movementRepo.getAllMovements();
+    final existingIds = existing.map((m) => m.id).toSet();
+    final newItems =
+        incoming.where((m) => !existingIds.contains(m.id)).toList();
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _movementRepo.replaceAllMovements(existing);
+    }
+    return newItems.length;
   }
 
   /// Calculate estimated size of sync data in bytes
@@ -511,6 +670,9 @@ class SyncResult {
   int expensesImported;
   int salesImported;
   int storesImported;
+  int moneyAccountsImported;
+  int moneyHistoryImported;
+  int inventoryMovementsImported;
 
   SyncResult({
     this.success = false,
@@ -522,6 +684,9 @@ class SyncResult {
     this.expensesImported = 0,
     this.salesImported = 0,
     this.storesImported = 0,
+    this.moneyAccountsImported = 0,
+    this.moneyHistoryImported = 0,
+    this.inventoryMovementsImported = 0,
   });
 
   int get totalImported =>
@@ -531,7 +696,10 @@ class SyncResult {
       employeesImported +
       expensesImported +
       salesImported +
-      storesImported;
+      storesImported +
+      moneyAccountsImported +
+      moneyHistoryImported +
+      inventoryMovementsImported;
 
   Map<String, dynamic> toMap() {
     return {
@@ -544,6 +712,9 @@ class SyncResult {
       'expensesImported': expensesImported,
       'salesImported': salesImported,
       'storesImported': storesImported,
+      'moneyAccountsImported': moneyAccountsImported,
+      'moneyHistoryImported': moneyHistoryImported,
+      'inventoryMovementsImported': inventoryMovementsImported,
       'totalImported': totalImported,
     };
   }

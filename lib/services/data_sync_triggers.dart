@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'cloud/cloud_sync_service.dart';
 import 'lan_sync_service.dart';
 import 'wifi_direct_sync_service.dart';
 
@@ -17,6 +18,10 @@ class DataSyncTriggers {
       _safeTrigger(
         label: 'lan',
         run: () => LanSyncService().triggerSync(reason: normalizedReason),
+      ),
+      _safeTrigger(
+        label: 'cloud',
+        run: () => CloudSyncService().triggerSync(reason: normalizedReason),
       ),
     ]);
   }

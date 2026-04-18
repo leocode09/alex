@@ -6,6 +6,7 @@ import '../services/database_helper.dart';
 class ExpenseRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _expensesKey = 'expenses';
+  static const String _deletedIdsKey = 'deleted_expense_ids';
 
   Future<List<Expense>> getAllExpenses() async {
     try {
@@ -87,12 +88,47 @@ class ExpenseRepository {
   Future<bool> deleteExpense(String id) async {
     try {
       final expenses = await getAllExpenses();
+      final initialLength = expenses.length;
       expenses.removeWhere((expense) => expense.id == id);
-      return await _saveExpenses(expenses);
+      final success = await _saveExpenses(expenses);
+      if (success && expenses.length < initialLength) {
+        await addDeletedExpenseIds([id]);
+      }
+      return success;
     } catch (e) {
       print('Error deleting expense: $e');
       return false;
     }
+  }
+
+  Future<List<String>> getDeletedExpenseIds() async {
+    final jsonData = await _storage.getData(_deletedIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedExpenseIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedExpenseIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+  }
+
+  Future<void> applyDeletedExpenseIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final expenses = await getAllExpenses();
+    final filtered =
+        expenses.where((e) => !deletedSet.contains(e.id)).toList();
+    if (filtered.length < expenses.length) {
+      await _saveExpenses(filtered);
+    }
+    await addDeletedExpenseIds(ids);
   }
 
   Future<List<Expense>> getExpensesByDateRange(

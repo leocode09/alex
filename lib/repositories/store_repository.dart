@@ -5,6 +5,7 @@ import '../services/database_helper.dart';
 class StoreRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _storesKey = 'stores';
+  static const String _deletedIdsKey = 'deleted_store_ids';
 
   // Get all stores
   Future<List<Store>> getAllStores() async {
@@ -74,16 +75,50 @@ class StoreRepository {
     }
   }
 
-  // Delete store
+  // Delete store (records tombstone for cross-device sync propagation)
   Future<bool> deleteStore(String id) async {
     try {
       final stores = await getAllStores();
+      final initialLength = stores.length;
       stores.removeWhere((s) => s.id == id);
-      return await _saveStores(stores);
+      final success = await _saveStores(stores);
+      if (success && stores.length < initialLength) {
+        await addDeletedStoreIds([id]);
+      }
+      return success;
     } catch (e) {
       print('Error deleting store: $e');
       return false;
     }
+  }
+
+  Future<List<String>> getDeletedStoreIds() async {
+    final jsonData = await _storage.getData(_deletedIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedStoreIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedStoreIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+  }
+
+  Future<void> applyDeletedStoreIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final stores = await getAllStores();
+    final filtered = stores.where((s) => !deletedSet.contains(s.id)).toList();
+    if (filtered.length < stores.length) {
+      await _saveStores(filtered);
+    }
+    await addDeletedStoreIds(ids);
   }
 
   // Replace all stores (for sync)

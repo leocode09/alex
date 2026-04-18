@@ -5,6 +5,7 @@ import '../services/database_helper.dart';
 class CustomerRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _customersKey = 'customers';
+  static const String _deletedIdsKey = 'deleted_customer_ids';
 
   // Get all customers
   Future<List<Customer>> getAllCustomers() async {
@@ -74,16 +75,51 @@ class CustomerRepository {
     }
   }
 
-  // Delete customer
+  // Delete customer (records tombstone for cross-device sync propagation)
   Future<bool> deleteCustomer(String id) async {
     try {
       final customers = await getAllCustomers();
+      final initialLength = customers.length;
       customers.removeWhere((c) => c.id == id);
-      return await _saveCustomers(customers);
+      final success = await _saveCustomers(customers);
+      if (success && customers.length < initialLength) {
+        await addDeletedCustomerIds([id]);
+      }
+      return success;
     } catch (e) {
       print('Error deleting customer: $e');
       return false;
     }
+  }
+
+  Future<List<String>> getDeletedCustomerIds() async {
+    final jsonData = await _storage.getData(_deletedIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedCustomerIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedCustomerIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+  }
+
+  Future<void> applyDeletedCustomerIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final customers = await getAllCustomers();
+    final filtered =
+        customers.where((c) => !deletedSet.contains(c.id)).toList();
+    if (filtered.length < customers.length) {
+      await _saveCustomers(filtered);
+    }
+    await addDeletedCustomerIds(ids);
   }
 
   // Replace all customers (for sync)

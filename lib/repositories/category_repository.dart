@@ -5,6 +5,7 @@ import '../services/database_helper.dart';
 class CategoryRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _categoriesKey = 'categories';
+  static const String _deletedIdsKey = 'deleted_category_ids';
 
   // Get all categories
   Future<List<Category>> getAllCategories() async {
@@ -117,11 +118,46 @@ class CategoryRepository {
     return await _saveCategories(categories);
   }
 
-  // Delete category
+  // Delete category (records tombstone for cross-device sync propagation)
   Future<bool> deleteCategory(String id) async {
     final categories = await getAllCategories();
+    final initialLength = categories.length;
     categories.removeWhere((c) => c.id == id);
-    return await _saveCategories(categories);
+    final success = await _saveCategories(categories);
+    if (success && categories.length < initialLength) {
+      await addDeletedCategoryIds([id]);
+    }
+    return success;
+  }
+
+  Future<List<String>> getDeletedCategoryIds() async {
+    final jsonData = await _storage.getData(_deletedIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedCategoryIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedCategoryIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+  }
+
+  Future<void> applyDeletedCategoryIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final categories = await getAllCategories();
+    final filtered =
+        categories.where((c) => !deletedSet.contains(c.id)).toList();
+    if (filtered.length < categories.length) {
+      await _saveCategories(filtered);
+    }
+    await addDeletedCategoryIds(ids);
   }
 
   // Initialize default categories if none exist
