@@ -91,6 +91,26 @@ class SettingsPage extends ConsumerWidget {
                     }
                   },
                 ),
+              if (isVisible('dataSync'))
+                _buildSettingTile(
+                  context,
+                  'Cloud Sync',
+                  'Firestore backup and live two-way sync',
+                  Icons.cloud_sync_outlined,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () => PinService().isPinRequiredForDataSync(),
+                      title: 'Cloud Sync',
+                      subtitle: 'Enter PIN to manage cloud sync',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/cloud-sync');
+                    }
+                  },
+                ),
               if (isVisible('managePromotions'))
                 _buildSettingTile(
                   context,

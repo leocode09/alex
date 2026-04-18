@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(shopId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/shops/$(shopId)/members/$(request.auth.uid));
+    }
+
+    match /shops/{shopId} {
+      // Any signed-in user can create a shop (they become owner and first member).
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerUid == request.auth.uid;
+
+      // Reads allowed for members, and for any signed-in user looking up a
+      // shop by code (needed for the Join flow). Writes restricted to
+      // members; deletes restricted to the owner.
+      allow read: if isSignedIn();
+      allow update: if isMember(shopId);
+      allow delete: if isSignedIn()
+                    && resource.data.ownerUid == request.auth.uid;
+
+      // Membership docs: a user can create/delete their OWN membership doc
+      // (needed for join / leave), and any existing member can read the list.
+      match /members/{uid} {
+        allow read: if isMember(shopId);
+        allow create, update, delete: if isSignedIn()
+                                      && request.auth.uid == uid;
+      }
+
+      // All other data under /shops/{shopId}/** is gated on membership.
+      match /{document=**} {
+        allow read, write: if isMember(shopId);
+      }
+    }
+  }
+}

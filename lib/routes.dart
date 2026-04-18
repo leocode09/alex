@@ -51,6 +51,7 @@ import 'ui/pages/stores/store_details_page.dart';
 // Settings
 import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/lan/lan_manager_page.dart';
+import 'ui/pages/cloud/cloud_sync_page.dart';
 
 // Hardware
 import 'ui/pages/hardware/hardware_setup_page.dart';
@@ -97,6 +98,7 @@ int _getCurrentIndex(String location) {
   if (location.startsWith('/reports')) return 3;
   if (location.startsWith('/settings') ||
       location.startsWith('/lan') ||
+      location.startsWith('/cloud-sync') ||
       location.startsWith('/inventory') ||
       location.startsWith('/customers') ||
       location.startsWith('/customer') ||
@@ -227,6 +229,9 @@ bool _isRouteHiddenByPreferences(String path, Map<String, bool> prefs) {
     return !_isFeatureVisible(prefs, 'hardwareSetup');
   }
   if (path.startsWith('/lan')) {
+    return !_isFeatureVisible(prefs, 'dataSync');
+  }
+  if (path.startsWith('/cloud-sync')) {
     return !_isFeatureVisible(prefs, 'dataSync');
   }
   if (path.startsWith('/promotions')) {
@@ -499,6 +504,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/lan',
             name: 'lan',
             builder: (context, state) => const LanManagerPage(),
+          ),
+
+          // Cloud sync (Firestore backup + live two-way sync)
+          _animatedRoute(
+            path: '/cloud-sync',
+            name: 'cloud-sync',
+            builder: (context, state) => const CloudSyncPage(),
           ),
 
           // Inventory

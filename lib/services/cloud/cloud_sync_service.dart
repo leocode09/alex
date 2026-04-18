@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/account_history_record.dart';
@@ -15,15 +15,6 @@ import '../../models/product.dart';
 import '../../models/sale.dart';
 import '../../models/store.dart';
 import '../../models/sync_data.dart';
-import '../../repositories/category_repository.dart';
-import '../../repositories/customer_repository.dart';
-import '../../repositories/employee_repository.dart';
-import '../../repositories/expense_repository.dart';
-import '../../repositories/inventory_movement_repository.dart';
-import '../../repositories/money_repository.dart';
-import '../../repositories/product_repository.dart';
-import '../../repositories/sale_repository.dart';
-import '../../repositories/store_repository.dart';
 import '../sync_service.dart';
 import 'cloud_entity_mapper.dart';
 import 'firebase_init.dart';
@@ -69,17 +60,8 @@ class CloudSyncService extends ChangeNotifier {
 
   factory CloudSyncService() => _instance;
 
-  // Repositories (same singletons used everywhere else).
-  final ProductRepository _productRepo = ProductRepository();
-  final CategoryRepository _categoryRepo = CategoryRepository();
-  final CustomerRepository _customerRepo = CustomerRepository();
-  final EmployeeRepository _employeeRepo = EmployeeRepository();
-  final ExpenseRepository _expenseRepo = ExpenseRepository();
-  final SaleRepository _saleRepo = SaleRepository();
-  final StoreRepository _storeRepo = StoreRepository();
-  final MoneyRepository _moneyRepo = MoneyRepository();
-  final InventoryMovementRepository _movementRepo =
-      InventoryMovementRepository();
+  // CloudSyncService routes everything through [SyncService] and [ShopService]
+  // so we don't need to hold individual repository instances here.
   final SyncService _syncService = SyncService();
   final ShopService _shopService = ShopService();
 

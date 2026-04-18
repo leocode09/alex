@@ -7,13 +7,20 @@ import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 import 'providers/theme_mode_provider.dart';
 import 'routes.dart';
+import 'services/cloud/firebase_init.dart';
 import 'ui/themes/app_theme.dart';
+import 'ui/widgets/cloud_sync_watcher.dart';
 import 'ui/widgets/time_tamper_watcher.dart';
 import 'ui/widgets/lan_sync_watcher.dart';
 import 'ui/widgets/wifi_direct_sync_watcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase init is best-effort and never blocks boot. If it fails
+  // (misconfigured, offline, unsupported platform) the cloud sync UI
+  // shows a "disabled" state and the app continues fully offline.
+  await FirebaseInit.ensureInitialized();
 
   unawaited(_maybeDownloadShorebirdPatch());
 
@@ -59,17 +66,19 @@ class POSApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return TimeTamperWatcher(
-      child: WifiDirectSyncWatcher(
-        child: MaterialApp.router(
-          title: 'ALEX',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: themeMode,
-          routerConfig: router,
-          builder: (context, child) {
-            return LanSyncWatcher(child: child ?? const SizedBox.shrink());
-          },
+      child: CloudSyncWatcher(
+        child: WifiDirectSyncWatcher(
+          child: MaterialApp.router(
+            title: 'ALEX',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeMode,
+            routerConfig: router,
+            builder: (context, child) {
+              return LanSyncWatcher(child: child ?? const SizedBox.shrink());
+            },
+          ),
         ),
       ),
     );
