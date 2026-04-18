@@ -46,9 +46,14 @@ dependencies:
   shorebird_code_push: ^2.0.5
 
   # Firebase (cloud backup / live two-way sync)
-  firebase_core: ^4.7.0
-  cloud_firestore: ^6.3.0
-  firebase_auth: ^6.4.0
+  # Uses firebase_core 4.x which fixed a Windows CMake issue where the
+  # plugin previously failed to build when cloud_firestore was present.
+  # On Windows, Firestore is still not officially supported at runtime;
+  # FirebaseInit catches the UnsupportedError and the app keeps working
+  # offline with LAN / Wi-Fi Direct sync intact.
+  firebase_core: ^4.3.0
+  cloud_firestore: ^6.0.0
+  firebase_auth: ^6.0.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.11.0
