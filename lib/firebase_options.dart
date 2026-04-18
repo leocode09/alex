@@ -26,11 +26,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android. '
-          'Run `flutterfire configure --platforms=android` to regenerate '
-          'lib/firebase_options.dart.',
-        );
+        return android;
       case TargetPlatform.iOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for ios. '
@@ -48,4 +44,13 @@ class DefaultFirebaseOptions {
         );
     }
   }
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyClR2-3ldWrtUTspsjvK0tm0cyoUX8Q5jo',
+    appId: '1:452604887439:android:9cb0ac2cf076697c174bfa',
+    messagingSenderId: '452604887439',
+    projectId: 'desktech-pos',
+    storageBucket: 'desktech-pos.firebasestorage.app',
+  );
+
 }

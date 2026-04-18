@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "452604887439",
+    "project_id": "desktech-pos",
+    "storage_bucket": "desktech-pos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:452604887439:android:0e3b3f26fbfe05b0174bfa",
+        "android_client_info": {
+          "package_name": "com.desktech.desktech_pos"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "452604887439-9lc6hu9qu95d2m0j32fei9s7qdad0t1k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClR2-3ldWrtUTspsjvK0tm0cyoUX8Q5jo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "452604887439-9lc6hu9qu95d2m0j32fei9s7qdad0t1k.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "452604887439-20rhpo49ugs5i3l0bi502i4a5omjgfv1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.desktech.desktechPos"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:452604887439:android:9cb0ac2cf076697c174bfa",
+        "android_client_info": {
+          "package_name": "com.example.pos_system"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "452604887439-9lc6hu9qu95d2m0j32fei9s7qdad0t1k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClR2-3ldWrtUTspsjvK0tm0cyoUX8Q5jo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "452604887439-9lc6hu9qu95d2m0j32fei9s7qdad0t1k.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "452604887439-20rhpo49ugs5i3l0bi502i4a5omjgfv1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.desktech.desktechPos"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

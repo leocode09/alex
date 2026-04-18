@@ -1,5 +1,1 @@
-{
-  "firestore": {
-    "rules": "firestore.rules"
-  }
-}
+{"firestore":{"rules":"firestore.rules"},"flutter":{"platforms":{"android":{"default":{"projectId":"desktech-pos","appId":"1:452604887439:android:9cb0ac2cf076697c174bfa","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"desktech-pos","configurations":{"android":"1:452604887439:android:9cb0ac2cf076697c174bfa"}}}}}}
