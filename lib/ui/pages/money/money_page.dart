@@ -258,7 +258,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppTokens.accent,
+              color: AppTokens.mutedText,
             ),
           ),
           const SizedBox(height: AppTokens.space2),
@@ -301,7 +301,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
         Text(
           label,
           style: const TextStyle(
-            color: AppTokens.accent,
+            color: AppTokens.mutedText,
             fontSize: 12,
           ),
         ),
