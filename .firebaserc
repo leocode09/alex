@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "desktech-pos"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }
