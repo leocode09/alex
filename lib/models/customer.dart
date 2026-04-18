@@ -6,6 +6,7 @@ class Customer {
   final int totalPurchases;
   final double totalSpent;
   final DateTime joinDate;
+  final DateTime updatedAt;
 
   Customer({
     required this.id,
@@ -15,7 +16,9 @@ class Customer {
     this.totalPurchases = 0,
     this.totalSpent = 0.0,
     DateTime? joinDate,
-  }) : joinDate = joinDate ?? DateTime.now();
+    DateTime? updatedAt,
+  })  : joinDate = joinDate ?? DateTime.now(),
+        updatedAt = updatedAt ?? joinDate ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -26,10 +29,16 @@ class Customer {
       'totalPurchases': totalPurchases,
       'totalSpent': totalSpent,
       'joinDate': joinDate.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
   factory Customer.fromMap(Map<String, dynamic> map) {
+    final joinDate = DateTime.parse(map['joinDate'] as String);
+    final rawUpdatedAt = map['updatedAt'];
+    final updatedAt = rawUpdatedAt is String
+        ? DateTime.tryParse(rawUpdatedAt) ?? joinDate
+        : joinDate;
     return Customer(
       id: map['id'] as String,
       name: map['name'] as String,
@@ -37,7 +46,8 @@ class Customer {
       email: map['email'] as String?,
       totalPurchases: map['totalPurchases'] as int? ?? 0,
       totalSpent: (map['totalSpent'] as num?)?.toDouble() ?? 0.0,
-      joinDate: DateTime.parse(map['joinDate'] as String),
+      joinDate: joinDate,
+      updatedAt: updatedAt,
     );
   }
 
@@ -49,6 +59,7 @@ class Customer {
     int? totalPurchases,
     double? totalSpent,
     DateTime? joinDate,
+    DateTime? updatedAt,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -58,6 +69,7 @@ class Customer {
       totalPurchases: totalPurchases ?? this.totalPurchases,
       totalSpent: totalSpent ?? this.totalSpent,
       joinDate: joinDate ?? this.joinDate,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

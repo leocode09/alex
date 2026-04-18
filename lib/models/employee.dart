@@ -8,6 +8,7 @@ class Employee {
   final DateTime joinDate;
   final int salesCount;
   final double totalSales;
+  final DateTime updatedAt;
 
   Employee({
     required this.id,
@@ -19,7 +20,9 @@ class Employee {
     DateTime? joinDate,
     this.salesCount = 0,
     this.totalSales = 0.0,
-  }) : joinDate = joinDate ?? DateTime.now();
+    DateTime? updatedAt,
+  })  : joinDate = joinDate ?? DateTime.now(),
+        updatedAt = updatedAt ?? joinDate ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -32,10 +35,16 @@ class Employee {
       'joinDate': joinDate.toIso8601String(),
       'salesCount': salesCount,
       'totalSales': totalSales,
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
   factory Employee.fromMap(Map<String, dynamic> map) {
+    final joinDate = DateTime.parse(map['joinDate'] as String);
+    final rawUpdatedAt = map['updatedAt'];
+    final updatedAt = rawUpdatedAt is String
+        ? DateTime.tryParse(rawUpdatedAt) ?? joinDate
+        : joinDate;
     return Employee(
       id: map['id'] as String,
       name: map['name'] as String,
@@ -43,9 +52,10 @@ class Employee {
       phone: map['phone'] as String?,
       role: map['role'] as String,
       isActive: (map['isActive'] as int) == 1,
-      joinDate: DateTime.parse(map['joinDate'] as String),
+      joinDate: joinDate,
       salesCount: map['salesCount'] as int? ?? 0,
       totalSales: (map['totalSales'] as num?)?.toDouble() ?? 0.0,
+      updatedAt: updatedAt,
     );
   }
 
@@ -59,6 +69,7 @@ class Employee {
     DateTime? joinDate,
     int? salesCount,
     double? totalSales,
+    DateTime? updatedAt,
   }) {
     return Employee(
       id: id ?? this.id,
@@ -70,6 +81,7 @@ class Employee {
       joinDate: joinDate ?? this.joinDate,
       salesCount: salesCount ?? this.salesCount,
       totalSales: totalSales ?? this.totalSales,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

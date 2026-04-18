@@ -1,12 +1,21 @@
-import 'product.dart';
+import 'account_history_record.dart';
 import 'category.dart';
 import 'customer.dart';
 import 'employee.dart';
 import 'expense.dart';
+import 'inventory_movement.dart';
+import 'money_account.dart';
+import 'product.dart';
 import 'sale.dart';
 import 'store.dart';
 
-/// Model to hold all synchronized data
+/// Envelope for all synced data.
+///
+/// Extended for cloud sync to also carry money accounts, money history,
+/// inventory movements, and per-entity tombstone lists (previously only
+/// products had tombstones). All new fields are optional with empty-list
+/// defaults so older LAN / Wi-Fi Direct peers that send the v1 payload
+/// continue to deserialize cleanly.
 class SyncData {
   final List<Product> products;
   final List<Category> categories;
@@ -15,7 +24,18 @@ class SyncData {
   final List<Expense> expenses;
   final List<Sale> sales;
   final List<Store> stores;
+  final List<MoneyAccount> moneyAccounts;
+  final List<AccountHistoryRecord> moneyHistory;
+  final List<InventoryMovement> inventoryMovements;
+
   final List<String> deletedProductIds;
+  final List<String> deletedCategoryIds;
+  final List<String> deletedCustomerIds;
+  final List<String> deletedEmployeeIds;
+  final List<String> deletedExpenseIds;
+  final List<String> deletedStoreIds;
+  final List<String> deletedMoneyAccountIds;
+
   final DateTime syncTimestamp;
   final String deviceId;
   final String syncVersion;
@@ -28,13 +48,21 @@ class SyncData {
     required this.expenses,
     required this.sales,
     required this.stores,
+    this.moneyAccounts = const [],
+    this.moneyHistory = const [],
+    this.inventoryMovements = const [],
     this.deletedProductIds = const [],
+    this.deletedCategoryIds = const [],
+    this.deletedCustomerIds = const [],
+    this.deletedEmployeeIds = const [],
+    this.deletedExpenseIds = const [],
+    this.deletedStoreIds = const [],
+    this.deletedMoneyAccountIds = const [],
     DateTime? syncTimestamp,
     required this.deviceId,
-    this.syncVersion = '1.0.0',
+    this.syncVersion = '2.0.0',
   }) : syncTimestamp = syncTimestamp ?? DateTime.now();
 
-  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'products': products.map((p) => p.toMap()).toList(),
@@ -44,14 +72,22 @@ class SyncData {
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'sales': sales.map((s) => s.toMap()).toList(),
       'stores': stores.map((s) => s.toMap()).toList(),
+      'moneyAccounts': moneyAccounts.map((a) => a.toMap()).toList(),
+      'moneyHistory': moneyHistory.map((r) => r.toMap()).toList(),
+      'inventoryMovements': inventoryMovements.map((m) => m.toMap()).toList(),
       'deletedProductIds': deletedProductIds,
+      'deletedCategoryIds': deletedCategoryIds,
+      'deletedCustomerIds': deletedCustomerIds,
+      'deletedEmployeeIds': deletedEmployeeIds,
+      'deletedExpenseIds': deletedExpenseIds,
+      'deletedStoreIds': deletedStoreIds,
+      'deletedMoneyAccountIds': deletedMoneyAccountIds,
       'syncTimestamp': syncTimestamp.toIso8601String(),
       'deviceId': deviceId,
       'syncVersion': syncVersion,
     };
   }
 
-  /// Create from JSON
   factory SyncData.fromJson(Map<String, dynamic> json) {
     try {
       final rawExpenses = (json['expenses'] ?? json['expances']) as List? ?? [];
@@ -68,27 +104,50 @@ class SyncData {
       }
 
       return SyncData(
-        products: (json['products'] as List? ?? [])
-            .map((p) => Product.fromMap(p as Map<String, dynamic>))
-            .toList(),
-        categories: (json['categories'] as List? ?? [])
-            .map((c) => Category.fromMap(c as Map<String, dynamic>))
-            .toList(),
-        customers: (json['customers'] as List? ?? [])
-            .map((c) => Customer.fromMap(c as Map<String, dynamic>))
-            .toList(),
-        employees: (json['employees'] as List? ?? [])
-            .map((e) => Employee.fromMap(e as Map<String, dynamic>))
-            .toList(),
+        products: _decodeList(
+          json['products'],
+          (m) => Product.fromMap(m),
+        ),
+        categories: _decodeList(
+          json['categories'],
+          (m) => Category.fromMap(m),
+        ),
+        customers: _decodeList(
+          json['customers'],
+          (m) => Customer.fromMap(m),
+        ),
+        employees: _decodeList(
+          json['employees'],
+          (m) => Employee.fromMap(m),
+        ),
         expenses: expenses,
-        sales: (json['sales'] as List? ?? [])
-            .map((s) => Sale.fromMap(s as Map<String, dynamic>))
-            .toList(),
-        stores: (json['stores'] as List? ?? [])
-            .map((s) => Store.fromMap(s as Map<String, dynamic>))
-            .toList(),
-        deletedProductIds: (json['deletedProductIds'] as List? ?? [])
-            .cast<String>(),
+        sales: _decodeList(
+          json['sales'],
+          (m) => Sale.fromMap(m),
+        ),
+        stores: _decodeList(
+          json['stores'],
+          (m) => Store.fromMap(m),
+        ),
+        moneyAccounts: _decodeList(
+          json['moneyAccounts'],
+          (m) => MoneyAccount.fromMap(m),
+        ),
+        moneyHistory: _decodeList(
+          json['moneyHistory'],
+          (m) => AccountHistoryRecord.fromMap(m),
+        ),
+        inventoryMovements: _decodeList(
+          json['inventoryMovements'],
+          (m) => InventoryMovement.fromMap(m),
+        ),
+        deletedProductIds: _decodeIds(json['deletedProductIds']),
+        deletedCategoryIds: _decodeIds(json['deletedCategoryIds']),
+        deletedCustomerIds: _decodeIds(json['deletedCustomerIds']),
+        deletedEmployeeIds: _decodeIds(json['deletedEmployeeIds']),
+        deletedExpenseIds: _decodeIds(json['deletedExpenseIds']),
+        deletedStoreIds: _decodeIds(json['deletedStoreIds']),
+        deletedMoneyAccountIds: _decodeIds(json['deletedMoneyAccountIds']),
         syncTimestamp: json['syncTimestamp'] != null
             ? DateTime.parse(json['syncTimestamp'] as String)
             : DateTime.now(),
@@ -101,7 +160,6 @@ class SyncData {
     }
   }
 
-  /// Get total count of all items
   int get totalItems =>
       products.length +
       categories.length +
@@ -109,22 +167,25 @@ class SyncData {
       employees.length +
       expenses.length +
       sales.length +
-      stores.length;
+      stores.length +
+      moneyAccounts.length +
+      moneyHistory.length +
+      inventoryMovements.length;
 
-  /// Check if sync data is empty
   bool get isEmpty => totalItems == 0;
 
-  /// Create an empty sync data
   factory SyncData.empty(String deviceId) {
     return SyncData(
-      products: [],
-      categories: [],
-      customers: [],
-      employees: [],
-      expenses: [],
-      sales: [],
-      stores: [],
-      deletedProductIds: [],
+      products: const [],
+      categories: const [],
+      customers: const [],
+      employees: const [],
+      expenses: const [],
+      sales: const [],
+      stores: const [],
+      moneyAccounts: const [],
+      moneyHistory: const [],
+      inventoryMovements: const [],
       deviceId: deviceId,
     );
   }
@@ -137,7 +198,16 @@ class SyncData {
     List<Expense>? expenses,
     List<Sale>? sales,
     List<Store>? stores,
+    List<MoneyAccount>? moneyAccounts,
+    List<AccountHistoryRecord>? moneyHistory,
+    List<InventoryMovement>? inventoryMovements,
     List<String>? deletedProductIds,
+    List<String>? deletedCategoryIds,
+    List<String>? deletedCustomerIds,
+    List<String>? deletedEmployeeIds,
+    List<String>? deletedExpenseIds,
+    List<String>? deletedStoreIds,
+    List<String>? deletedMoneyAccountIds,
     DateTime? syncTimestamp,
     String? deviceId,
     String? syncVersion,
@@ -150,10 +220,42 @@ class SyncData {
       expenses: expenses ?? this.expenses,
       sales: sales ?? this.sales,
       stores: stores ?? this.stores,
+      moneyAccounts: moneyAccounts ?? this.moneyAccounts,
+      moneyHistory: moneyHistory ?? this.moneyHistory,
+      inventoryMovements: inventoryMovements ?? this.inventoryMovements,
       deletedProductIds: deletedProductIds ?? this.deletedProductIds,
+      deletedCategoryIds: deletedCategoryIds ?? this.deletedCategoryIds,
+      deletedCustomerIds: deletedCustomerIds ?? this.deletedCustomerIds,
+      deletedEmployeeIds: deletedEmployeeIds ?? this.deletedEmployeeIds,
+      deletedExpenseIds: deletedExpenseIds ?? this.deletedExpenseIds,
+      deletedStoreIds: deletedStoreIds ?? this.deletedStoreIds,
+      deletedMoneyAccountIds:
+          deletedMoneyAccountIds ?? this.deletedMoneyAccountIds,
       syncTimestamp: syncTimestamp ?? this.syncTimestamp,
       deviceId: deviceId ?? this.deviceId,
       syncVersion: syncVersion ?? this.syncVersion,
     );
   }
+}
+
+List<T> _decodeList<T>(
+  dynamic raw,
+  T Function(Map<String, dynamic>) build,
+) {
+  if (raw is! List) return const [];
+  final out = <T>[];
+  for (final item in raw) {
+    if (item is! Map) continue;
+    try {
+      out.add(build(Map<String, dynamic>.from(item)));
+    } catch (_) {
+      // Skip malformed entry.
+    }
+  }
+  return out;
+}
+
+List<String> _decodeIds(dynamic raw) {
+  if (raw is! List) return const [];
+  return raw.map((e) => e.toString()).toList();
 }

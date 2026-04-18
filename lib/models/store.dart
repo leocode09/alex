@@ -7,6 +7,7 @@ class Store {
   final String? managerId;
   final bool isActive;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   Store({
     required this.id,
@@ -17,7 +18,9 @@ class Store {
     this.managerId,
     this.isActive = true,
     DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+    DateTime? updatedAt,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
@@ -29,10 +32,16 @@ class Store {
       'managerId': managerId,
       'isActive': isActive ? 1 : 0,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
   factory Store.fromMap(Map<String, dynamic> map) {
+    final createdAt = DateTime.parse(map['createdAt'] as String);
+    final rawUpdatedAt = map['updatedAt'];
+    final updatedAt = rawUpdatedAt is String
+        ? DateTime.tryParse(rawUpdatedAt) ?? createdAt
+        : createdAt;
     return Store(
       id: map['id'] as String,
       name: map['name'] as String,
@@ -41,7 +50,8 @@ class Store {
       phone: map['phone'] as String?,
       managerId: map['managerId'] as String?,
       isActive: (map['isActive'] as int) == 1,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 
@@ -54,6 +64,7 @@ class Store {
     String? managerId,
     bool? isActive,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Store(
       id: id ?? this.id,
@@ -64,6 +75,7 @@ class Store {
       managerId: managerId ?? this.managerId,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
