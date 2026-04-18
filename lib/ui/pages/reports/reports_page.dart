@@ -3,6 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import '../../design_system/app_theme_extensions.dart';
+import '../../design_system/app_tokens.dart';
 import '../../../models/expense.dart';
 import '../../../models/inventory_movement.dart';
 import '../../../models/product.dart';
@@ -1590,40 +1592,42 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   }
 
   Widget _buildSummaryCards(List<_SummaryData> data) {
+    final theme = Theme.of(context);
+    final extras = context.appExtras;
     return Row(
       children: data.map((item) {
         return Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppTokens.space3, vertical: AppTokens.space2),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.grey[200]!),
-              borderRadius: BorderRadius.circular(12),
+              color: extras.panel,
+              border: Border.all(color: extras.border, width: AppTokens.border),
+              borderRadius: BorderRadius.circular(AppTokens.radiusM),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.title,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                const SizedBox(height: 8),
+                Text(item.title, style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                )),
+                const SizedBox(height: 6),
                 Text(item.value,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 if (item.subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     item.subtitle,
-                    style: TextStyle(
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 10,
                       color: item.subtitleColor ??
                           (item.subtitle.contains('-') ||
                                   item.subtitle == 'Alert'
-                              ? Colors.red
-                              : Colors.green),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                              ? extras.danger
+                              : extras.success),
                     ),
                   ),
                 ],
@@ -1636,13 +1640,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   }
 
   Widget _buildListRow(String title, String value, String subtitle) {
+    final theme = Theme.of(context);
+    final extras = context.appExtras;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppTokens.space2),
+      padding: const EdgeInsets.all(AppTokens.space2),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        color: extras.panel,
+        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+        border: Border.all(color: extras.border, width: AppTokens.border),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1651,16 +1657,14 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w500)),
+                Text(title, style: theme.textTheme.bodyMedium),
                 if (subtitle.isNotEmpty)
-                  Text(subtitle,
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                  Text(subtitle, style: theme.textTheme.bodySmall),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(value, style: theme.textTheme.titleSmall),
         ],
       ),
     );
