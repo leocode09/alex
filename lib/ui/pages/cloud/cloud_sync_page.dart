@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../providers/cloud_sync_provider.dart';
 import '../../../services/cloud/cloud_sync_service.dart';
 import '../../../services/cloud/firebase_init.dart';
-import '../../../services/cloud/shop_service.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
