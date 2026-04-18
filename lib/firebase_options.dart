@@ -44,11 +44,11 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyClR2-3ldWrtUTspsjvK0tm0cyoUX8Q5jo',
-    appId: '1:452604887439:android:9cb0ac2cf076697c174bfa',
-    messagingSenderId: '452604887439',
-    projectId: 'desktech-pos',
-    storageBucket: 'desktech-pos.firebasestorage.app',
+    apiKey: 'AIzaSyCkTUOGLXOR26oAuW-k_joEXAPpzkNPduA',
+    appId: '1:901163093322:android:ee5ba627de3745d59085b3',
+    messagingSenderId: '901163093322',
+    projectId: 'alex-pos',
+    storageBucket: 'alex-pos.firebasestorage.app',
   );
 
 }
