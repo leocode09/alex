@@ -37,12 +37,25 @@ class _SalesPageState extends ConsumerState<SalesPage>
   late TabController _tabController;
   SharedPreferences? _prefs;
   bool _hasLoadedEditingReceipt = false;
+  int _previousTabIndex = 0;
+  bool _receiptsPinInFlight = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_handleTabControllerChange);
     _initPrefs();
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabControllerChange);
+    _tabController.dispose();
+    _searchController.dispose();
+    _customerController.dispose();
+    _cashReceivedController.dispose();
+    super.dispose();
   }
 
   @override
@@ -1054,7 +1067,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
         backgroundColor: isEditingMode ? Colors.orange[700] : null,
         bottom: TabBar(
           controller: _tabController,
-          onTap: _handleTabTap,
           labelColor: isEditingMode
               ? Colors.white
               : Theme.of(context).colorScheme.primary,
@@ -1072,7 +1084,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
       ),
       body: TabBarView(
         controller: _tabController,
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const PageScrollPhysics(),
         children: [
           // Products Tab
           Column(
@@ -1598,16 +1610,38 @@ class _SalesPageState extends ConsumerState<SalesPage>
           const ReceiptsTab(),
         ],
       ),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: _cycleToNextTab,
+        tooltip: 'Next tab',
+        backgroundColor: isEditingMode
+            ? Colors.orange[700]
+            : Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        child: const Icon(Icons.chevron_right),
+      ),
     );
   }
 
-  Future<void> _handleTabTap(int index) async {
-    final previousIndex = _tabController.index;
-    if (index == previousIndex) {
+  void _handleTabControllerChange() {
+    final newIndex = _tabController.index;
+    if (newIndex == _previousTabIndex) {
       return;
     }
+    final previousIndex = _previousTabIndex;
+    _previousTabIndex = newIndex;
 
-    if (index == 2) {
+    if (newIndex == 2) {
+      _gateReceiptsTab(previousIndex);
+    }
+  }
+
+  Future<void> _gateReceiptsTab(int fallbackIndex) async {
+    if (_receiptsPinInFlight) {
+      return;
+    }
+    _receiptsPinInFlight = true;
+    try {
       final allowed = await PinProtection.requirePinIfNeeded(
         context,
         isRequired: () => PinService().isPinRequiredForViewSalesHistory(),
@@ -1617,11 +1651,18 @@ class _SalesPageState extends ConsumerState<SalesPage>
       if (!allowed && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _tabController.index = previousIndex;
+            _tabController.index = fallbackIndex;
           }
         });
       }
+    } finally {
+      _receiptsPinInFlight = false;
     }
+  }
+
+  void _cycleToNextTab() {
+    final nextIndex = (_tabController.index + 1) % _tabController.length;
+    _tabController.animateTo(nextIndex);
   }
 }
 
