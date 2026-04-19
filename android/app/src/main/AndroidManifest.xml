@@ -4,9 +4,13 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-    <!-- Wi-Fi Direct permissions -->
+    <!-- Internet / network access: required for Firebase (admin + licensing),
+         Shorebird OTA patches, the APK updater (manifest fetch + APK download),
+         LAN sync, and any other networked feature. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Wi-Fi Direct permissions -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission
