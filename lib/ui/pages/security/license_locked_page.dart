@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../models/license_policy.dart';
 import '../../../providers/license_provider.dart';
@@ -83,6 +84,29 @@ class LicenseLockedPage extends ConsumerWidget {
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: extras.muted,
                         ),
+                  ),
+                  const SizedBox(height: AppTokens.space4),
+                  // Discreet entry point: long-press to open the admin
+                  // sign-in. Kept unlabeled so regular users don't see
+                  // it, but still reachable on a locked device (normal
+                  // Settings is behind the lock).
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onLongPress: () => context.push('/admin-login'),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTokens.space2,
+                          vertical: AppTokens.space1,
+                        ),
+                        child: Icon(
+                          Icons.support_agent,
+                          size: 18,
+                          color: extras.muted,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),

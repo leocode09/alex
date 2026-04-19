@@ -311,13 +311,21 @@ String _firstVisibleRoute(Map<String, bool> prefs) {
 final routerProvider = Provider<GoRouter>((ref) {
   final pinUnlocked = ref.watch(pinUnlockedProvider);
   final timeTamper = ref.watch(timeTamperProvider);
-  // Watching here re-runs the redirect whenever the license policy
-  // changes, so remote admin toggles take effect without a restart.
-  ref.watch(licensePolicyProvider);
+
+  // Re-run the redirect whenever the license policy changes so remote
+  // admin toggles apply live. Use a ValueNotifier + ref.listen instead
+  // of ref.watch so the GoRouter itself is not rebuilt (which would
+  // drop navigation history on every policy tick).
+  final policyRefresh = ValueNotifier<int>(0);
+  ref.listen(licensePolicyProvider, (_, __) {
+    policyRefresh.value = policyRefresh.value + 1;
+  });
+  ref.onDispose(policyRefresh.dispose);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
+    refreshListenable: policyRefresh,
     redirect: (context, state) async {
       final pinService = PinService();
       final isPinSet = await pinService.isPinSet();
