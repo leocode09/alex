@@ -5,6 +5,10 @@
             "mtimeMs": 1776487925691,
             "lastProcessedAt": "2026-04-18T00:00:00.000Z"
         },
+        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0c75b1b3-9ba1-4a12-a2dd-ac229bbfd8d7\\0c75b1b3-9ba1-4a12-a2dd-ac229bbfd8d7.jsonl": {
+            "mtimeMs": 1776603722462,
+            "lastProcessedAt": "2026-04-19T17:30:00.000Z"
+        },
         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0dee8395-b2b8-434a-b83f-c77bb93d26a5\\0dee8395-b2b8-434a-b83f-c77bb93d26a5.jsonl": {
             "mtimeMs": 1774188367027,
             "lastProcessedAt": "2026-04-15T21:47:26.728Z"
@@ -12,6 +16,10 @@
         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\1087c405-d63a-4708-ae7f-f6cac824168e\\1087c405-d63a-4708-ae7f-f6cac824168e.jsonl": {
             "mtimeMs": 1774817422096,
             "lastProcessedAt": "2026-04-15T21:47:26.728Z"
+        },
+        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\2dcc1253-3eee-4b23-99a2-fb7c98dad698\\2dcc1253-3eee-4b23-99a2-fb7c98dad698.jsonl": {
+            "mtimeMs": 1776603899956,
+            "lastProcessedAt": "2026-04-19T17:30:00.000Z"
         },
         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\3896555a-0692-4fab-a487-d466f9f2e207\\3896555a-0692-4fab-a487-d466f9f2e207.jsonl": {
             "mtimeMs": 1773429953972,
@@ -64,6 +72,10 @@
         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\6e839b8b-e453-41f5-9567-82a88931337c\\6e839b8b-e453-41f5-9567-82a88931337c.jsonl": {
             "mtimeMs": 1774122488047,
             "lastProcessedAt": "2026-04-15T21:47:26.728Z"
+        },
+        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\7bc26c23-aec6-4b5b-a826-c2e945047d5b\\7bc26c23-aec6-4b5b-a826-c2e945047d5b.jsonl": {
+            "mtimeMs": 1776600010641,
+            "lastProcessedAt": "2026-04-19T17:30:00.000Z"
         },
         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\83290711-b827-4e2a-a9a5-e0c31fea655f\\83290711-b827-4e2a-a9a5-e0c31fea655f.jsonl": {
             "mtimeMs": 1776487710049,
@@ -136,6 +148,14 @@
         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\f29d8506-4c6b-403f-8c0e-0540ae9c53fb\\f29d8506-4c6b-403f-8c0e-0540ae9c53fb.jsonl": {
             "mtimeMs": 1776486670374,
             "lastProcessedAt": "2026-04-18T00:00:00.000Z"
+        },
+        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d.jsonl": {
+            "mtimeMs": 1776604289241,
+            "lastProcessedAt": "2026-04-19T17:30:00.000Z"
+        },
+        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d\\subagents\\5f0c913d-2565-4432-9ece-09922b1c51e7.jsonl": {
+            "mtimeMs": 1776604299406,
+            "lastProcessedAt": "2026-04-19T17:30:00.000Z"
         }
     }
 }
