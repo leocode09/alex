@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/pin_unlock_provider.dart';
 import '../../../providers/theme_mode_provider.dart';
+import '../../../services/apk_updater_service.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
 import '../../design_system/widgets/app_panel.dart';
+import '../../widgets/apk_update_watcher.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -215,6 +217,14 @@ class SettingsPage extends ConsumerWidget {
                 'QR code and link to download on another device',
                 Icons.qr_code_2_rounded,
                 onTap: () => context.push('/share-app'),
+              ),
+              _buildSettingTile(
+                context,
+                'Check for Updates',
+                'Download the latest version of ALEX',
+                Icons.system_update_alt_rounded,
+                onTap: () => _checkForUpdates(context),
+                onLongPress: () => _editManifestUrl(context),
               ),
               _buildSettingTile(
                 context,
@@ -522,6 +532,108 @@ class SettingsPage extends ConsumerWidget {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkForUpdates(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final result = await ApkUpdaterService.instance.checkForUpdate(
+      ignoreSkip: true,
+    );
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    switch (result.status) {
+      case UpdateCheckStatus.updateAvailable:
+        await showUpdateDialog(context, result);
+      case UpdateCheckStatus.upToDate:
+        messenger.showSnackBar(
+          const SnackBar(content: Text("You're on the latest version.")),
+        );
+      case UpdateCheckStatus.notConfigured:
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No update server configured. Long-press "Check for Updates" to set one.',
+            ),
+          ),
+        );
+      case UpdateCheckStatus.unsupported:
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('OTA updates are only supported on Android.'),
+          ),
+        );
+      case UpdateCheckStatus.skipped:
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Update available but skipped.')),
+        );
+      case UpdateCheckStatus.error:
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Update check failed: ${result.errorMessage ?? "unknown error"}',
+            ),
+          ),
+        );
+    }
+  }
+
+  Future<void> _editManifestUrl(BuildContext context) async {
+    final current = await ApkUpdaterService.instance.getManifestUrl() ?? '';
+    if (!context.mounted) return;
+    final controller = TextEditingController(text: current);
+    final newUrl = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Update Server URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'URL of the JSON manifest describing the latest APK build. '
+              'Typically a GitHub Releases asset named update.json.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'https://example.com/update.json',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.url,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (newUrl == null || !context.mounted) return;
+    await ApkUpdaterService.instance.setManifestUrl(newUrl);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          newUrl.isEmpty ? 'Update server cleared.' : 'Update server saved.',
         ),
       ),
     );

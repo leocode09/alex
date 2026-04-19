@@ -245,14 +245,14 @@ class ApkUpdaterService {
   /// handles.
   Future<InstallLaunchResult> launchInstaller(File apk) async {
     if (!Platform.isAndroid) {
-      return InstallLaunchResult(
+      return const InstallLaunchResult(
         launched: false,
         message: 'Install only supported on Android',
       );
     }
     final granted = await ensureInstallPermission();
     if (!granted) {
-      return InstallLaunchResult(
+      return const InstallLaunchResult(
         launched: false,
         message:
             'Permission to install unknown apps was not granted. Enable it in system settings and try again.',
