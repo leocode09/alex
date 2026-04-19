@@ -6,24 +6,38 @@ import '../../../../services/admin/usage_recorder.dart';
 import '../../../design_system/app_theme_extensions.dart';
 import '../../../design_system/app_tokens.dart';
 import '../../../design_system/widgets/app_panel.dart';
+import '../admin_heuristics.dart';
+import 'admin_metric_picker.dart';
 
-/// Simple bar chart + numeric summary of the last N daily usage docs.
+/// Bar chart + summary of the last N daily usage docs.
+///
 /// Takes any Firestore stream pointing at a `usageDaily` subcollection
-/// (so it works for both shop-scoped and device-scoped views).
-class AdminUsageChart extends StatelessWidget {
+/// (so it works for both shop-scoped and device-scoped views). When
+/// [showMetricPicker] is true the card includes an [AdminMetricPicker]
+/// and the chart swaps series live.
+class AdminUsageChart extends StatefulWidget {
   final Stream<QuerySnapshot<Map<String, dynamic>>> stream;
-  final String metric;
+  final AdminMetric initialMetric;
+  final bool showMetricPicker;
 
   const AdminUsageChart({
     super.key,
     required this.stream,
-    this.metric = UsageRecorder.kSalesCount,
+    this.initialMetric = AdminMetric.salesCount,
+    this.showMetricPicker = false,
   });
+
+  @override
+  State<AdminUsageChart> createState() => _AdminUsageChartState();
+}
+
+class _AdminUsageChartState extends State<AdminUsageChart> {
+  late AdminMetric _metric = widget.initialMetric;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: stream,
+      stream: widget.stream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const SizedBox(
@@ -51,10 +65,17 @@ class AdminUsageChart extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Summary(docs: docs),
+              if (widget.showMetricPicker) ...[
+                const SizedBox(height: AppTokens.space2),
+                AdminMetricPicker(
+                  value: _metric,
+                  onChanged: (m) => setState(() => _metric = m),
+                ),
+              ],
               const SizedBox(height: AppTokens.space2),
               SizedBox(
                 height: 160,
-                child: _Chart(docs: docs, metric: metric),
+                child: _Chart(docs: docs, metric: _metric),
               ),
             ],
           ),
@@ -84,7 +105,7 @@ class _Summary extends StatelessWidget {
       totalEdits += _asInt(m[UsageRecorder.kProductsEdited]);
       totalOpens += _asInt(m[UsageRecorder.kAppOpens]);
     }
-    final amount = (totalAmountCents / 100).toStringAsFixed(2);
+    final amount = AdminHeuristics.fmtMoneyFromCents(totalAmountCents);
     final extras = context.appExtras;
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
           color: extras.muted,
@@ -94,11 +115,11 @@ class _Summary extends StatelessWidget {
       runSpacing: 6,
       children: [
         _Tag(icon: Icons.point_of_sale, label: '$totalSales sales'),
-        _Tag(icon: Icons.attach_money, label: '\$$amount revenue'),
+        _Tag(icon: Icons.attach_money, label: '$amount revenue'),
         _Tag(icon: Icons.print, label: '$totalPrints prints'),
-        _Tag(icon: Icons.edit_note, label: '$totalEdits product edits'),
+        _Tag(icon: Icons.edit_note, label: '$totalEdits edits'),
         _Tag(icon: Icons.open_in_new, label: '$totalOpens opens'),
-        Text('Totals for ${docs.length} day(s)', style: style),
+        Text('${docs.length} day(s)', style: style),
       ],
     );
   }
@@ -130,7 +151,7 @@ class _Tag extends StatelessWidget {
 
 class _Chart extends StatelessWidget {
   final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs;
-  final String metric;
+  final AdminMetric metric;
 
   const _Chart({required this.docs, required this.metric});
 
@@ -138,8 +159,10 @@ class _Chart extends StatelessWidget {
   Widget build(BuildContext context) {
     final values = docs.map((d) {
       final m = d.data();
-      final v = m[metric];
-      if (v is num) return v.toDouble();
+      final v = m[metric.field];
+      if (v is num) {
+        return metric.isCurrency ? (v.toDouble() / 100.0) : v.toDouble();
+      }
       return 0.0;
     }).toList();
     final maxY = (values.fold<double>(0, (a, b) => a > b ? a : b))
@@ -180,6 +203,26 @@ class _Chart extends StatelessWidget {
                 );
               },
             ),
+          ),
+        ),
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipItem: (group, idx, rod, rodIdx) {
+              final day = (docs[group.x.toInt()].data()['day'] as String?) ??
+                  docs[group.x.toInt()].id;
+              final v = rod.toY;
+              final formatted = metric.isCurrency
+                  ? AdminHeuristics.fmtMoneyFromCents((v * 100).round())
+                  : v.toInt().toString();
+              return BarTooltipItem(
+                '$day\n$formatted',
+                const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              );
+            },
           ),
         ),
         barGroups: [
