@@ -43,12 +43,12 @@ class ApkUpdaterService {
   static const _lastCheckPrefKey = 'apk_updater.last_check_ms';
   static const _skippedVersionPrefKey = 'apk_updater.skipped_version_code';
 
-  /// Default manifest URL. Replace with your real hosting location, or set it
-  /// at runtime via [setManifestUrl]. Leave empty to disable OTA by default.
-  ///
-  /// Recommended: a GitHub Releases asset, e.g.
-  ///   https://github.com/<user>/<repo>/releases/latest/download/update.json
-  static const String defaultManifestUrl = '';
+  /// Default manifest URL. Points at the "latest" GitHub Release asset so any
+  /// published release automatically becomes the update target. Override at
+  /// runtime via [setManifestUrl] (Settings -> long-press "Check for Updates")
+  /// for staging channels or self-hosted builds.
+  static const String defaultManifestUrl =
+      'https://github.com/leocode09/alex/releases/latest/download/update.json';
 
   Future<String?> getManifestUrl() async {
     final prefs = await SharedPreferences.getInstance();
