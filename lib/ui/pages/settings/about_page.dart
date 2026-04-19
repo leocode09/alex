@@ -147,7 +147,7 @@ class _AboutPageState extends State<AboutPage> {
                 ),
               ),
               const SizedBox(height: AppTokens.space4),
-              _SectionHeader(label: 'Build details'),
+              const _SectionHeader(label: 'Build details'),
               const SizedBox(height: AppTokens.space2),
               AppPanel(
                 padding: EdgeInsets.zero,
@@ -192,7 +192,7 @@ class _AboutPageState extends State<AboutPage> {
                 ),
               ),
               const SizedBox(height: AppTokens.space4),
-              _SectionHeader(label: 'Links'),
+              const _SectionHeader(label: 'Links'),
               const SizedBox(height: AppTokens.space2),
               AppPanel(
                 padding: EdgeInsets.zero,

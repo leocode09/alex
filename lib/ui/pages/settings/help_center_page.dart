@@ -116,7 +116,7 @@ class HelpCenterPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppTokens.space4),
-          _SectionHeader(label: 'Frequently asked'),
+          const _SectionHeader(label: 'Frequently asked'),
           const SizedBox(height: AppTokens.space2),
           AppPanel(
             padding: EdgeInsets.zero,
@@ -135,7 +135,7 @@ class HelpCenterPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppTokens.space4),
-          _SectionHeader(label: 'Contact support'),
+          const _SectionHeader(label: 'Contact support'),
           const SizedBox(height: AppTokens.space2),
           AppPanel(
             padding: EdgeInsets.zero,
@@ -181,7 +181,7 @@ class HelpCenterPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppTokens.space4),
-          _SectionHeader(label: 'Quick actions'),
+          const _SectionHeader(label: 'Quick actions'),
           const SizedBox(height: AppTokens.space2),
           AppPanel(
             padding: EdgeInsets.zero,
