@@ -59,6 +59,8 @@ import 'ui/pages/stores/store_details_page.dart';
 
 // Settings
 import 'ui/pages/settings/settings_page.dart';
+import 'ui/pages/settings/help_center_page.dart';
+import 'ui/pages/settings/about_page.dart';
 import 'ui/pages/lan/lan_manager_page.dart';
 import 'ui/pages/cloud/cloud_sync_page.dart';
 
@@ -121,7 +123,9 @@ int _getCurrentIndex(String location) {
       location.startsWith('/hardware') ||
       location.startsWith('/promotions') ||
       location.startsWith('/notifications') ||
-      location.startsWith('/share-app')) {
+      location.startsWith('/share-app') ||
+      location.startsWith('/help') ||
+      location.startsWith('/about')) {
     return 4;
   }
   return 0;
@@ -205,7 +209,9 @@ bool _isPathVisibilityExempt(String path) {
       path == '/pin-setup' ||
       path == '/pin-preferences' ||
       path == '/time-lock' ||
-      path == '/share-app';
+      path == '/share-app' ||
+      path == '/help' ||
+      path == '/about';
 }
 
 bool _isRouteDisabledByPolicy(String path, LicensePolicy policy) {
@@ -743,6 +749,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/share-app',
             name: 'share-app',
             builder: (context, state) => const ShareAppPage(),
+          ),
+
+          // Help Center and About (under "More")
+          _animatedRoute(
+            path: '/help',
+            name: 'help',
+            builder: (context, state) => const HelpCenterPage(),
+          ),
+          _animatedRoute(
+            path: '/about',
+            name: 'about',
+            builder: (context, state) => const AboutPage(),
           ),
         ],
       ),

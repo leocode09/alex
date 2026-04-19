@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import '../../../providers/language_provider.dart';
 import '../../../providers/pin_unlock_provider.dart';
 import '../../../providers/theme_mode_provider.dart';
 import '../../../services/apk_updater_service.dart';
@@ -18,6 +20,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final language = ref.watch(languageProvider);
     return FutureBuilder<Map<String, bool>>(
       future: PinService().getPinPreferences(),
       builder: (context, snapshot) {
@@ -170,9 +173,10 @@ class SettingsPage extends ConsumerWidget {
               _buildSettingTile(
                 context,
                 'Language',
-                'English (US)',
+                '${language.flag}  ${language.label}'
+                    '${language.comingSoon ? ' · coming soon' : ''}',
                 Icons.language,
-                onTap: () {},
+                onTap: () => _showLanguageOptions(context, ref, language),
               ),
               _buildSettingTile(
                 context,
@@ -209,7 +213,7 @@ class SettingsPage extends ConsumerWidget {
                 'Help Center',
                 'FAQ and support contact',
                 Icons.help_outline,
-                onTap: () {},
+                onTap: () => context.push('/help'),
               ),
               _buildSettingTile(
                 context,
@@ -226,16 +230,26 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => _checkForUpdates(context),
                 onLongPress: () => _editManifestUrl(context),
               ),
-              _buildSettingTile(
-                context,
-                'About',
-                'Version 1.0.0',
-                Icons.info_outline,
-                onTap: () {},
-                // Long-press is the hidden entry point to the admin
-                // panel. Only accounts listed in /admins can actually
-                // sign in on the login page that opens.
-                onLongPress: () => context.push('/admin-login'),
+              FutureBuilder<PackageInfo>(
+                future: _loadPackageInfo(),
+                builder: (context, infoSnapshot) {
+                  final version = infoSnapshot.data?.version ?? '1.0.1';
+                  final build = infoSnapshot.data?.buildNumber ?? '';
+                  final subtitle = build.isEmpty
+                      ? 'Version $version'
+                      : 'Version $version ($build)';
+                  return _buildSettingTile(
+                    context,
+                    'About',
+                    subtitle,
+                    Icons.info_outline,
+                    onTap: () => context.push('/about'),
+                    // Long-press is the hidden entry point to the admin
+                    // panel. Only accounts listed in /admins can actually
+                    // sign in on the login page that opens.
+                    onLongPress: () => context.push('/admin-login'),
+                  );
+                },
               ),
               const SizedBox(height: 24),
               _buildSectionHeader(context, 'Data Management'),
@@ -333,6 +347,116 @@ class SettingsPage extends ConsumerWidget {
       case ThemeMode.light:
         return 'Light Mode';
     }
+  }
+
+  Future<PackageInfo> _loadPackageInfo() async {
+    try {
+      return await PackageInfo.fromPlatform();
+    } catch (_) {
+      return PackageInfo(
+        appName: 'ALEX',
+        packageName: '',
+        version: '1.0.1',
+        buildNumber: '',
+      );
+    }
+  }
+
+  void _showLanguageOptions(
+    BuildContext context,
+    WidgetRef ref,
+    AppLanguage currentLanguage,
+  ) {
+    final textTheme = Theme.of(context).textTheme;
+    final extras = context.appExtras;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(
+                  'Language',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                subtitle: Text(
+                  'More translations are on the way. Your pick is saved '
+                  'and applied automatically when each language ships.',
+                  style: textTheme.bodySmall?.copyWith(color: extras.muted),
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final option in AppLanguage.values)
+                      _buildLanguageOption(
+                        sheetContext: sheetContext,
+                        ref: ref,
+                        option: option,
+                        current: currentLanguage,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLanguageOption({
+    required BuildContext sheetContext,
+    required WidgetRef ref,
+    required AppLanguage option,
+    required AppLanguage current,
+  }) {
+    final selected = option == current;
+    final primary = Theme.of(sheetContext).colorScheme.primary;
+    final extras = sheetContext.appExtras;
+    return ListTile(
+      leading: Text(
+        option.flag,
+        style: const TextStyle(fontSize: 20),
+      ),
+      title: Text(
+        option.label,
+        style: TextStyle(
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      subtitle: option.comingSoon
+          ? Text(
+              'Translation coming soon',
+              style: TextStyle(color: extras.muted, fontSize: 12),
+            )
+          : null,
+      trailing: selected ? Icon(Icons.check, color: primary) : null,
+      onTap: () async {
+        await ref.read(languageProvider.notifier).setLanguage(option);
+        if (!sheetContext.mounted) {
+          return;
+        }
+        Navigator.pop(sheetContext);
+        if (option.comingSoon) {
+          ScaffoldMessenger.of(sheetContext).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${option.label} is coming soon — the app will keep using '
+                'English until then.',
+              ),
+            ),
+          );
+        }
+      },
+    );
   }
 
   void _showThemeOptions(
