@@ -215,6 +215,10 @@ class SettingsPage extends ConsumerWidget {
                 'Version 1.0.0',
                 Icons.info_outline,
                 onTap: () {},
+                // Long-press is the hidden entry point to the admin
+                // panel. Only accounts listed in /admins can actually
+                // sign in on the login page that opens.
+                onLongPress: () => context.push('/admin-login'),
               ),
               const SizedBox(height: 24),
               _buildSectionHeader(context, 'Data Management'),
@@ -270,6 +274,7 @@ class SettingsPage extends ConsumerWidget {
     String subtitle,
     IconData icon, {
     required VoidCallback onTap,
+    VoidCallback? onLongPress,
   }) {
     final theme = Theme.of(context);
     final extras = context.appExtras;
@@ -296,6 +301,7 @@ class SettingsPage extends ConsumerWidget {
           color: extras.muted,
         ),
         onTap: onTap,
+        onLongPress: onLongPress,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
     );
