@@ -49,6 +49,11 @@ dependencies:
   permission_handler: ^11.3.1
   shorebird_code_push: ^2.0.5
 
+  # OTA APK updater (non-Play distribution). See lib/services/apk_updater_service.dart.
+  package_info_plus: ^8.0.0
+  http: ^1.2.1
+  open_filex: ^4.4.0
+
   # Firebase (cloud backup / live two-way sync)
   # Uses firebase_core 4.x which fixed a Windows CMake issue where the
   # plugin previously failed to build when cloud_firestore was present.

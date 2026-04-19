@@ -29,7 +29,12 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    
+
+    <!-- OTA updater: needed so the app can download a new APK and hand it to
+         Android's package installer without going through the Play Store.
+         Users must grant "Install unknown apps" the first time. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
     
     <application
