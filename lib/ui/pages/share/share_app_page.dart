@@ -46,7 +46,7 @@ class ShareAppPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppTokens.space4),
-                _QrCard(data: url),
+                const _QrCard(data: url),
                 const SizedBox(height: AppTokens.space4),
                 SelectableText(
                   url,

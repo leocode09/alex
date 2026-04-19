@@ -18,7 +18,8 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="ALEX POS — Point of Sale. Scan the QR code to install the mobile app.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -31,8 +32,170 @@
 
   <title>ALEX</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Floating "Get the mobile app" panel shown on desktop-web visits.
+       Kept as vanilla CSS so it renders instantly, before Flutter boots,
+       and stays reachable if the app fails to load. */
+    #alex-download-panel {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 2147483000;
+      width: 260px;
+      padding: 14px;
+      background: #ffffff;
+      color: #0d0d0d;
+      border: 1.25px solid #969696;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+      box-sizing: border-box;
+    }
+    #alex-download-panel .alex-dl-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    #alex-download-panel .alex-dl-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    #alex-download-panel .alex-dl-close {
+      background: transparent;
+      border: 0;
+      color: #4f4f4f;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    #alex-download-panel .alex-dl-close:hover {
+      background: #f3f3f3;
+    }
+    #alex-download-panel .alex-dl-qr {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      border: 1.25px solid #d2d2d2;
+      border-radius: 6px;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    #alex-download-panel .alex-dl-qr img,
+    #alex-download-panel .alex-dl-qr canvas,
+    #alex-download-panel .alex-dl-qr svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    #alex-download-panel .alex-dl-caption {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #4f4f4f;
+      text-align: center;
+    }
+    #alex-download-panel .alex-dl-link {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #0d0d0d;
+      text-decoration: none;
+      text-align: center;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    #alex-download-panel .alex-dl-link:hover {
+      text-decoration: underline;
+    }
+    /* Hide on small screens — the mobile visitor IS the target device. */
+    @media (max-width: 720px) {
+      #alex-download-panel { display: none; }
+    }
+    @media (prefers-color-scheme: dark) {
+      #alex-download-panel {
+        background: #151515;
+        color: #fafafa;
+        border-color: #5c5c5c;
+      }
+      #alex-download-panel .alex-dl-close { color: #b4b4b4; }
+      #alex-download-panel .alex-dl-close:hover { background: #2a2a2a; }
+      #alex-download-panel .alex-dl-caption { color: #b4b4b4; }
+      #alex-download-panel .alex-dl-link { color: #fafafa; }
+      /* QR stays on a white card for reliable camera contrast. */
+    }
+  </style>
 </head>
 <body>
+  <!--
+    Download QR panel. The URL below must match `AppShareConfig.downloadUrl`
+    in lib/config/app_share_config.dart. If you change one, change both.
+  -->
+  <div id="alex-download-panel" role="complementary" aria-label="Download mobile app"
+       data-download-url="https://alex-pos.web.app">
+    <div class="alex-dl-head">
+      <span class="alex-dl-title">Get ALEX on mobile</span>
+      <button type="button" class="alex-dl-close" aria-label="Dismiss">&times;</button>
+    </div>
+    <div class="alex-dl-qr" id="alex-dl-qr-slot"></div>
+    <div class="alex-dl-caption">Scan to download the app</div>
+    <a class="alex-dl-link" id="alex-dl-link" href="#" target="_blank" rel="noopener"></a>
+  </div>
+
+  <script>
+    (function () {
+      var panel = document.getElementById('alex-download-panel');
+      if (!panel) { return; }
+      var url = panel.getAttribute('data-download-url') || window.location.origin;
+      var link = document.getElementById('alex-dl-link');
+      var slot = document.getElementById('alex-dl-qr-slot');
+      if (link) {
+        link.textContent = url;
+        link.href = url;
+      }
+
+      // Honor a dismissal for the rest of the session.
+      try {
+        if (sessionStorage.getItem('alex-dl-dismissed') === '1') {
+          panel.style.display = 'none';
+        }
+      } catch (_) { /* sessionStorage may be blocked; ignore. */ }
+
+      var closeBtn = panel.querySelector('.alex-dl-close');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function () {
+          panel.style.display = 'none';
+          try { sessionStorage.setItem('alex-dl-dismissed', '1'); } catch (_) {}
+        });
+      }
+
+      // Render the QR via an <img> pointing at a deterministic QR image URL.
+      // Uses Google Chart's QR endpoint as a zero-dependency fallback; if the
+      // request fails (offline / blocked), we show the URL text only.
+      if (slot) {
+        var img = document.createElement('img');
+        img.alt = 'QR code to download ALEX';
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' +
+          encodeURIComponent(url);
+        img.onerror = function () {
+          slot.textContent = 'Open ' + url + ' on your phone';
+          slot.style.fontSize = '12px';
+          slot.style.textAlign = 'center';
+          slot.style.padding = '16px';
+          slot.style.color = '#4f4f4f';
+        };
+        slot.appendChild(img);
+      }
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

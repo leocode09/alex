@@ -211,6 +211,13 @@ class SettingsPage extends ConsumerWidget {
               ),
               _buildSettingTile(
                 context,
+                'Share App',
+                'QR code and link to download on another device',
+                Icons.qr_code_2_rounded,
+                onTap: () => context.push('/share-app'),
+              ),
+              _buildSettingTile(
+                context,
                 'About',
                 'Version 1.0.0',
                 Icons.info_outline,
