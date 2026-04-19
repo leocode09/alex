@@ -71,6 +71,9 @@ import 'ui/pages/promotions/promotions_page.dart';
 // Notifications
 import 'ui/pages/notifications/notifications_page.dart';
 
+// Share App (download QR)
+import 'ui/pages/share/share_app_page.dart';
+
 // Navigation state key
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -117,7 +120,8 @@ int _getCurrentIndex(String location) {
       location.startsWith('/store') ||
       location.startsWith('/hardware') ||
       location.startsWith('/promotions') ||
-      location.startsWith('/notifications')) {
+      location.startsWith('/notifications') ||
+      location.startsWith('/share-app')) {
     return 4;
   }
   return 0;
@@ -200,7 +204,8 @@ bool _isPathVisibilityExempt(String path) {
       path == '/pin-entry' ||
       path == '/pin-setup' ||
       path == '/pin-preferences' ||
-      path == '/time-lock';
+      path == '/time-lock' ||
+      path == '/share-app';
 }
 
 bool _isRouteDisabledByPolicy(String path, LicensePolicy policy) {
@@ -729,6 +734,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/notifications',
             name: 'notifications',
             builder: (context, state) => const NotificationsPage(),
+          ),
+
+          // Share App (QR code to download on another device)
+          _animatedRoute(
+            path: '/share-app',
+            name: 'share-app',
+            builder: (context, state) => const ShareAppPage(),
           ),
         ],
       ),

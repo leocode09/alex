@@ -20,7 +20,11 @@ dependencies:
   # UI Components
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.10
-  
+  qr_flutter: ^4.1.0
+
+  # Share / clipboard helpers for the "Share App" QR screen.
+  share_plus: ^10.0.2
+
   # Charts & Analytics
   fl_chart: ^0.68.0
   
