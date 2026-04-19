@@ -71,6 +71,14 @@ service cloud.firestore {
                 && get(/databases/$(database)/documents/devices/$(installId)).data.ownerUid
                     == request.auth.uid);
       }
+
+      // Admin-only audit trail of every change made to this device doc
+      // via the admin panel. Writes are create-only (no updates, no
+      // deletes) so the history is immutable.
+      match /auditLog/{entryId} {
+        allow read, create: if isAdmin();
+        allow update, delete: if false;
+      }
     }
 
     // ---------- /shops ----------
@@ -102,6 +110,13 @@ service cloud.firestore {
               ));
 
       allow delete: if isAdmin();
+
+      // Admin-only audit trail. Must come BEFORE the wildcard subcollection
+      // match below so members cannot read/write it.
+      match /auditLog/{entryId} {
+        allow read, create: if isAdmin();
+        allow update, delete: if false;
+      }
 
       // Subcollections (entities) — existing pattern: shop members
       // read/write; admins also have full access.
