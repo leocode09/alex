@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../providers/admin_auth_provider.dart';
-import '../../../services/admin/admin_audit_service.dart';
 import '../../../services/cloud/firestore_paths.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
@@ -557,13 +556,12 @@ class _BulkActionsBarState extends ConsumerState<_BulkActionsBar> {
     setState(() => _working = true);
     try {
       final batch = db.batch();
-      final auditColl = <String, CollectionReference<Map<String, dynamic>>>{};
-      final auditPayload = <String, Map<String, dynamic>>{};
       final now = DateTime.now();
       final extendDays = int.tryParse(action);
+      final actor = _actorFields();
 
       for (final id in widget.selectedIds) {
-        final ref = db
+        final deviceRef = db
             .collection(FirestorePaths.devicesCollection)
             .doc(id);
 
@@ -594,19 +592,13 @@ class _BulkActionsBarState extends ConsumerState<_BulkActionsBar> {
           continue;
         }
 
-        batch.set(ref, payload, SetOptions(merge: true));
-        auditColl[id] = ref.collection('auditLog');
-        auditPayload[id] = payload;
-        // Audit entry committed in the same batch.
-        final auditDoc = ref.collection('auditLog').doc();
+        batch.set(deviceRef, payload, SetOptions(merge: true));
+        // Atomic audit entry in the same batch so it can never be lost.
+        final auditDoc = deviceRef.collection('auditLog').doc();
         batch.set(auditDoc, {
           'at': FieldValue.serverTimestamp(),
           'atIso': DateTime.now().toIso8601String(),
-          'actorUid': ref.firestore.app.options.projectId,
-          // The admin's uid / email is filled by the audit service for
-          // non-batched writes. For the batch we read it from the
-          // AdminAuthService directly.
-          ..._actorFields(),
+          ...actor,
           'action': actionLabel,
           'targetType': 'device',
           'targetId': id,
@@ -690,9 +682,3 @@ class _BulkActionsBarState extends ConsumerState<_BulkActionsBar> {
   }
 }
 
-// Suppress unused imports that were imported because of helpers the
-// bulk bar may need in the future.
-// ignore: unused_element
-void _ensureAuditServiceLinked() {
-  AdminAuditService();
-}
