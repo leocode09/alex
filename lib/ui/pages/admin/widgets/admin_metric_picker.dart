@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../services/admin/usage_recorder.dart';
+import '../../../../services/admin/usage_recorder.dart';
 
 /// The metrics the admin can chart over time. Values map to Firestore
 /// field names under `usageDaily/{day}`.

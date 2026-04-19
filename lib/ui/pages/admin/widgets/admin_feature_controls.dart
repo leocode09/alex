@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../models/license_policy.dart';
 import '../../../../providers/admin_auth_provider.dart';
+import '../../../../services/admin/admin_audit_service.dart';
 import '../../../../services/cloud/firestore_paths.dart';
 import '../../../design_system/app_theme_extensions.dart';
 import '../../../design_system/app_tokens.dart';
@@ -103,16 +104,117 @@ class _AdminFeatureControlsState
         .doc(dt.installId);
   }
 
-  Future<void> _update(Map<String, dynamic> payload) async {
+  /// Updates the target doc with [payload] (merged) and records an
+  /// audit entry describing the change.
+  ///
+  /// [action] is the human-readable label stored in the audit log
+  /// ("Enabled shop", "Set expiry to 2026-12-31", etc.). When
+  /// [successMessage] is provided, it is shown as a SnackBar on
+  /// success. When [confirm] is provided, a confirmation dialog must
+  /// be acknowledged before the write happens.
+  Future<void> _update(
+    Map<String, dynamic> payload, {
+    required String action,
+    String? successMessage,
+    _ConfirmSpec? confirm,
+  }) async {
+    if (confirm != null) {
+      final ok = await _askConfirm(confirm);
+      if (!ok) return;
+    }
+    final before = Map<String, dynamic>.from(widget.data);
     try {
       await _ref().set(payload, SetOptions(merge: true));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Write failed: $e')),
+      final after = _mergeForDiff(before, payload);
+      final target = widget.target;
+      if (target is _ShopTarget) {
+        await AdminAuditService().recordShopChange(
+          shopId: target.shopId,
+          before: before,
+          after: after,
+          action: action,
+        );
+      } else if (target is _DeviceTarget) {
+        await AdminAuditService().recordDeviceChange(
+          installId: target.installId,
+          before: before,
+          after: after,
+          action: action,
         );
       }
+      if (mounted && successMessage != null) {
+        _toast(successMessage);
+      }
+    } catch (e) {
+      if (mounted) {
+        _toast('Write failed: $e');
+      }
     }
+  }
+
+  /// Shallow merge that simulates Firestore's `merge: true` semantics
+  /// so the audit diff reflects what the doc will look like after the
+  /// write.
+  Map<String, dynamic> _mergeForDiff(
+    Map<String, dynamic> before,
+    Map<String, dynamic> payload,
+  ) {
+    final merged = Map<String, dynamic>.from(before);
+    payload.forEach((key, value) {
+      if (value is Map) {
+        final existing = merged[key];
+        final base = existing is Map
+            ? Map<String, dynamic>.from(existing)
+            : <String, dynamic>{};
+        value.forEach((k, v) {
+          if (v == null || v is FieldValue) {
+            base.remove(k);
+          } else {
+            base[k.toString()] = v;
+          }
+        });
+        merged[key] = base;
+      } else if (value == null) {
+        merged.remove(key);
+      } else {
+        merged[key] = value;
+      }
+    });
+    return merged;
+  }
+
+  Future<bool> _askConfirm(_ConfirmSpec spec) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(spec.title),
+        content: Text(spec.message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: Text(spec.confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -143,7 +245,20 @@ class _AdminFeatureControlsState
             subtitle: const Text(
                 'When off, every device attached to this shop is locked.'),
             value: enabled,
-            onChanged: (v) => _update({'enabled': v}),
+            onChanged: (v) => _update(
+              {'enabled': v},
+              action: v ? 'Enabled shop' : 'Disabled shop',
+              successMessage: v ? 'Shop enabled' : 'Shop disabled',
+              confirm: !v
+                  ? const _ConfirmSpec(
+                      title: 'Disable this shop?',
+                      message:
+                          'Every device attached to this shop will lock '
+                              'immediately until you re-enable it.',
+                      confirmLabel: 'Disable',
+                    )
+                  : null,
+            ),
           ),
         ),
         const SizedBox(height: AppTokens.space1),
@@ -161,15 +276,31 @@ class _AdminFeatureControlsState
                   icon: const Icon(Icons.edit_calendar),
                   onPressed: () => _pickExpiry(
                     initial: expiresAt,
-                    onChosen: (d) => _update({
-                      'licenseExpiresAt': d.toIso8601String(),
-                    }),
+                    onChosen: (d) => _update(
+                      {'licenseExpiresAt': d.toIso8601String()},
+                      action: 'Set expiry to ${_fmtDate(d)}',
+                      successMessage: 'Expiry set to ${_fmtDate(d)}',
+                    ),
                   ),
                 ),
                 if (expiresAt != null)
                   IconButton(
                     icon: const Icon(Icons.clear),
-                    onPressed: () => _update({'licenseExpiresAt': null}),
+                    onPressed: () => _update(
+                      {'licenseExpiresAt': null},
+                      action: 'Cleared expiry',
+                      successMessage: 'Expiry cleared',
+                      confirm: expiresAt.isAfter(DateTime.now())
+                          ? _ConfirmSpec(
+                              title: 'Clear active expiry?',
+                              message:
+                                  'The current expiry is ${_fmtDate(expiresAt)} '
+                                      '(in the future). Clearing it grants '
+                                      'unlimited access.',
+                              confirmLabel: 'Clear',
+                            )
+                          : null,
+                    ),
                   ),
               ],
             ),
@@ -189,12 +320,23 @@ class _AdminFeatureControlsState
             feature: f,
             enabled: flags[f] ?? true,
             pinForced: pinForced[f] ?? false,
-            onToggle: (v) => _update({
-              'featureFlags': {f.key: v},
-            }),
-            onPinForce: (v) => _update({
-              'pinForcedFlags': {f.key: v},
-            }),
+            onToggle: (v) => _update(
+              {
+                'featureFlags': {f.key: v},
+              },
+              action: "${v ? 'Enabled' : 'Disabled'} feature '${_label(f)}'",
+              successMessage:
+                  "${_label(f)} ${v ? 'enabled' : 'disabled'}",
+            ),
+            onPinForce: (v) => _update(
+              {
+                'pinForcedFlags': {f.key: v},
+              },
+              action:
+                  "${v ? 'Forced' : 'Unforced'} PIN for '${_label(f)}'",
+              successMessage:
+                  "PIN ${v ? 'required' : 'no longer forced'} for ${_label(f)}",
+            ),
           ),
         const SizedBox(height: AppTokens.space2),
         AppPanel(
@@ -222,11 +364,17 @@ class _AdminFeatureControlsState
                         labelText: 'Max products',
                         helperText: 'Blank = no limit',
                       ),
-                      onEditingComplete: () => _update({
-                        'maxProducts': int.tryParse(
-                          _maxProductsController.text.trim(),
-                        ),
-                      }),
+                      onEditingComplete: () {
+                        final v =
+                            int.tryParse(_maxProductsController.text.trim());
+                        _update(
+                          {'maxProducts': v},
+                          action: v == null
+                              ? 'Removed max-products quota'
+                              : 'Set max-products quota to $v',
+                          successMessage: 'Quota saved',
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(width: AppTokens.space2),
@@ -241,11 +389,17 @@ class _AdminFeatureControlsState
                         labelText: 'Max sales per day',
                         helperText: 'Blank = no limit',
                       ),
-                      onEditingComplete: () => _update({
-                        'maxSalesPerDay': int.tryParse(
-                          _maxSalesController.text.trim(),
-                        ),
-                      }),
+                      onEditingComplete: () {
+                        final v =
+                            int.tryParse(_maxSalesController.text.trim());
+                        _update(
+                          {'maxSalesPerDay': v},
+                          action: v == null
+                              ? 'Removed max-sales-per-day quota'
+                              : 'Set max-sales-per-day to $v',
+                          successMessage: 'Quota saved',
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -277,9 +431,11 @@ class _AdminFeatureControlsState
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.tonal(
-                  onPressed: () => _update({
-                    'notice': _noticeController.text.trim(),
-                  }),
+                  onPressed: () => _update(
+                    {'notice': _noticeController.text.trim()},
+                    action: 'Updated license notice',
+                    successMessage: 'Notice saved',
+                  ),
                   child: const Text('Save notice'),
                 ),
               ),
@@ -315,7 +471,20 @@ class _AdminFeatureControlsState
             subtitle: const Text(
                 'Immediately locks the app on this install regardless of shop.'),
             value: blocked,
-            onChanged: (v) => _update({'blocked': v}),
+            onChanged: (v) => _update(
+              {'blocked': v},
+              action: v ? 'Blocked device' : 'Unblocked device',
+              successMessage: v ? 'Device blocked' : 'Device unblocked',
+              confirm: v
+                  ? const _ConfirmSpec(
+                      title: 'Block this device?',
+                      message:
+                          'The app on this device will lock immediately '
+                              'and stay locked until you unblock it.',
+                      confirmLabel: 'Block',
+                    )
+                  : null,
+            ),
           ),
         ),
         const SizedBox(height: AppTokens.space1),
@@ -333,14 +502,30 @@ class _AdminFeatureControlsState
                   icon: const Icon(Icons.edit_calendar),
                   onPressed: () => _pickExpiry(
                     initial: expiresAt,
-                    onChosen: (d) =>
-                        _update({'expiresAt': d.toIso8601String()}),
+                    onChosen: (d) => _update(
+                      {'expiresAt': d.toIso8601String()},
+                      action: 'Set device expiry to ${_fmtDate(d)}',
+                      successMessage: 'Device expiry set',
+                    ),
                   ),
                 ),
                 if (expiresAt != null)
                   IconButton(
                     icon: const Icon(Icons.clear),
-                    onPressed: () => _update({'expiresAt': null}),
+                    onPressed: () => _update(
+                      {'expiresAt': null},
+                      action: 'Cleared device expiry',
+                      successMessage: 'Device expiry cleared',
+                      confirm: expiresAt.isAfter(DateTime.now())
+                          ? _ConfirmSpec(
+                              title: 'Clear active device expiry?',
+                              message:
+                                  'Current expiry is ${_fmtDate(expiresAt)}. '
+                                      'Clearing falls back to the shop expiry.',
+                              confirmLabel: 'Clear',
+                            )
+                          : null,
+                    ),
                   ),
               ],
             ),
@@ -366,12 +551,22 @@ class _AdminFeatureControlsState
           _DeviceOverrideRow(
             feature: f,
             value: overrides[f],
-            onChanged: (v) => _update({
-              'featureOverrides': {f.key: v},
-            }),
-            onClear: () => _update({
-              'featureOverrides': {f.key: FieldValue.delete()},
-            }),
+            onChanged: (v) => _update(
+              {
+                'featureOverrides': {f.key: v},
+              },
+              action:
+                  "Override '${_label(f)}' \u2192 ${v ? 'forced on' : 'forced off'}",
+              successMessage:
+                  "${_label(f)} overridden to ${v ? 'on' : 'off'}",
+            ),
+            onClear: () => _update(
+              {
+                'featureOverrides': {f.key: FieldValue.delete()},
+              },
+              action: "Cleared override for '${_label(f)}' (inherit)",
+              successMessage: "${_label(f)} now inherits from shop",
+            ),
           ),
       ],
     );
@@ -548,6 +743,19 @@ class _DeviceOverrideRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Spec for a confirmation dialog that gates a destructive update.
+class _ConfirmSpec {
+  final String title;
+  final String message;
+  final String confirmLabel;
+
+  const _ConfirmSpec({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+  });
 }
 
 String _label(FeatureKey feature) {

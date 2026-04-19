@@ -50,6 +50,54 @@ class ShopResult {
       ShopResult._(success: false, message: message);
 }
 
+/// Outcome of [ShopService.ensureAuth]. Exposes the underlying Firebase error
+/// (code + message) so the UI can show something actionable instead of a
+/// generic "check your internet connection".
+class AuthResult {
+  final String? uid;
+  final String? errorCode;
+  final String? errorMessage;
+
+  const AuthResult.ok(String this.uid)
+      : errorCode = null,
+        errorMessage = null;
+
+  const AuthResult.fail({
+    required String code,
+    required String message,
+  })  : uid = null,
+        errorCode = code,
+        errorMessage = message;
+
+  bool get success => uid != null;
+
+  /// Human-readable, actionable description for the UI/logs.
+  String describe() {
+    final code = errorCode;
+    final msg = errorMessage ?? 'Unknown error';
+    switch (code) {
+      case 'operation-not-allowed':
+        return 'Anonymous sign-in is disabled in the Firebase project. '
+            'Open Firebase Console → Authentication → Sign-in method and '
+            'enable "Anonymous".';
+      case 'network-request-failed':
+        return 'No internet connection reached Firebase. Check Wi-Fi / data '
+            'and try again.';
+      case 'admin-restricted-operation':
+        return 'Anonymous sign-in is blocked by an admin policy on the '
+            'Firebase project.';
+      case 'app-not-authorized':
+      case 'api-key-not-valid':
+        return 'This app\'s Firebase configuration is rejected by the '
+            'project (bad API key / SHA). Re-run `flutterfire configure`.';
+      case null:
+        return msg;
+      default:
+        return '[$code] $msg';
+    }
+  }
+}
+
 /// Manages the device's membership in a cloud "shop" (tenant scope for
 /// Firestore sync).
 ///
@@ -120,23 +168,55 @@ class ShopService {
 
   /// Ensures the device is signed in anonymously. Returns the resolved UID
   /// or null if auth is unavailable (e.g. Firebase not initialized).
+  ///
+  /// Prefer [ensureAuthDetailed] in new code — it exposes the Firebase error
+  /// code so the UI can surface an actionable message.
   Future<String?> ensureAuth() async {
+    final result = await ensureAuthDetailed();
+    return result.uid;
+  }
+
+  /// Like [ensureAuth] but returns the full error (code + message) when
+  /// sign-in fails, so the caller can distinguish e.g. "anonymous auth
+  /// disabled in Firebase" from a real network outage.
+  Future<AuthResult> ensureAuthDetailed() async {
     if (!FirebaseInit.available) {
-      return null;
+      return const AuthResult.fail(
+        code: 'firebase-not-initialized',
+        message: 'Firebase is not initialized on this build.',
+      );
     }
     try {
       final auth = FirebaseAuth.instance;
       final current = auth.currentUser;
       if (current != null) {
-        return current.uid;
+        return AuthResult.ok(current.uid);
       }
       final cred = await auth.signInAnonymously();
-      return cred.user?.uid;
+      final uid = cred.user?.uid;
+      if (uid == null) {
+        return const AuthResult.fail(
+          code: 'no-uid',
+          message: 'Firebase returned no user id.',
+        );
+      }
+      return AuthResult.ok(uid);
+    } on FirebaseAuthException catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          'ShopService.ensureAuth FirebaseAuthException: '
+          '${e.code} — ${e.message}',
+        );
+      }
+      return AuthResult.fail(
+        code: e.code,
+        message: e.message ?? 'Firebase auth error.',
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('ShopService.ensureAuth error: $e');
       }
-      return null;
+      return AuthResult.fail(code: 'unknown', message: e.toString());
     }
   }
 
@@ -151,9 +231,10 @@ class ShopService {
       );
     }
 
-    final uid = await ensureAuth();
+    final auth = await ensureAuthDetailed();
+    final uid = auth.uid;
     if (uid == null) {
-      return ShopResult.fail('Sign-in failed. Check your internet connection.');
+      return ShopResult.fail('Sign-in failed: ${auth.describe()}');
     }
 
     try {
@@ -208,9 +289,10 @@ class ShopService {
       );
     }
 
-    final uid = await ensureAuth();
+    final auth = await ensureAuthDetailed();
+    final uid = auth.uid;
     if (uid == null) {
-      return ShopResult.fail('Sign-in failed. Check your internet connection.');
+      return ShopResult.fail('Sign-in failed: ${auth.describe()}');
     }
 
     try {

@@ -114,11 +114,13 @@ class CloudSyncService extends ChangeNotifier {
 
     _setStatus(CloudSyncStatus.connecting);
     await _shopService.loadCache();
-    final uid = await _shopService.ensureAuth();
-    if (uid == null) {
+    final authResult = await _shopService.ensureAuthDetailed();
+    if (!authResult.success) {
       _setStatus(CloudSyncStatus.error);
-      _lastError = 'Unable to sign in to Firebase.';
-      _addLog('Sign-in failed. Cloud sync paused.');
+      final detail = authResult.describe();
+      _lastError = detail;
+      _addLog('Sign-in failed: $detail');
+      _addLog('Cloud sync paused.');
       notifyListeners();
       return;
     }

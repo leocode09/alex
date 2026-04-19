@@ -120,12 +120,21 @@ class _CloudSyncPageState extends ConsumerState<CloudSyncPage> {
               '`flutterfire configure` in the project root and rebuild the app.',
               style: TextStyle(color: extras.muted, fontSize: 12),
             )
-          else if (service.lastError != null)
+          else if (service.lastError != null) ...[
             Text(
               service.lastError!,
               style: TextStyle(color: extras.danger, fontSize: 12),
-            )
-          else
+            ),
+            const SizedBox(height: AppTokens.space2),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _busy ? null : _onRetry,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Retry sign-in'),
+              ),
+            ),
+          ] else
             Text(
               service.shopId == null
                   ? 'Sign in and join a shop to start backing up to the cloud.'
@@ -136,6 +145,17 @@ class _CloudSyncPageState extends ConsumerState<CloudSyncPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _onRetry() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(cloudSyncServiceProvider).refresh();
+      if (!mounted) return;
+      _toast('Retrying sign-in…');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   (String, Color) _statusDisplay(CloudSyncStatus status, AppThemeExtras extras) {
