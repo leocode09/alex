@@ -54,7 +54,6 @@ class AdminAuthService {
 
   static const String _adminAppName = 'admin';
 
-  FirebaseApp? _app;
   FirebaseAuth? _auth;
   FirebaseFirestore? _db;
 
@@ -103,7 +102,6 @@ class AdminAuthService {
         options: DefaultFirebaseOptions.currentPlatform,
       );
 
-      _app = app;
       _auth = FirebaseAuth.instanceFor(app: app);
       _db = FirebaseFirestore.instanceFor(app: app);
       _ready = true;

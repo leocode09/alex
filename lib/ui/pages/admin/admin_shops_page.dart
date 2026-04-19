@@ -115,7 +115,7 @@ class _ShopTile extends StatelessWidget {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: AppTokens.space2),
         leading: CircleAvatar(
-          backgroundColor: tone.withOpacity(0.15),
+          backgroundColor: tone.withValues(alpha: 0.15),
           child: Icon(Icons.storefront, color: tone),
         ),
         title: Text(

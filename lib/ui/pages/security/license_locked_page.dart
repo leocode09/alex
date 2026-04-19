@@ -27,8 +27,8 @@ class LicenseLockedPage extends ConsumerWidget {
         );
     final extras = context.appExtras;
 
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
       child: AppPageScaffold(
         padding: const EdgeInsets.all(AppTokens.space4),
         child: Center(
