@@ -9,7 +9,6 @@ import '../../../design_system/app_theme_extensions.dart';
 import '../../../design_system/app_tokens.dart';
 import '../../../design_system/widgets/app_panel.dart';
 import '../../../design_system/widgets/app_search_field.dart';
-import '../admin_heuristics.dart';
 import 'admin_status_badge.dart';
 
 /// Full-screen style modal bottom sheet that searches across shops

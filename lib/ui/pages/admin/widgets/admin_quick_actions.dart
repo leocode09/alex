@@ -209,6 +209,7 @@ class AdminQuickActions extends ConsumerWidget {
       );
       if (!confirm) return;
     }
+    if (!context.mounted) return;
     await _commit(
       context,
       ref,
@@ -236,6 +237,7 @@ class AdminQuickActions extends ConsumerWidget {
       );
       if (!confirm) return;
     }
+    if (!context.mounted) return;
     await _commit(
       context,
       ref,
@@ -262,6 +264,7 @@ class AdminQuickActions extends ConsumerWidget {
       );
       if (!confirm) return;
     }
+    if (!context.mounted) return;
     await _commit(
       context,
       ref,
