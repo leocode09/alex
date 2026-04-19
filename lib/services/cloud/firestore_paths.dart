@@ -7,6 +7,17 @@ class FirestorePaths {
 
   static const String shopsCollection = 'shops';
 
+  /// Top-level collection listing every device install that has booted
+  /// the app. Doc id is the per-install UUID. Used by the super admin.
+  static const String devicesCollection = 'devices';
+
+  /// Top-level allowlist. Presence of a doc with id == uid grants
+  /// super-admin privileges on read/write rules.
+  static const String adminsCollection = 'admins';
+
+  /// Per-device / per-shop daily usage counters.
+  static const String usageDailySubcollection = 'usageDaily';
+
   // Subcollection names under /shops/{shopId}
   static const String membersSubcollection = 'members';
   static const String productsSubcollection = 'products';
