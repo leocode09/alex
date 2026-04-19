@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import '../models/sale.dart';
+import '../services/admin/usage_recorder.dart';
 import '../services/database_helper.dart';
 
 class SaleRepository {
@@ -52,7 +54,13 @@ class SaleRepository {
     try {
       final sales = await getAllSales();
       sales.add(sale);
-      return await _saveSales(sales);
+      final saved = await _saveSales(sales);
+      if (saved) {
+        unawaited(
+          UsageRecorder().recordSale(amount: sale.total),
+        );
+      }
+      return saved;
     } catch (e) {
       print('Error inserting sale: $e');
       return false;

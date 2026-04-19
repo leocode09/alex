@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import '../models/inventory_movement.dart';
 import '../models/product.dart';
 import '../models/sale.dart';
+import '../services/admin/usage_recorder.dart';
 import '../services/database_helper.dart';
 import 'inventory_movement_repository.dart';
 
@@ -125,6 +127,9 @@ class ProductRepository {
 
     products.add(product);
     final success = await _saveProducts(products);
+    if (success) {
+      unawaited(UsageRecorder().recordProductEdited());
+    }
     return success ? 1 : 0;
   }
 
@@ -146,6 +151,9 @@ class ProductRepository {
 
     products[index] = updatedProduct;
     final success = await _saveProducts(products);
+    if (success) {
+      unawaited(UsageRecorder().recordProductEdited());
+    }
     return success ? 1 : 0;
   }
 
@@ -160,6 +168,7 @@ class ProductRepository {
     final success = await _saveProducts(products);
     if (success) {
       await addDeletedProductIds([id]);
+      unawaited(UsageRecorder().recordProductEdited());
     }
     return success ? 1 : 0;
   }

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'admin/usage_recorder.dart';
 
 class ReceiptPrintService {
   static const String _receiptPrintCountsKey = 'receipt_print_counts';
@@ -21,6 +24,7 @@ class ReceiptPrintService {
     if (printNumber > currentCount) {
       counts[saleId] = printNumber;
       await _savePrintCounts(counts);
+      unawaited(UsageRecorder().recordReceiptPrinted());
     }
   }
 

@@ -1,42 +1,122 @@
 rules_version = '2';
 
+// Security rules for the ALEX POS app.
+//
+// Two parallel trust levels live here:
+//   1. "Device" users  — anonymous Firebase auth, identified by their
+//      own uid. They read/write data under the shop they joined, and
+//      they own exactly one doc under /devices/{installId}.
+//   2. "Super admins"  — listed explicitly in /admins/{uid}. They have
+//      full read/write across /shops, /devices, and /admins so they
+//      can manage the whole fleet from the in-app admin panel.
+//
+// IMPORTANT: the first admin must be created manually in the Firebase
+// console (Authentication → add email/password user, then Firestore →
+// create doc /admins/<that-uid> with any payload).
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---------- helpers ----------
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isMember(shopId) {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/shops/$(shopId)/members/$(request.auth.uid));
+    function isAdmin() {
+      return isSignedIn()
+          && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    function isShopMember(shopId) {
+      return isSignedIn()
+          && exists(
+              /databases/$(database)/documents/shops/$(shopId)/members/$(request.auth.uid)
+          );
+    }
+
+    // ---------- /admins ----------
+    // Full read/write only for other admins. Non-admins cannot even
+    // discover whether an admin allowlist exists.
+    match /admins/{uid} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---------- /devices ----------
+    // A device (anonymous-auth uid) may read & upsert its own doc.
+    // Admins can read / write every device doc.
+    match /devices/{installId} {
+      allow read: if isAdmin()
+          || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isAdmin()
+          || (isSignedIn() && request.resource.data.ownerUid == request.auth.uid);
+      allow update: if isAdmin()
+          || (
+            isSignedIn()
+            && resource.data.ownerUid == request.auth.uid
+            && request.resource.data.ownerUid == request.auth.uid
+            // A device cannot raise its own expiry or clear its block.
+            && !("blocked" in request.resource.data.diff(resource.data).affectedKeys())
+            && !("expiresAt" in request.resource.data.diff(resource.data).affectedKeys())
+            && !("featureOverrides" in request.resource.data.diff(resource.data).affectedKeys())
+          );
+      allow delete: if isAdmin();
+
+      match /usageDaily/{day} {
+        allow read: if isAdmin()
+            || (isSignedIn()
+                && get(/databases/$(database)/documents/devices/$(installId)).data.ownerUid
+                    == request.auth.uid);
+        allow write: if isAdmin()
+            || (isSignedIn()
+                && get(/databases/$(database)/documents/devices/$(installId)).data.ownerUid
+                    == request.auth.uid);
+      }
+    }
+
+    // ---------- /shops ----------
+    // Members can read their shop doc (to receive live policy updates).
+    // Only admins can edit the shop-level license fields; members may
+    // still update non-privileged metadata (existing behaviour) but the
+    // following fields are reserved to admins:
+    //   enabled, licenseExpiresAt, featureFlags, pinForcedFlags,
+    //   maxProducts, maxSalesPerDay, notice.
     match /shops/{shopId} {
-      // Any signed-in user can create a shop (they become owner and first member).
+      allow read: if isAdmin() || isShopMember(shopId);
+
       allow create: if isSignedIn()
-                    && request.resource.data.ownerUid == request.auth.uid;
+          && request.resource.data.ownerUid == request.auth.uid;
 
-      // Reads allowed for members, and for any signed-in user looking up a
-      // shop by code (needed for the Join flow). Writes restricted to
-      // members; deletes restricted to the owner.
-      allow read: if isSignedIn();
-      allow update: if isMember(shopId);
-      allow delete: if isSignedIn()
-                    && resource.data.ownerUid == request.auth.uid;
+      allow update: if isAdmin()
+          || (isShopMember(shopId)
+              && !(
+                  request.resource.data.diff(resource.data).affectedKeys()
+                      .hasAny([
+                        'enabled',
+                        'licenseExpiresAt',
+                        'featureFlags',
+                        'pinForcedFlags',
+                        'maxProducts',
+                        'maxSalesPerDay',
+                        'notice',
+                      ])
+              ));
 
-      // Membership docs: a user can create/delete their OWN membership doc
-      // (needed for join / leave), and any existing member can read the list.
-      match /members/{uid} {
-        allow read: if isMember(shopId);
-        allow create, update, delete: if isSignedIn()
-                                      && request.auth.uid == uid;
+      allow delete: if isAdmin();
+
+      // Subcollections (entities) — existing pattern: shop members
+      // read/write; admins also have full access.
+      match /{subcollection}/{docId} {
+        allow read, write: if isAdmin() || isShopMember(shopId);
       }
 
-      // All other data under /shops/{shopId}/** is gated on membership.
-      match /{document=**} {
-        allow read, write: if isMember(shopId);
+      match /{subcollection}/{docId}/{rest=**} {
+        allow read, write: if isAdmin() || isShopMember(shopId);
       }
+    }
+
+    // Fallback: deny anything not covered above.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
