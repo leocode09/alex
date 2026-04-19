@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../admin/device_heartbeat_service.dart';
+import '../admin/license_service.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
 
@@ -184,6 +186,8 @@ class ShopService {
         createdAt: now,
       );
       await _persistCache(shop);
+      unawaited(DeviceHeartbeatService().refreshShopMembership());
+      unawaited(LicenseService().refresh());
       return ShopResult.ok('Shop created. Code: $code', shop);
     } catch (e) {
       if (kDebugMode) {
@@ -234,6 +238,8 @@ class ShopService {
       }, SetOptions(merge: true));
 
       await _persistCache(shop);
+      unawaited(DeviceHeartbeatService().refreshShopMembership());
+      unawaited(LicenseService().refresh());
       return ShopResult.ok('Joined shop "${shop.name}".', shop);
     } catch (e) {
       if (kDebugMode) {
@@ -251,6 +257,8 @@ class ShopService {
     _cachedShopId = null;
     _cachedShopName = null;
     _cachedShopCode = null;
+    unawaited(DeviceHeartbeatService().refreshShopMembership());
+    unawaited(LicenseService().refresh());
   }
 
   Future<void> _persistCache(ShopInfo shop) async {

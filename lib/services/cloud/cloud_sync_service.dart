@@ -4,12 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/license_gate.dart';
 import '../../models/account_history_record.dart';
 import '../../models/category.dart';
 import '../../models/customer.dart';
 import '../../models/employee.dart';
 import '../../models/expense.dart';
 import '../../models/inventory_movement.dart';
+import '../../models/license_policy.dart';
 import '../../models/money_account.dart';
 import '../../models/product.dart';
 import '../../models/sale.dart';
@@ -102,6 +104,11 @@ class CloudSyncService extends ChangeNotifier {
     if (!FirebaseInit.available) {
       _setStatus(CloudSyncStatus.disabled);
       _addLog('Cloud sync disabled: Firebase not configured.');
+      return;
+    }
+    if (!LicenseGate.isAllowed(FeatureKey.cloudSync)) {
+      _setStatus(CloudSyncStatus.disabled);
+      _addLog('Cloud sync disabled by administrator.');
       return;
     }
 

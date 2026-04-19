@@ -7,9 +7,13 @@ import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 import 'providers/theme_mode_provider.dart';
 import 'routes.dart';
+import 'services/admin/device_heartbeat_service.dart';
+import 'services/admin/install_id_service.dart';
+import 'services/admin/usage_recorder.dart';
 import 'services/cloud/firebase_init.dart';
 import 'ui/themes/app_theme.dart';
 import 'ui/widgets/cloud_sync_watcher.dart';
+import 'ui/widgets/license_watcher.dart';
 import 'ui/widgets/time_tamper_watcher.dart';
 import 'ui/widgets/lan_sync_watcher.dart';
 import 'ui/widgets/wifi_direct_sync_watcher.dart';
@@ -21,6 +25,13 @@ void main() async {
   // (misconfigured, offline, unsupported platform) the cloud sync UI
   // shows a "disabled" state and the app continues fully offline.
   await FirebaseInit.ensureInitialized();
+
+  // Assign a stable install id and begin heartbeating / usage tracking.
+  // All three are best-effort and never block UI.
+  await InstallIdService.ensure();
+  unawaited(DeviceHeartbeatService().start());
+  unawaited(UsageRecorder().start());
+  unawaited(UsageRecorder().recordAppOpen());
 
   unawaited(_maybeDownloadShorebirdPatch());
 

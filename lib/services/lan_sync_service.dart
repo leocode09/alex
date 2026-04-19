@@ -6,6 +6,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/license_gate.dart';
+import '../models/license_policy.dart';
 import '../models/sync_data.dart';
 import 'sync_message_utils.dart';
 import 'sync_service.dart';
@@ -137,6 +139,12 @@ class LanSyncService extends ChangeNotifier {
       return;
     }
     if (_running) {
+      return;
+    }
+    if (!LicenseGate.isAllowed(FeatureKey.lanSync)) {
+      _status = 'disabled_by_admin';
+      _lastError = 'LAN sync disabled by administrator.';
+      notifyListeners();
       return;
     }
     _lastError = null;

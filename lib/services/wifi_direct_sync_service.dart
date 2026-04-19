@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../helpers/license_gate.dart';
+import '../models/license_policy.dart';
 import '../models/sync_data.dart';
 import 'sync_message_utils.dart';
 import 'sync_service.dart';
@@ -84,6 +86,12 @@ class WifiDirectSyncService extends ChangeNotifier {
       return;
     }
     if (kIsWeb || !Platform.isAndroid) {
+      return;
+    }
+    if (!LicenseGate.isAllowed(FeatureKey.lanSync)) {
+      _status = 'disabled_by_admin';
+      _lastError = 'Wi-Fi Direct sync disabled by administrator.';
+      notifyListeners();
       return;
     }
 
