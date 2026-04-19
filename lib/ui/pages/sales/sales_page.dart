@@ -12,7 +12,9 @@ import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/receipt_provider.dart';
+import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../models/license_policy.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/data_sync_triggers.dart';
 import '../../../services/receipt_print_service.dart';
@@ -476,6 +478,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
     final editingReceipt = ref.read(editingReceiptProvider);
     final isEditingMode = editingReceipt != null;
 
+    if (!await LicenseGate.ensure(context, FeatureKey.sales)) {
+      return;
+    }
+
     if (isEditingMode) {
       final allowed = await PinProtection.requirePinIfNeeded(
         context,
@@ -647,26 +653,29 @@ class _SalesPageState extends ConsumerState<SalesPage>
           }
           await DataSyncTriggers.trigger(reason: 'sale_created');
 
-          // Attempt to print receipt
-          try {
-            final printerService = ref.read(printerServiceProvider);
-            final receiptSettings = ref.read(receiptSettingsProvider);
-            final receiptPrintService = ReceiptPrintService();
-            final nextPrintNumber =
-                await receiptPrintService.getNextPrintNumber(sale.id);
+          // Attempt to print receipt (skipped silently if printing is
+          // disabled by the administrator — the sale itself still posts).
+          if (LicenseGate.isAllowed(FeatureKey.printing)) {
+            try {
+              final printerService = ref.read(printerServiceProvider);
+              final receiptSettings = ref.read(receiptSettingsProvider);
+              final receiptPrintService = ReceiptPrintService();
+              final nextPrintNumber =
+                  await receiptPrintService.getNextPrintNumber(sale.id);
 
-            await printerService.printReceipt(
-              sale,
-              receiptSettings,
-              printNumber: nextPrintNumber,
-            );
-            await receiptPrintService.markPrinted(
-              sale.id,
-              printNumber: nextPrintNumber,
-            );
-          } catch (e) {
-            printFailed = true;
-            debugPrint('Auto-print failed: $e');
+              await printerService.printReceipt(
+                sale,
+                receiptSettings,
+                printNumber: nextPrintNumber,
+              );
+              await receiptPrintService.markPrinted(
+                sale.id,
+                printNumber: nextPrintNumber,
+              );
+            } catch (e) {
+              printFailed = true;
+              debugPrint('Auto-print failed: $e');
+            }
           }
         }
       } catch (e) {

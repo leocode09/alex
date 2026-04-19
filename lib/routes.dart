@@ -12,9 +12,18 @@ import 'ui/pages/auth/pin_setup_page.dart';
 import 'ui/pages/auth/pin_entry_page.dart';
 import 'ui/pages/auth/pin_preferences_page.dart';
 import 'providers/pin_unlock_provider.dart';
+import 'providers/license_provider.dart';
 import 'services/pin_service.dart';
+import 'models/license_policy.dart';
 import 'providers/time_tamper_provider.dart';
 import 'ui/pages/security/time_tamper_page.dart';
+import 'ui/pages/security/license_locked_page.dart';
+
+// Admin
+import 'ui/pages/admin/admin_login_page.dart';
+import 'ui/pages/admin/admin_shell_page.dart';
+import 'ui/pages/admin/admin_shop_detail_page.dart';
+import 'ui/pages/admin/admin_device_detail_page.dart';
 
 // Money
 import 'ui/pages/money/money_page.dart';
@@ -194,6 +203,16 @@ bool _isPathVisibilityExempt(String path) {
       path == '/time-lock';
 }
 
+bool _isRouteDisabledByPolicy(String path, LicensePolicy policy) {
+  if (path.startsWith('/reports')) {
+    return !policy.isFeatureEnabled(FeatureKey.reports);
+  }
+  if (path.startsWith('/cloud-sync')) {
+    return !policy.isFeatureEnabled(FeatureKey.cloudSync);
+  }
+  return false;
+}
+
 bool _isRouteHiddenByPreferences(String path, Map<String, bool> prefs) {
   if (path.startsWith('/money') || path.startsWith('/dashboard')) {
     return !_isAnyFeatureVisible(prefs, _moneyFeatureKeys);
@@ -292,6 +311,9 @@ String _firstVisibleRoute(Map<String, bool> prefs) {
 final routerProvider = Provider<GoRouter>((ref) {
   final pinUnlocked = ref.watch(pinUnlockedProvider);
   final timeTamper = ref.watch(timeTamperProvider);
+  // Watching here re-runs the redirect whenever the license policy
+  // changes, so remote admin toggles take effect without a restart.
+  ref.watch(licensePolicyProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -305,10 +327,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnPinEntry = state.uri.path == '/pin-entry';
       final isOnLogin = state.uri.path == '/';
       final isOnTimeLock = state.uri.path == '/time-lock';
+      final isOnLicenseLocked = state.uri.path == '/license-locked';
+      final isOnAdminRoute = state.uri.path.startsWith('/admin');
       final requireLoginPin = await pinService.isPinRequiredForLogin();
       final isSessionVerified = pinService.isSessionVerified();
       final isUnlocked = pinUnlocked || isSessionVerified;
       final visibilityPrefs = await pinService.getPinPreferences();
+
+      final policy = ref.read(currentLicensePolicyProvider);
+      final isBlocked = policy.blockReason() != null;
+
+      // Admin routes are always reachable (they are the escape hatch
+      // when the install is locked) and the license-locked screen is
+      // never auto-redirected away from.
+      if (isBlocked && !isOnLicenseLocked && !isOnAdminRoute) {
+        return '/license-locked';
+      }
+      if (!isBlocked && isOnLicenseLocked) {
+        return '/money';
+      }
 
       if (timeTamper != null && isPinSet && !isOnTimeLock) {
         return '/time-lock';
@@ -346,6 +383,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return _firstVisibleRoute(visibilityPrefs);
       }
 
+      if (isUnlocked && _isRouteDisabledByPolicy(state.uri.path, policy)) {
+        return _firstVisibleRoute(visibilityPrefs);
+      }
+
       return null;
     },
     routes: [
@@ -354,6 +395,65 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/time-lock',
         name: 'time-lock',
         builder: (context, state) => const TimeTamperPage(),
+      ),
+
+      // License lock (admin remotely disabled / expired / blocked).
+      _animatedRoute(
+        path: '/license-locked',
+        name: 'license-locked',
+        builder: (context, state) => const LicenseLockedPage(),
+      ),
+
+      // Admin login (hidden entry from settings long-press).
+      _animatedRoute(
+        path: '/admin-login',
+        name: 'admin-login',
+        builder: (context, state) => const AdminLoginPage(),
+      ),
+
+      // Admin shell + nested pages.
+      _animatedRoute(
+        path: '/admin',
+        name: 'admin',
+        builder: (context, state) => const AdminShellPage(
+          section: AdminShellSection.dashboard,
+        ),
+      ),
+      _animatedRoute(
+        path: '/admin/dashboard',
+        builder: (context, state) => const AdminShellPage(
+          section: AdminShellSection.dashboard,
+        ),
+      ),
+      _animatedRoute(
+        path: '/admin/shops',
+        name: 'admin-shops',
+        builder: (context, state) => const AdminShellPage(
+          section: AdminShellSection.shops,
+        ),
+      ),
+      _animatedRoute(
+        path: '/admin/shops/:id',
+        name: 'admin-shop-detail',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return AdminShopDetailPage(shopId: id);
+        },
+      ),
+      _animatedRoute(
+        path: '/admin/devices',
+        name: 'admin-devices',
+        builder: (context, state) => const AdminShellPage(
+          section: AdminShellSection.devices,
+        ),
+      ),
+      _animatedRoute(
+        path: '/admin/devices/:id',
+        name: 'admin-device-detail',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return AdminDeviceDetailPage(installId: id);
+        },
       ),
 
       // PIN Setup (first time)

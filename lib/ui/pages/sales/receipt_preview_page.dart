@@ -9,7 +9,9 @@ import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
+import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../models/license_policy.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/receipt_print_service.dart';
 import '../../../services/data_sync_triggers.dart';
@@ -1078,6 +1080,9 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
   }
 
   Future<void> _printReceipt(ReceiptSettings settings) async {
+    if (!await LicenseGate.ensure(context, FeatureKey.printing)) {
+      return;
+    }
     final printerService = ref.read(printerServiceProvider);
     final receiptPrintService = ReceiptPrintService();
 

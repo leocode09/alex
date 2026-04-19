@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/license_policy.dart';
+import 'admin/license_service.dart';
+
 class PinService {
   static const String _pinKey = 'user_pin';
   static const String _pinSetKey = 'pin_is_set';
@@ -8,8 +11,51 @@ class PinService {
   static const String _visibilityPrefix = 'visible_';
   static bool _sessionVerified = false;
 
+  /// Mapping from a PIN preference key (as used in SharedPreferences
+  /// and the PIN preferences screen) to the [FeatureKey] the super
+  /// admin can force behind a PIN. A missing entry means the admin
+  /// cannot force PIN for that action; the device's local preference
+  /// is used verbatim.
+  static const Map<String, FeatureKey> _pinKeyToFeature = {
+    // Sales
+    'createSale': FeatureKey.sales,
+    'viewSalesHistory': FeatureKey.sales,
+    'editReceipt': FeatureKey.sales,
+    'deleteReceipt': FeatureKey.sales,
+    'applyDiscount': FeatureKey.sales,
+    'issueRefund': FeatureKey.sales,
+    // Products / inventory
+    'addProduct': FeatureKey.inventoryEdit,
+    'editProduct': FeatureKey.inventoryEdit,
+    'deleteProduct': FeatureKey.inventoryEdit,
+    'viewProductDetails': FeatureKey.inventoryEdit,
+    'adjustStock': FeatureKey.inventoryEdit,
+    'scanBarcode': FeatureKey.inventoryEdit,
+    // Reports
+    'reports': FeatureKey.reports,
+    'viewFinancialReports': FeatureKey.reports,
+    'viewInventoryReports': FeatureKey.reports,
+    'exportReports': FeatureKey.reports,
+    // Sync
+    'dataSync': FeatureKey.cloudSync,
+  };
+
   static String visiblePreferenceKey(String preferenceKey) =>
       '$_visibilityPrefix$preferenceKey';
+
+  /// Returns the final "PIN required" decision, honouring both the
+  /// device's local preference and any admin-forced PIN for the
+  /// feature this key belongs to.
+  bool _applyPolicyOverride(String prefKey, bool localRequired) {
+    if (localRequired) {
+      return true;
+    }
+    final feature = _pinKeyToFeature[prefKey];
+    if (feature == null) {
+      return false;
+    }
+    return LicenseService().current.isPinForced(feature);
+  }
 
   Future<bool> isPinSet() async {
     final prefs = await SharedPreferences.getInstance();
@@ -277,115 +323,125 @@ class PinService {
   // Auth & General
   Future<bool> isPinRequiredForLogin() async {
     final prefs = await _getPreferencesMap();
-    return prefs['login'] ?? true;
+    return _applyPolicyOverride('login', prefs['login'] ?? true);
   }
 
   Future<bool> isPinRequiredForSettings() async {
     final prefs = await _getPreferencesMap();
-    return prefs['settings'] ?? false;
+    return _applyPolicyOverride('settings', prefs['settings'] ?? false);
   }
 
   Future<bool> isPinRequiredForDashboard() async {
     final prefs = await _getPreferencesMap();
-    return prefs['dashboard'] ?? false;
+    return _applyPolicyOverride('dashboard', prefs['dashboard'] ?? false);
   }
 
   // Money
   Future<bool> isPinRequiredForAddMoneyAccount() async {
     final prefs = await _getPreferencesMap();
-    return prefs['addMoneyAccount'] ?? false;
+    return _applyPolicyOverride(
+        'addMoneyAccount', prefs['addMoneyAccount'] ?? false);
   }
 
   Future<bool> isPinRequiredForEditMoneyAccount() async {
     final prefs = await _getPreferencesMap();
-    return prefs['editMoneyAccount'] ?? false;
+    return _applyPolicyOverride(
+        'editMoneyAccount', prefs['editMoneyAccount'] ?? false);
   }
 
   Future<bool> isPinRequiredForDeleteMoneyAccount() async {
     final prefs = await _getPreferencesMap();
-    return prefs['deleteMoneyAccount'] ?? false;
+    return _applyPolicyOverride(
+        'deleteMoneyAccount', prefs['deleteMoneyAccount'] ?? false);
   }
 
   Future<bool> isPinRequiredForAddMoney() async {
     final prefs = await _getPreferencesMap();
-    return prefs['addMoney'] ?? false;
+    return _applyPolicyOverride('addMoney', prefs['addMoney'] ?? false);
   }
 
   Future<bool> isPinRequiredForRemoveMoney() async {
     final prefs = await _getPreferencesMap();
-    return prefs['removeMoney'] ?? false;
+    return _applyPolicyOverride('removeMoney', prefs['removeMoney'] ?? false);
   }
 
   Future<bool> isPinRequiredForViewMoneyHistory() async {
     final prefs = await _getPreferencesMap();
-    return prefs['viewMoneyHistory'] ?? false;
+    return _applyPolicyOverride(
+        'viewMoneyHistory', prefs['viewMoneyHistory'] ?? false);
   }
 
   Future<bool> isPinRequiredForEditMoneyHistory() async {
     final prefs = await _getPreferencesMap();
-    return prefs['editMoneyHistory'] ?? false;
+    return _applyPolicyOverride(
+        'editMoneyHistory', prefs['editMoneyHistory'] ?? false);
   }
 
   // Products
   Future<bool> isPinRequiredForAddProduct() async {
     final prefs = await _getPreferencesMap();
-    return prefs['addProduct'] ?? false;
+    return _applyPolicyOverride('addProduct', prefs['addProduct'] ?? false);
   }
 
   Future<bool> isPinRequiredForEditProduct() async {
     final prefs = await _getPreferencesMap();
-    return prefs['editProduct'] ?? false;
+    return _applyPolicyOverride('editProduct', prefs['editProduct'] ?? false);
   }
 
   Future<bool> isPinRequiredForDeleteProduct() async {
     final prefs = await _getPreferencesMap();
-    return prefs['deleteProduct'] ?? false;
+    return _applyPolicyOverride(
+        'deleteProduct', prefs['deleteProduct'] ?? false);
   }
 
   Future<bool> isPinRequiredForViewProductDetails() async {
     final prefs = await _getPreferencesMap();
-    return prefs['viewProductDetails'] ?? false;
+    return _applyPolicyOverride(
+        'viewProductDetails', prefs['viewProductDetails'] ?? false);
   }
 
   Future<bool> isPinRequiredForScanBarcode() async {
     final prefs = await _getPreferencesMap();
-    return prefs['scanBarcode'] ?? false;
+    return _applyPolicyOverride('scanBarcode', prefs['scanBarcode'] ?? false);
   }
 
   Future<bool> isPinRequiredForAdjustStock() async {
     final prefs = await _getPreferencesMap();
-    return prefs['adjustStock'] ?? false;
+    return _applyPolicyOverride('adjustStock', prefs['adjustStock'] ?? false);
   }
 
   // Sales
   Future<bool> isPinRequiredForCreateSale() async {
     final prefs = await _getPreferencesMap();
-    return prefs['createSale'] ?? false;
+    return _applyPolicyOverride('createSale', prefs['createSale'] ?? false);
   }
 
   Future<bool> isPinRequiredForViewSalesHistory() async {
     final prefs = await _getPreferencesMap();
-    return prefs['viewSalesHistory'] ?? false;
+    return _applyPolicyOverride(
+        'viewSalesHistory', prefs['viewSalesHistory'] ?? false);
   }
 
   Future<bool> isPinRequiredForEditReceipt() async {
     final prefs = await _getPreferencesMap();
-    return prefs['editReceipt'] ?? false;
+    return _applyPolicyOverride('editReceipt', prefs['editReceipt'] ?? false);
   }
 
   Future<bool> isPinRequiredForDeleteReceipt() async {
     final prefs = await _getPreferencesMap();
-    return prefs['deleteReceipt'] ?? false;
+    return _applyPolicyOverride(
+        'deleteReceipt', prefs['deleteReceipt'] ?? false);
   }
 
   Future<bool> isPinRequiredForApplyDiscount() async {
     final prefs = await _getPreferencesMap();
-    return prefs['applyDiscount'] ?? false;
+    return _applyPolicyOverride(
+        'applyDiscount', prefs['applyDiscount'] ?? false);
   }
 
   Future<bool> isPinRequiredForIssueRefund() async {
     final prefs = await _getPreferencesMap();
-    return prefs['issueRefund'] ?? false;
+    return _applyPolicyOverride('issueRefund', prefs['issueRefund'] ?? false);
   }
 
   // Categories
@@ -475,33 +531,37 @@ class PinService {
   // Reports & Analytics
   Future<bool> isPinRequiredForReports() async {
     final prefs = await _getPreferencesMap();
-    return prefs['reports'] ?? false;
+    return _applyPolicyOverride('reports', prefs['reports'] ?? false);
   }
 
   Future<bool> isPinRequiredForViewFinancialReports() async {
     final prefs = await _getPreferencesMap();
-    return prefs['viewFinancialReports'] ?? false;
+    return _applyPolicyOverride(
+        'viewFinancialReports', prefs['viewFinancialReports'] ?? false);
   }
 
   Future<bool> isPinRequiredForViewInventoryReports() async {
     final prefs = await _getPreferencesMap();
-    return prefs['viewInventoryReports'] ?? false;
+    return _applyPolicyOverride(
+        'viewInventoryReports', prefs['viewInventoryReports'] ?? false);
   }
 
   Future<bool> isPinRequiredForExportReports() async {
     final prefs = await _getPreferencesMap();
-    return prefs['exportReports'] ?? false;
+    return _applyPolicyOverride(
+        'exportReports', prefs['exportReports'] ?? false);
   }
 
   // System & Data Management
   Future<bool> isPinRequiredForHardwareSetup() async {
     final prefs = await _getPreferencesMap();
-    return prefs['hardwareSetup'] ?? false;
+    return _applyPolicyOverride(
+        'hardwareSetup', prefs['hardwareSetup'] ?? false);
   }
 
   Future<bool> isPinRequiredForDataSync() async {
     final prefs = await _getPreferencesMap();
-    return prefs['dataSync'] ?? false;
+    return _applyPolicyOverride('dataSync', prefs['dataSync'] ?? false);
   }
 
   Future<bool> isPinRequiredForClearAllData() async {

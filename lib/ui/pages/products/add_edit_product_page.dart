@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
+import '../../../models/license_policy.dart';
 import '../../../models/product.dart';
 import '../../../providers/product_provider.dart';
+import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 
@@ -145,6 +147,10 @@ class _AddEditProductPageState extends ConsumerState<AddEditProductPage> {
 
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (!await LicenseGate.ensure(context, FeatureKey.inventoryEdit)) {
       return;
     }
 

@@ -76,19 +76,21 @@ class POSApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    return TimeTamperWatcher(
-      child: CloudSyncWatcher(
-        child: WifiDirectSyncWatcher(
-          child: MaterialApp.router(
-            title: 'ALEX',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: themeMode,
-            routerConfig: router,
-            builder: (context, child) {
-              return LanSyncWatcher(child: child ?? const SizedBox.shrink());
-            },
+    return LicenseWatcher(
+      child: TimeTamperWatcher(
+        child: CloudSyncWatcher(
+          child: WifiDirectSyncWatcher(
+            child: MaterialApp.router(
+              title: 'ALEX',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeMode,
+              routerConfig: router,
+              builder: (context, child) {
+                return LanSyncWatcher(child: child ?? const SizedBox.shrink());
+              },
+            ),
           ),
         ),
       ),

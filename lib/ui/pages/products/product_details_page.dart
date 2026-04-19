@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../models/inventory_movement.dart';
+import '../../../models/license_policy.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
 import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
+import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
 
@@ -1071,7 +1073,13 @@ class ProductDetailsPage extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref) {
+  void _confirmDelete(BuildContext context, WidgetRef ref) async {
+    if (!await LicenseGate.ensure(context, FeatureKey.inventoryEdit)) {
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
