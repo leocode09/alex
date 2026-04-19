@@ -441,8 +441,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       _animatedRoute(
         path: '/admin/shops',
         name: 'admin-shops',
-        builder: (context, state) => const AdminShellPage(
+        builder: (context, state) => AdminShellPage(
           section: AdminShellSection.shops,
+          filter: state.uri.queryParameters['filter'],
         ),
       ),
       _animatedRoute(
@@ -456,8 +457,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       _animatedRoute(
         path: '/admin/devices',
         name: 'admin-devices',
-        builder: (context, state) => const AdminShellPage(
+        builder: (context, state) => AdminShellPage(
           section: AdminShellSection.devices,
+          filter: state.uri.queryParameters['filter'],
         ),
       ),
       _animatedRoute(

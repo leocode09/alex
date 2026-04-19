@@ -8,7 +8,11 @@ import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
 import '../../design_system/widgets/app_panel.dart';
 import '../../design_system/widgets/app_section_header.dart';
+import 'admin_heuristics.dart';
+import 'widgets/admin_audit_log_list.dart';
 import 'widgets/admin_feature_controls.dart';
+import 'widgets/admin_quick_actions.dart';
+import 'widgets/admin_status_badge.dart';
 import 'widgets/admin_usage_chart.dart';
 
 class AdminDeviceDetailPage extends ConsumerWidget {
@@ -43,28 +47,68 @@ class AdminDeviceDetailPage extends ConsumerWidget {
           if (data == null) {
             return const Center(child: Text('Device not found.'));
           }
-          return ListView(
-            padding: const EdgeInsets.all(AppTokens.space3),
-            children: [
-              _Header(installId: installId, data: data),
-              const SizedBox(height: AppTokens.space3),
-              const AppSectionHeader(title: 'Per-device overrides'),
-              AdminFeatureControls(
-                target: AdminFeatureTarget.device(installId: installId),
-                data: data,
-              ),
-              const SizedBox(height: AppTokens.space3),
-              const AppSectionHeader(title: 'Usage (last 14 days)'),
-              AdminUsageChart(
-                stream: db
-                    .collection(FirestorePaths.devicesCollection)
-                    .doc(installId)
-                    .collection(FirestorePaths.usageDailySubcollection)
-                    .orderBy('day', descending: true)
-                    .limit(14)
-                    .snapshots(),
-              ),
-            ],
+
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            // We stream all devices just to derive "max app version"
+            // so the badge / outdated check stays consistent with the
+            // list view.
+            stream: db
+                .collection(FirestorePaths.devicesCollection)
+                .snapshots(),
+            builder: (context, fleetSnap) {
+              final maxVersion = AdminHeuristics.maxAppVersion(
+                (fleetSnap.data?.docs ?? const []).map((d) => d.data()),
+              );
+              final appVersion = data['appVersion'] as String?;
+              final outdated = maxVersion != null &&
+                  appVersion != null &&
+                  appVersion.isNotEmpty &&
+                  AdminHeuristics.compareAppVersions(
+                          appVersion, maxVersion) <
+                      0;
+
+              return ListView(
+                padding: const EdgeInsets.all(AppTokens.space3),
+                children: [
+                  _Header(
+                    installId: installId,
+                    data: data,
+                    outdated: outdated,
+                  ),
+                  const SizedBox(height: AppTokens.space3),
+                  AdminQuickActions(
+                    target: AdminQuickTarget.device,
+                    targetId: installId,
+                    data: data,
+                  ),
+                  const SizedBox(height: AppTokens.space3),
+                  const AppSectionHeader(title: 'Per-device overrides'),
+                  AdminFeatureControls(
+                    target: AdminFeatureTarget.device(installId: installId),
+                    data: data,
+                  ),
+                  const SizedBox(height: AppTokens.space3),
+                  const AppSectionHeader(title: 'Usage (last 14 days)'),
+                  AdminUsageChart(
+                    showMetricPicker: true,
+                    stream: db
+                        .collection(FirestorePaths.devicesCollection)
+                        .doc(installId)
+                        .collection(FirestorePaths.usageDailySubcollection)
+                        .orderBy('day', descending: true)
+                        .limit(14)
+                        .snapshots(),
+                  ),
+                  const SizedBox(height: AppTokens.space3),
+                  const AppSectionHeader(title: 'Activity'),
+                  AdminAuditLogList(
+                    scope: AdminAuditScope.device,
+                    targetId: installId,
+                  ),
+                  const SizedBox(height: AppTokens.space4),
+                ],
+              );
+            },
           );
         },
       ),
@@ -75,7 +119,13 @@ class AdminDeviceDetailPage extends ConsumerWidget {
 class _Header extends StatelessWidget {
   final String installId;
   final Map<String, dynamic> data;
-  const _Header({required this.installId, required this.data});
+  final bool outdated;
+
+  const _Header({
+    required this.installId,
+    required this.data,
+    required this.outdated,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -84,12 +134,16 @@ class _Header extends StatelessWidget {
     final displayName = (name != null && name.isNotEmpty)
         ? name
         : installId.substring(0, 8);
+    final lastSeen = AdminHeuristics.parseTs(data['lastSeenAtIso']);
+    final appVersion = data['appVersion'] as String?;
     final meta = <String>[
       if (data['shopName'] is String) data['shopName'] as String,
       if (data['platform'] is String) data['platform'] as String,
       if (data['osVersion'] is String) data['osVersion'] as String,
       if (data['model'] is String) data['model'] as String,
-      if (data['appVersion'] is String) 'v${data['appVersion']}',
+      if (appVersion != null && appVersion.isNotEmpty) 'v$appVersion',
+      if (lastSeen != null)
+        'seen ${AdminHeuristics.relativeShort(lastSeen)}',
     ];
     return AppPanel(
       emphasized: true,
@@ -97,23 +151,42 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            displayName,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      installId,
+                      style:
+                          Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: extras.muted,
+                                fontFamily: 'IBMPlexMono',
+                              ),
+                    ),
+                  ],
                 ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            installId,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: extras.muted,
-                  fontFamily: 'IBMPlexMono',
-                ),
+              ),
+              AdminStatusBadge(
+                data: data,
+                isDevice: true,
+                outdated: outdated,
+              ),
+            ],
           ),
           const SizedBox(height: AppTokens.space2),
           Text(
-            meta.join('  ·  '),
+            meta.join('  \u00B7  '),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: extras.muted,
                 ),

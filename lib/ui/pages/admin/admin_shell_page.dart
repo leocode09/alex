@@ -7,6 +7,7 @@ import '../../design_system/app_tokens.dart';
 import 'admin_dashboard_page.dart';
 import 'admin_devices_page.dart';
 import 'admin_shops_page.dart';
+import 'widgets/admin_global_search_sheet.dart';
 
 /// Sections of the admin panel. The shell renders one at a time and
 /// switches via the bottom-nav / tab bar.
@@ -15,7 +16,11 @@ enum AdminShellSection { dashboard, shops, devices }
 class AdminShellPage extends ConsumerStatefulWidget {
   final AdminShellSection section;
 
-  const AdminShellPage({super.key, required this.section});
+  /// Optional filter query param forwarded from the route (e.g.
+  /// `?filter=offline` on `/admin/devices`).
+  final String? filter;
+
+  const AdminShellPage({super.key, required this.section, this.filter});
 
   @override
   ConsumerState<AdminShellPage> createState() => _AdminShellPageState();
@@ -46,11 +51,11 @@ class _AdminShellPageState extends ConsumerState<AdminShellPage> {
         break;
       case AdminShellSection.shops:
         title = 'Shops';
-        body = const AdminShopsPage();
+        body = AdminShopsPage.withQueryFilter(widget.filter);
         break;
       case AdminShellSection.devices:
         title = 'Devices';
-        body = const AdminDevicesPage();
+        body = AdminDevicesPage.withQueryFilter(widget.filter);
         break;
     }
 
@@ -61,6 +66,11 @@ class _AdminShellPageState extends ConsumerState<AdminShellPage> {
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Global search',
+            icon: const Icon(Icons.search),
+            onPressed: () => showAdminGlobalSearchSheet(context),
+          ),
           IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
