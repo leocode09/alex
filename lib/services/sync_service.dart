@@ -35,6 +35,7 @@ class SyncService {
   final ProductRepository _productRepo = ProductRepository();
   final CategoryRepository _categoryRepo = CategoryRepository();
   final CustomerRepository _customerRepo = CustomerRepository();
+  final CustomerCreditRepository _creditRepo = CustomerCreditRepository();
   final EmployeeRepository _employeeRepo = EmployeeRepository();
   final ExpenseRepository _expenseRepo = ExpenseRepository();
   final SaleRepository _saleRepo = SaleRepository();
@@ -83,6 +84,7 @@ class SyncService {
       final moneyAccounts = await _moneyRepo.getAllAccounts();
       final moneyHistory = await _moneyRepo.getAllHistory();
       final inventoryMovements = await _movementRepo.getAllMovements();
+      final customerCreditEntries = await _creditRepo.getAll();
 
       final deletedProductIds = await _productRepo.getDeletedProductIds();
       final deletedCategoryIds = await _categoryRepo.getDeletedCategoryIds();
@@ -92,6 +94,7 @@ class SyncService {
       final deletedStoreIds = await _storeRepo.getDeletedStoreIds();
       final deletedMoneyAccountIds =
           await _moneyRepo.getDeletedMoneyAccountIds();
+      final deletedCreditEntryIds = await _creditRepo.getDeletedIds();
 
       return SyncData(
         products: products,
@@ -104,6 +107,7 @@ class SyncService {
         moneyAccounts: moneyAccounts,
         moneyHistory: moneyHistory,
         inventoryMovements: inventoryMovements,
+        customerCreditEntries: customerCreditEntries,
         deletedProductIds: deletedProductIds,
         deletedCategoryIds: deletedCategoryIds,
         deletedCustomerIds: deletedCustomerIds,
@@ -111,6 +115,7 @@ class SyncService {
         deletedExpenseIds: deletedExpenseIds,
         deletedStoreIds: deletedStoreIds,
         deletedMoneyAccountIds: deletedMoneyAccountIds,
+        deletedCustomerCreditEntryIds: deletedCreditEntryIds,
         deviceId: deviceId,
       );
     } catch (e) {
@@ -178,6 +183,9 @@ class SyncService {
               await _replaceMoneyHistory(incomingData.moneyHistory);
           syncResult.inventoryMovementsImported = await _replaceMovements(
               incomingData.inventoryMovements);
+          syncResult.customerCreditEntriesImported =
+              await _replaceCreditEntries(
+                  incomingData.customerCreditEntries);
           break;
 
         case SyncStrategy.merge:
@@ -199,6 +207,8 @@ class SyncService {
               await _mergeMoneyHistory(incomingData.moneyHistory);
           syncResult.inventoryMovementsImported =
               await _mergeMovements(incomingData.inventoryMovements);
+          syncResult.customerCreditEntriesImported =
+              await _mergeCreditEntries(incomingData.customerCreditEntries);
           break;
 
         case SyncStrategy.append:
@@ -220,6 +230,8 @@ class SyncService {
               await _appendMoneyHistory(incomingData.moneyHistory);
           syncResult.inventoryMovementsImported =
               await _appendMovements(incomingData.inventoryMovements);
+          syncResult.customerCreditEntriesImported =
+              await _appendCreditEntries(incomingData.customerCreditEntries);
           break;
       }
 
@@ -258,6 +270,10 @@ class SyncService {
     if (incoming.deletedMoneyAccountIds.isNotEmpty) {
       await _moneyRepo.applyDeletedMoneyAccountIds(
           incoming.deletedMoneyAccountIds);
+    }
+    if (incoming.deletedCustomerCreditEntryIds.isNotEmpty) {
+      await _creditRepo
+          .applyDeletedIds(incoming.deletedCustomerCreditEntryIds);
     }
   }
 
@@ -310,6 +326,44 @@ class SyncService {
   Future<int> _replaceMovements(List<InventoryMovement> movements) async {
     await _movementRepo.replaceAllMovements(movements);
     return movements.length;
+  }
+
+  Future<int> _replaceCreditEntries(
+      List<CustomerCreditEntry> entries) async {
+    await _creditRepo.replaceAll(entries);
+    return entries.length;
+  }
+
+  Future<int> _mergeCreditEntries(
+      List<CustomerCreditEntry> incoming) async {
+    final deletedIds = (await _creditRepo.getDeletedIds()).toSet();
+    final existing = await _creditRepo.getAll();
+    final Map<String, CustomerCreditEntry> map = {
+      for (final e in existing) e.id: e,
+    };
+    int imported = 0;
+    for (final e in incoming) {
+      if (deletedIds.contains(e.id)) continue;
+      if (!map.containsKey(e.id)) {
+        map[e.id] = e;
+        imported++;
+      }
+    }
+    await _creditRepo.replaceAll(map.values.toList());
+    return imported;
+  }
+
+  Future<int> _appendCreditEntries(
+      List<CustomerCreditEntry> incoming) async {
+    final existing = await _creditRepo.getAll();
+    final existingIds = existing.map((e) => e.id).toSet();
+    final newItems =
+        incoming.where((e) => !existingIds.contains(e.id)).toList();
+    if (newItems.isNotEmpty) {
+      existing.addAll(newItems);
+      await _creditRepo.replaceAll(existing);
+    }
+    return newItems.length;
   }
 
   // Merge strategies (keep newer items based on updatedAt/createdAt)
@@ -675,6 +729,7 @@ class SyncResult {
   int moneyAccountsImported;
   int moneyHistoryImported;
   int inventoryMovementsImported;
+  int customerCreditEntriesImported;
 
   SyncResult({
     this.success = false,
@@ -689,6 +744,7 @@ class SyncResult {
     this.moneyAccountsImported = 0,
     this.moneyHistoryImported = 0,
     this.inventoryMovementsImported = 0,
+    this.customerCreditEntriesImported = 0,
   });
 
   int get totalImported =>
@@ -701,7 +757,8 @@ class SyncResult {
       storesImported +
       moneyAccountsImported +
       moneyHistoryImported +
-      inventoryMovementsImported;
+      inventoryMovementsImported +
+      customerCreditEntriesImported;
 
   Map<String, dynamic> toMap() {
     return {
@@ -717,6 +774,7 @@ class SyncResult {
       'moneyAccountsImported': moneyAccountsImported,
       'moneyHistoryImported': moneyHistoryImported,
       'inventoryMovementsImported': inventoryMovementsImported,
+      'customerCreditEntriesImported': customerCreditEntriesImported,
       'totalImported': totalImported,
     };
   }
