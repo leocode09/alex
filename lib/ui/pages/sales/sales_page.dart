@@ -65,6 +65,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
     _searchController.dispose();
     _customerController.dispose();
     _cashReceivedController.dispose();
+    _creditAppliedController.dispose();
     super.dispose();
   }
 
@@ -95,12 +96,30 @@ class _SalesPageState extends ConsumerState<SalesPage>
             'stock': null,
           });
         }
-        if (editingReceipt.customerId != null) {
-          _customerController.text = editingReceipt.customerId!;
-        }
         _paymentMethod = editingReceipt.paymentMethod;
+        _creditApplied = editingReceipt.creditApplied;
+        if (_creditApplied > 0) {
+          _creditAppliedController.text =
+              _creditApplied.toStringAsFixed(2);
+        }
       });
       _saveCart();
+      if (editingReceipt.customerId != null) {
+        final repo = ref.read(customerRepositoryProvider);
+        final resolved =
+            await repo.getCustomerById(editingReceipt.customerId!);
+        if (!mounted) return;
+        setState(() {
+          if (resolved != null) {
+            _selectedCustomer = resolved;
+            _customerController.text = resolved.name;
+          } else {
+            _customerController.text =
+                editingReceipt.customerNameSnapshot ??
+                    editingReceipt.customerId!;
+          }
+        });
+      }
       // Switch to products tab so user can add items
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -144,7 +163,41 @@ class _SalesPageState extends ConsumerState<SalesPage>
   }
 
   double get _total {
-    return _subtotal;
+    final t = _subtotal - _creditApplied;
+    return t < 0 ? 0 : t;
+  }
+
+  double get _maxApplicableCredit {
+    if (_selectedCustomer == null) return 0.0;
+    final bal = _selectedCustomer!.creditBalance;
+    return bal < _subtotal ? bal : _subtotal;
+  }
+
+  void _clampCreditApplied() {
+    final max = _maxApplicableCredit;
+    if (_creditApplied > max) _creditApplied = max;
+    if (_creditApplied < 0) _creditApplied = 0;
+  }
+
+  Future<void> _pickCustomer() async {
+    final picked = await showCustomerPickerSheet(context);
+    if (picked != null) {
+      setState(() {
+        _selectedCustomer = picked;
+        _customerController.text = picked.name;
+        _creditApplied = 0.0;
+        _creditAppliedController.clear();
+      });
+    }
+  }
+
+  void _clearCustomer() {
+    setState(() {
+      _selectedCustomer = null;
+      _customerController.clear();
+      _creditApplied = 0.0;
+      _creditAppliedController.clear();
+    });
   }
 
   List<_CatalogEntry> _getFilteredEntries(List<Product> allProducts) {
@@ -490,6 +543,18 @@ class _SalesPageState extends ConsumerState<SalesPage>
       return;
     }
 
+    if (_creditApplied > 0) {
+      final allowed = await PinProtection.requirePinIfNeeded(
+        context,
+        isRequired: () => PinService().isPinRequiredForApplyDiscount(),
+        title: 'Apply Credit',
+        subtitle: 'Enter PIN to apply customer credit',
+      );
+      if (!allowed) {
+        return;
+      }
+    }
+
     if (isEditingMode) {
       final allowed = await PinProtection.requirePinIfNeeded(
         context,
@@ -598,17 +663,26 @@ class _SalesPageState extends ConsumerState<SalesPage>
         }
 
         if (isEditingMode) {
+          final effectiveCustomerId = _selectedCustomer?.id ??
+              (_customerController.text.isNotEmpty
+                  ? _customerController.text
+                  : null);
           final updatedSale = Sale(
             id: saleId,
             items: saleItems,
             total: totalAmount,
             paymentMethod: method,
             employeeId: editingReceipt.employeeId,
-            customerId: _customerController.text.isNotEmpty
-                ? _customerController.text
-                : null,
+            customerId: effectiveCustomerId,
+            customerNameSnapshot:
+                _selectedCustomer?.name ?? editingReceipt.customerNameSnapshot,
             cashReceived: cashReceived,
             change: change,
+            creditApplied: _creditApplied,
+            bonusEarned: editingReceipt.bonusEarned,
+            customerTotalSpentAfter: editingReceipt.customerTotalSpentAfter,
+            customerCreditBalanceAfter:
+                editingReceipt.customerCreditBalanceAfter,
             createdAt: editingReceipt.createdAt,
           );
 
@@ -641,23 +715,61 @@ class _SalesPageState extends ConsumerState<SalesPage>
             }
           }
 
-          final sale = Sale(
+          final effectiveCustomerId = _selectedCustomer?.id ??
+              (_customerController.text.isNotEmpty
+                  ? _customerController.text
+                  : null);
+          var sale = Sale(
             id: saleId,
             items: saleItems,
             total: totalAmount,
             paymentMethod: method,
             employeeId: employeeId,
-            customerId: _customerController.text.isNotEmpty
-                ? _customerController.text
-                : null,
+            customerId: effectiveCustomerId,
+            customerNameSnapshot: _selectedCustomer?.name,
             cashReceived: cashReceived,
             change: change,
+            creditApplied: _creditApplied,
             createdAt: DateTime.now(),
           );
 
           final inserted = await saleRepo.insertSale(sale);
           if (!inserted) {
             throw Exception('Failed to save sale.');
+          }
+
+          // Apply bonus rule + running totals + credit ledger for the
+          // selected customer, then stamp snapshots back on the sale row.
+          if (_selectedCustomer != null) {
+            try {
+              var customer = _selectedCustomer!;
+              if (_creditApplied > 0) {
+                customer = customer.copyWith(
+                  creditBalance: customer.creditBalance - _creditApplied,
+                  totalCreditRedeemed:
+                      customer.totalCreditRedeemed + _creditApplied,
+                  updatedAt: DateTime.now(),
+                );
+                await ref
+                    .read(customerRepositoryProvider)
+                    .updateCustomer(customer);
+              }
+              final result = await BonusEngine().applyForNewSale(
+                sale: sale,
+                customer: customer,
+              );
+              if (result != null) {
+                sale = sale.copyWith(
+                  bonusEarned: result.bonusEarned,
+                  customerTotalSpentAfter: result.totalSpentAfter,
+                  customerCreditBalanceAfter: result.creditBalanceAfter,
+                );
+                await saleRepo.updateSale(sale);
+              }
+              SyncEventBus.instance.emit(reason: 'customer_updated');
+            } catch (e) {
+              debugPrint('BonusEngine.applyForNewSale failed: $e');
+            }
           }
           await DataSyncTriggers.trigger(reason: 'sale_created');
 
@@ -731,6 +843,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
       setState(() {
         _cart.clear();
         _customerController.clear();
+        _selectedCustomer = null;
+        _creditApplied = 0.0;
+        _creditAppliedController.clear();
         _cashReceivedController.clear();
         _paymentMethod = 'Cash';
       });
@@ -830,6 +945,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 child: Column(
                   children: [
                     _buildSummaryRow('Subtotal', _subtotal),
+                    if (_creditApplied > 0) ...[
+                      const SizedBox(height: 4),
+                      _buildSummaryRow('Credit applied', -_creditApplied),
+                    ],
                     const Divider(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -846,6 +965,58 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   ],
                 ),
               ),
+              if (_selectedCustomer != null &&
+                  _selectedCustomer!.creditBalance > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Available credit: \$${_selectedCustomer!.creditBalance.toStringAsFixed(2)}',
+                        style: TextStyle(
+                            color: Colors.green[900],
+                            fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _creditAppliedController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'Apply credit',
+                          prefixText: '\$',
+                          isDense: true,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          suffixIcon: TextButton(
+                            onPressed: () {
+                              setModalState(() {
+                                _creditApplied = _maxApplicableCredit;
+                                _creditAppliedController.text =
+                                    _creditApplied.toStringAsFixed(2);
+                              });
+                            },
+                            child: const Text('Max'),
+                          ),
+                        ),
+                        onChanged: (v) {
+                          setModalState(() {
+                            _creditApplied = double.tryParse(v) ?? 0.0;
+                            _clampCreditApplied();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               const Text('Payment Method',
                   style: TextStyle(fontWeight: FontWeight.w600)),
@@ -1014,6 +1185,78 @@ class _SalesPageState extends ConsumerState<SalesPage>
     );
   }
 
+  Widget _buildCustomerTile() {
+    final customer = _selectedCustomer;
+    if (customer == null) {
+      return InkWell(
+        onTap: _pickCustomer,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.grey[400]!),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.person_add_alt_1,
+                  size: 18, color: Colors.grey[700]),
+              const SizedBox(width: 8),
+              Text(
+                'Select customer (optional)',
+                style: TextStyle(
+                    color: Colors.grey[700], fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return InkWell(
+      onTap: _pickCustomer,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.grey[400]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.person_outline,
+                size: 18, color: Colors.grey[800]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(customer.name,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  if (customer.creditBalance > 0)
+                    Text(
+                      'Credit: \$${customer.creditBalance.toStringAsFixed(2)}',
+                      style: TextStyle(
+                          color: Colors.green[700], fontSize: 11),
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              tooltip: 'Clear customer',
+              onPressed: _clearCustomer,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSummaryRow(String label, double value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1075,6 +1318,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   setState(() {
                     _cart.clear();
                     _customerController.clear();
+                    _selectedCustomer = null;
+                    _creditApplied = 0.0;
+                    _creditAppliedController.clear();
                     _paymentMethod = 'Cash';
                   });
                   _saveCart();
@@ -1569,18 +1815,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                 child: SafeArea(
                   child: Column(
                     children: [
-                      TextField(
-                        controller: _customerController,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: const InputDecoration(
-                          hintText: 'Customer (Optional)',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.person_outline, size: 18),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
+                      _buildCustomerTile(),
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -1592,6 +1827,11 @@ class _SalesPageState extends ConsumerState<SalesPage>
                         child: Column(
                           children: [
                             _buildCartSummaryRow('Subtotal', _subtotal, false),
+                            if (_creditApplied > 0) ...[
+                              const SizedBox(height: 4),
+                              _buildCartSummaryRow(
+                                  'Credit applied', -_creditApplied, false),
+                            ],
                             const Divider(height: 12),
                             _buildCartSummaryRow('Total', _total, true),
                           ],

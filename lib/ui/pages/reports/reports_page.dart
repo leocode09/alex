@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
+import '../../design_system/widgets/app_search_field.dart';
 import '../../../models/expense.dart';
 import '../../../models/inventory_movement.dart';
 import '../../../models/product.dart';
@@ -25,6 +26,8 @@ enum SyncActionTimeRange {
   thisYear,
   allTime,
 }
+
+enum _StockState { all, low, outOfStock }
 
 class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
@@ -49,10 +52,22 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   final NumberFormat _countFormat = NumberFormat.decimalPattern();
   final Uuid _uuid = const Uuid();
 
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  String? _salesPaymentFilter;
+  String? _salesCategoryFilter;
+
+  String? _invCategoryFilter;
+  _StockState _invStockState = _StockState.all;
+  String? _invVarianceReasonFilter;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_handleTabChanged);
     _chartController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -66,17 +81,36 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChanged);
     _tabController.dispose();
     _chartController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleTabChanged() {
+    if (_tabController.indexIsChanging) {
+      return;
+    }
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        title: _isSearching
+            ? AppSearchField(
+                controller: _searchController,
+                hintText: _searchHintForTab(_tabController.index),
+                onChanged: (value) {
+                  setState(() => _searchQuery = value);
+                },
+              )
+            : const Text('Reports',
+                style: TextStyle(fontWeight: FontWeight.w600)),
         bottom: TabBar(
           controller: _tabController,
           onTap: _handleTabTap,
@@ -91,6 +125,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: _isSearching ? 'Close search' : 'Search reports',
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: _toggleSearch,
+          ),
           PopupMenuButton<String>(
             initialValue: _selectedPeriod,
             onSelected: _handlePeriodSelection,
@@ -118,17 +157,49 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        physics: const NeverScrollableScrollPhysics(),
+      body: Column(
         children: [
-          _buildSalesTab(),
-          _buildInventoryTab(),
-          _buildEmployeesTab(),
-          _buildSyncTab(),
+          _buildFilterStrip(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildSalesTab(),
+                _buildInventoryTab(),
+                _buildEmployeesTab(),
+                _buildSyncTab(),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        _searchQuery = '';
+      }
+    });
+  }
+
+  String _searchHintForTab(int index) {
+    switch (index) {
+      case 0:
+        return 'Search sales, products, payment, expenses';
+      case 1:
+        return 'Search inventory, categories, variances';
+      case 2:
+        return 'Search employees';
+      case 3:
+        return 'Search sync actions, devices';
+      default:
+        return 'Search...';
+    }
   }
 
   Widget _buildSalesTab() {
@@ -1123,6 +1194,170 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       return !expense.createdAt.isBefore(range.start) &&
           !expense.createdAt.isAfter(range.end);
     }).toList();
+  }
+
+  String get _normalizedQuery => _searchQuery.trim().toLowerCase();
+
+  bool _matchesQuery(Iterable<String?> haystacks) {
+    final q = _normalizedQuery;
+    if (q.isEmpty) {
+      return true;
+    }
+    for (final h in haystacks) {
+      if (h == null) continue;
+      if (h.toLowerCase().contains(q)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<Sale> _filterSalesByQueryAndChips(
+      List<Sale> sales, List<Product> products) {
+    final productById = {for (final p in products) p.id: p};
+    final payment = _salesPaymentFilter;
+    final category = _salesCategoryFilter;
+    return sales.where((sale) {
+      if (payment != null &&
+          (sale.paymentMethod.isEmpty ? 'Unknown' : sale.paymentMethod) !=
+              payment) {
+        return false;
+      }
+      if (category != null) {
+        final hasCategory = sale.items.any((item) {
+          final cat = productById[item.productId]?.category ?? 'Uncategorized';
+          return cat == category;
+        });
+        if (!hasCategory) {
+          return false;
+        }
+      }
+      if (_normalizedQuery.isEmpty) {
+        return true;
+      }
+      final haystacks = <String?>[
+        sale.id,
+        sale.paymentMethod,
+        sale.employeeId,
+        sale.total.toStringAsFixed(2),
+      ];
+      for (final item in sale.items) {
+        haystacks.add(item.productName);
+        haystacks.add(item.productId);
+      }
+      return _matchesQuery(haystacks);
+    }).toList();
+  }
+
+  List<Product> _filterProductsByQueryAndChips(List<Product> products) {
+    final category = _invCategoryFilter;
+    return products.where((p) {
+      if (category != null && (p.category ?? 'Uncategorized') != category) {
+        return false;
+      }
+      switch (_invStockState) {
+        case _StockState.all:
+          break;
+        case _StockState.low:
+          if (!(p.stock > 0 && p.stock < 20)) return false;
+          break;
+        case _StockState.outOfStock:
+          if (p.stock != 0) return false;
+          break;
+      }
+      return _matchesQuery([
+        p.name,
+        p.category,
+        p.barcode,
+        p.sku,
+        p.description,
+        p.supplier,
+      ]);
+    }).toList();
+  }
+
+  List<InventoryMovement> _filterVariancesByQueryAndChips(
+      List<InventoryMovement> movements) {
+    final reasonFilter = _invVarianceReasonFilter;
+    return movements.where((m) {
+      if (reasonFilter != null && m.reason != reasonFilter) {
+        return false;
+      }
+      return _matchesQuery([
+        m.productName,
+        _formatVarianceReason(m.reason),
+        m.reason,
+      ]);
+    }).toList();
+  }
+
+  List<Expense> _filterExpensesByQuery(List<Expense> expenses) {
+    if (_normalizedQuery.isEmpty) return expenses;
+    return expenses.where((e) {
+      return _matchesQuery([
+        e.title,
+        e.note,
+        e.amount.toStringAsFixed(2),
+      ]);
+    }).toList();
+  }
+
+  List<LanSyncAction> _filterSyncActions(List<LanSyncAction> actions) {
+    return actions.where((action) {
+      if (_selectedSyncDeviceFilter != _allDevicesFilter &&
+          action.deviceId != _selectedSyncDeviceFilter) {
+        return false;
+      }
+      if (!_matchesSyncTimeRange(action.timestamp, _selectedSyncTimeRange)) {
+        return false;
+      }
+      return _matchesQuery([action.message, action.deviceName]);
+    }).toList();
+  }
+
+  bool get _hasActiveSalesFilter =>
+      _salesPaymentFilter != null || _salesCategoryFilter != null;
+
+  bool get _hasActiveInventoryFilter =>
+      _invCategoryFilter != null ||
+      _invStockState != _StockState.all ||
+      _invVarianceReasonFilter != null;
+
+  bool get _hasActiveSyncFilter =>
+      _selectedSyncDeviceFilter != _allDevicesFilter ||
+      _selectedSyncTimeRange != SyncActionTimeRange.today;
+
+  bool _hasActiveFilter(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return _hasActiveSalesFilter;
+      case 1:
+        return _hasActiveInventoryFilter;
+      case 3:
+        return _hasActiveSyncFilter;
+      default:
+        return false;
+    }
+  }
+
+  void _resetFiltersForActiveTab() {
+    setState(() {
+      switch (_tabController.index) {
+        case 0:
+          _salesPaymentFilter = null;
+          _salesCategoryFilter = null;
+          break;
+        case 1:
+          _invCategoryFilter = null;
+          _invStockState = _StockState.all;
+          _invVarianceReasonFilter = null;
+          break;
+        case 3:
+          _selectedSyncDeviceFilter = _allDevicesFilter;
+          _selectedSyncTimeRange = SyncActionTimeRange.today;
+          break;
+      }
+    });
   }
 
   List<FlSpot> _buildRevenueSeries(List<Sale> sales, DateTimeRange range) {
