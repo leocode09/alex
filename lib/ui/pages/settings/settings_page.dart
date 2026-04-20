@@ -137,6 +137,26 @@ class SettingsPage extends ConsumerWidget {
                     }
                   },
                 ),
+              _buildSettingTile(
+                context,
+                'Customer Rewards',
+                'Configure the bonus rule for repeat customers',
+                Icons.card_giftcard_outlined,
+                onTap: () async {
+                  if (await PinProtection.requirePinIfNeeded(
+                    context,
+                    isRequired: () =>
+                        PinService().isPinRequiredForReceiptSettings(),
+                    title: 'Customer Rewards',
+                    subtitle: 'Enter PIN to update rewards settings',
+                  )) {
+                    if (!context.mounted) {
+                      return;
+                    }
+                    context.push('/settings/bonus-rule');
+                  }
+                },
+              ),
               const SizedBox(height: 24),
               _buildSectionHeader(context, 'Account & Security'),
               if (isVisible('viewEmployees'))

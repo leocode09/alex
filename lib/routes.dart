@@ -61,6 +61,7 @@ import 'ui/pages/stores/store_details_page.dart';
 import 'ui/pages/settings/settings_page.dart';
 import 'ui/pages/settings/help_center_page.dart';
 import 'ui/pages/settings/about_page.dart';
+import 'ui/pages/settings/bonus_rule_page.dart';
 import 'ui/pages/lan/lan_manager_page.dart';
 import 'ui/pages/cloud/cloud_sync_page.dart';
 
@@ -618,6 +619,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/settings',
             name: 'settings',
             builder: (context, state) => const SettingsPage(),
+            routes: [
+              _animatedRoute(
+                path: 'bonus-rule',
+                name: 'settings-bonus-rule',
+                builder: (context, state) => const BonusRulePage(),
+              ),
+            ],
           ),
 
           // LAN Manager

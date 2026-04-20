@@ -7,6 +7,7 @@ import '../models/sale.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/receipt_provider.dart';
+import '../repositories/customer_repository.dart';
 
 class PrinterService {
   BluetoothDevice? _connectedDevice;
@@ -260,10 +261,34 @@ class PrinterService {
       bytes += generator.feed(1);
     }
 
-    // Customer Info
+    // Customer Info — resolve display name + contact details from the
+    // repository when the sale's `customerId` is a real customer record id.
     if (sale.customerId != null) {
-      bytes += generator.text('Customer: ${sale.customerId}',
+      final rawId = sale.customerId!;
+      final looksLikeId = rawId.startsWith('cust_');
+      String displayName = rawId;
+      String? phone;
+      String? email;
+      if (looksLikeId) {
+        final customer = await CustomerRepository().getCustomerById(rawId);
+        if (customer != null) {
+          displayName = customer.name;
+          phone = customer.phone;
+          email = customer.email;
+        } else if (sale.customerNameSnapshot != null) {
+          displayName = sale.customerNameSnapshot!;
+        }
+      }
+      bytes += generator.text('Customer: $displayName',
           styles: const PosStyles(bold: false));
+      if ((phone ?? '').isNotEmpty) {
+        bytes += generator.text('Phone: $phone',
+            styles: const PosStyles(bold: false));
+      }
+      if ((email ?? '').isNotEmpty) {
+        bytes += generator.text('Email: $email',
+            styles: const PosStyles(bold: false));
+      }
       bytes += generator.feed(1);
     }
 
@@ -291,6 +316,27 @@ class PrinterService {
     //   PosColumn(text: '0', width: 4, styles: const PosStyles(align: PosAlign.right)),
     // ]);
     // bytes += generator.hr();
+
+    // Credit applied as whole-sale discount, shown above Total.
+    if (sale.creditApplied > 0) {
+      bytes += generator.row([
+        PosColumn(text: 'Subtotal', width: 6),
+        PosColumn(
+          text:
+              '\$${(sale.total + sale.creditApplied).toStringAsFixed(2)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+      bytes += generator.row([
+        PosColumn(text: 'Credit applied', width: 6),
+        PosColumn(
+          text: '-\$${sale.creditApplied.toStringAsFixed(2)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    }
 
     // Totals
     bytes += generator.row([
@@ -349,6 +395,53 @@ class PrinterService {
             text: '\$${amountDue.toStringAsFixed(2)}',
             width: 6,
             styles: const PosStyles(align: PosAlign.right, bold: true),
+          ),
+        ]);
+      }
+    }
+
+    // Customer Rewards block — bonus earned / updated credit balance /
+    // updated lifetime spending. Only printed when the sale is attached to
+    // a real customer record with non-zero reward activity.
+    if (sale.customerId != null &&
+        (sale.bonusEarned > 0 ||
+            sale.customerCreditBalanceAfter > 0 ||
+            sale.customerTotalSpentAfter > 0)) {
+      bytes += generator.feed(1);
+      bytes += generator.hr();
+      bytes += generator.text('Customer Rewards',
+          styles: const PosStyles(bold: true));
+      if (sale.bonusEarned > 0) {
+        bytes += generator.row([
+          PosColumn(text: 'Bonus earned', width: 6),
+          PosColumn(
+            text: '+\$${sale.bonusEarned.toStringAsFixed(2)}',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right, bold: true),
+          ),
+        ]);
+      }
+      if (sale.customerCreditBalanceAfter > 0 ||
+          sale.bonusEarned > 0 ||
+          sale.creditApplied > 0) {
+        bytes += generator.row([
+          PosColumn(text: 'Credit balance', width: 6),
+          PosColumn(
+            text:
+                '\$${sale.customerCreditBalanceAfter.toStringAsFixed(2)}',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
+        ]);
+      }
+      if (sale.customerTotalSpentAfter > 0) {
+        bytes += generator.row([
+          PosColumn(text: 'Total spending', width: 6),
+          PosColumn(
+            text:
+                '\$${sale.customerTotalSpentAfter.toStringAsFixed(2)}',
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right),
           ),
         ]);
       }

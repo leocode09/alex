@@ -1,6 +1,7 @@
 import 'account_history_record.dart';
 import 'category.dart';
 import 'customer.dart';
+import 'customer_credit_entry.dart';
 import 'employee.dart';
 import 'expense.dart';
 import 'inventory_movement.dart';
@@ -27,6 +28,7 @@ class SyncData {
   final List<MoneyAccount> moneyAccounts;
   final List<AccountHistoryRecord> moneyHistory;
   final List<InventoryMovement> inventoryMovements;
+  final List<CustomerCreditEntry> customerCreditEntries;
 
   final List<String> deletedProductIds;
   final List<String> deletedCategoryIds;
@@ -35,6 +37,7 @@ class SyncData {
   final List<String> deletedExpenseIds;
   final List<String> deletedStoreIds;
   final List<String> deletedMoneyAccountIds;
+  final List<String> deletedCustomerCreditEntryIds;
 
   final DateTime syncTimestamp;
   final String deviceId;
@@ -51,6 +54,7 @@ class SyncData {
     this.moneyAccounts = const [],
     this.moneyHistory = const [],
     this.inventoryMovements = const [],
+    this.customerCreditEntries = const [],
     this.deletedProductIds = const [],
     this.deletedCategoryIds = const [],
     this.deletedCustomerIds = const [],
@@ -58,6 +62,7 @@ class SyncData {
     this.deletedExpenseIds = const [],
     this.deletedStoreIds = const [],
     this.deletedMoneyAccountIds = const [],
+    this.deletedCustomerCreditEntryIds = const [],
     DateTime? syncTimestamp,
     required this.deviceId,
     this.syncVersion = '2.0.0',
@@ -75,6 +80,8 @@ class SyncData {
       'moneyAccounts': moneyAccounts.map((a) => a.toMap()).toList(),
       'moneyHistory': moneyHistory.map((r) => r.toMap()).toList(),
       'inventoryMovements': inventoryMovements.map((m) => m.toMap()).toList(),
+      'customerCreditEntries':
+          customerCreditEntries.map((e) => e.toMap()).toList(),
       'deletedProductIds': deletedProductIds,
       'deletedCategoryIds': deletedCategoryIds,
       'deletedCustomerIds': deletedCustomerIds,
@@ -82,6 +89,7 @@ class SyncData {
       'deletedExpenseIds': deletedExpenseIds,
       'deletedStoreIds': deletedStoreIds,
       'deletedMoneyAccountIds': deletedMoneyAccountIds,
+      'deletedCustomerCreditEntryIds': deletedCustomerCreditEntryIds,
       'syncTimestamp': syncTimestamp.toIso8601String(),
       'deviceId': deviceId,
       'syncVersion': syncVersion,
@@ -141,6 +149,10 @@ class SyncData {
           json['inventoryMovements'],
           (m) => InventoryMovement.fromMap(m),
         ),
+        customerCreditEntries: _decodeList(
+          json['customerCreditEntries'],
+          (m) => CustomerCreditEntry.fromMap(m),
+        ),
         deletedProductIds: _decodeIds(json['deletedProductIds']),
         deletedCategoryIds: _decodeIds(json['deletedCategoryIds']),
         deletedCustomerIds: _decodeIds(json['deletedCustomerIds']),
@@ -148,6 +160,8 @@ class SyncData {
         deletedExpenseIds: _decodeIds(json['deletedExpenseIds']),
         deletedStoreIds: _decodeIds(json['deletedStoreIds']),
         deletedMoneyAccountIds: _decodeIds(json['deletedMoneyAccountIds']),
+        deletedCustomerCreditEntryIds:
+            _decodeIds(json['deletedCustomerCreditEntryIds']),
         syncTimestamp: json['syncTimestamp'] != null
             ? DateTime.parse(json['syncTimestamp'] as String)
             : DateTime.now(),
@@ -170,7 +184,8 @@ class SyncData {
       stores.length +
       moneyAccounts.length +
       moneyHistory.length +
-      inventoryMovements.length;
+      inventoryMovements.length +
+      customerCreditEntries.length;
 
   bool get isEmpty => totalItems == 0;
 
@@ -201,6 +216,7 @@ class SyncData {
     List<MoneyAccount>? moneyAccounts,
     List<AccountHistoryRecord>? moneyHistory,
     List<InventoryMovement>? inventoryMovements,
+    List<CustomerCreditEntry>? customerCreditEntries,
     List<String>? deletedProductIds,
     List<String>? deletedCategoryIds,
     List<String>? deletedCustomerIds,
@@ -208,6 +224,7 @@ class SyncData {
     List<String>? deletedExpenseIds,
     List<String>? deletedStoreIds,
     List<String>? deletedMoneyAccountIds,
+    List<String>? deletedCustomerCreditEntryIds,
     DateTime? syncTimestamp,
     String? deviceId,
     String? syncVersion,
@@ -223,6 +240,8 @@ class SyncData {
       moneyAccounts: moneyAccounts ?? this.moneyAccounts,
       moneyHistory: moneyHistory ?? this.moneyHistory,
       inventoryMovements: inventoryMovements ?? this.inventoryMovements,
+      customerCreditEntries:
+          customerCreditEntries ?? this.customerCreditEntries,
       deletedProductIds: deletedProductIds ?? this.deletedProductIds,
       deletedCategoryIds: deletedCategoryIds ?? this.deletedCategoryIds,
       deletedCustomerIds: deletedCustomerIds ?? this.deletedCustomerIds,
@@ -231,6 +250,8 @@ class SyncData {
       deletedStoreIds: deletedStoreIds ?? this.deletedStoreIds,
       deletedMoneyAccountIds:
           deletedMoneyAccountIds ?? this.deletedMoneyAccountIds,
+      deletedCustomerCreditEntryIds: deletedCustomerCreditEntryIds ??
+          this.deletedCustomerCreditEntryIds,
       syncTimestamp: syncTimestamp ?? this.syncTimestamp,
       deviceId: deviceId ?? this.deviceId,
       syncVersion: syncVersion ?? this.syncVersion,

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/account_history_record.dart';
 import '../../models/category.dart';
 import '../../models/customer.dart';
+import '../../models/customer_credit_entry.dart';
 import '../../models/employee.dart';
 import '../../models/expense.dart';
 import '../../models/inventory_movement.dart';
@@ -102,6 +103,13 @@ class CloudEntityMapper {
   }) =>
       _stamp(movement.toMap(), deviceId: deviceId, deleted: false);
 
+  static Map<String, dynamic> customerCreditEntryToDoc(
+    CustomerCreditEntry entry, {
+    required String deviceId,
+    bool deleted = false,
+  }) =>
+      _stamp(entry.toMap(), deviceId: deviceId, deleted: deleted);
+
   // ---- fromDoc ----
 
   static Product? productFromDoc(Map<String, dynamic> doc) =>
@@ -134,6 +142,10 @@ class CloudEntityMapper {
   static InventoryMovement? inventoryMovementFromDoc(
           Map<String, dynamic> doc) =>
       _safeDecode(doc, (m) => InventoryMovement.fromMap(m));
+
+  static CustomerCreditEntry? customerCreditEntryFromDoc(
+          Map<String, dynamic> doc) =>
+      _safeDecode(doc, (m) => CustomerCreditEntry.fromMap(m));
 
   static bool isDeleted(Map<String, dynamic> doc) =>
       doc[CloudFieldKeys.deleted] == true;

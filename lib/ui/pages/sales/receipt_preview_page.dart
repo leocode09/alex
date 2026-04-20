@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../models/sale.dart';
 import '../../../models/product.dart';
+import '../../../providers/customer_provider.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
@@ -144,15 +145,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                         ),
 
                       // Customer Info
-                      if (_sale.customerId != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            'Customer: ${_sale.customerId}',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                        ),
+                      if (_sale.customerId != null) _buildCustomerBlock(),
 
                       // Items
                       ..._sale.items.asMap().entries.map((entry) {
@@ -231,6 +224,15 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           thickness: 1, height: 24, color: Colors.black),
 
                       // Totals
+                      if (_sale.creditApplied > 0) ...[
+                        _buildLineRow('Subtotal',
+                            (_sale.total + _sale.creditApplied)
+                                .toStringAsFixed(2)),
+                        const SizedBox(height: 4),
+                        _buildLineRow('Credit applied',
+                            '-${_sale.creditApplied.toStringAsFixed(2)}'),
+                        const SizedBox(height: 4),
+                      ],
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -308,6 +310,34 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                         ),
                       ],
 
+                      if (_sale.customerId != null &&
+                          (_sale.bonusEarned > 0 ||
+                              _sale.customerCreditBalanceAfter > 0 ||
+                              _sale.customerTotalSpentAfter > 0)) ...[
+                        const SizedBox(height: 16),
+                        const Divider(
+                            thickness: 1, height: 8, color: Colors.black),
+                        const SizedBox(height: 8),
+                        const Text('Customer Rewards',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(height: 6),
+                        if (_sale.bonusEarned > 0)
+                          _buildLineRow('Bonus earned',
+                              '+${_sale.bonusEarned.toStringAsFixed(2)}'),
+                        if (_sale.customerCreditBalanceAfter > 0 ||
+                            _sale.bonusEarned > 0 ||
+                            _sale.creditApplied > 0)
+                          _buildLineRow(
+                              'Credit balance',
+                              _sale.customerCreditBalanceAfter
+                                  .toStringAsFixed(2)),
+                        if (_sale.customerTotalSpentAfter > 0)
+                          _buildLineRow(
+                              'Total spending',
+                              _sale.customerTotalSpentAfter
+                                  .toStringAsFixed(2)),
+                      ],
                       const SizedBox(height: 40),
                       Align(
                         alignment: Alignment.centerRight,
@@ -361,6 +391,54 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13)),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildCustomerBlock() {
+    final rawId = _sale.customerId!;
+    final looksLikeId = rawId.startsWith('cust_');
+    if (!looksLikeId) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          'Customer: $rawId',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+    final async = ref.watch(customerByIdProvider(rawId));
+    final displayName = async.asData?.value?.name ??
+        _sale.customerNameSnapshot ??
+        rawId;
+    final phone = async.asData?.value?.phone;
+    final email = async.asData?.value?.email;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Customer: $displayName',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          if ((phone ?? '').isNotEmpty)
+            Text('Phone: $phone', style: const TextStyle(fontSize: 12)),
+          if ((email ?? '').isNotEmpty)
+            Text('Email: $email', style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
@@ -634,16 +712,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
         ? cashReceived - newTotal
         : null;
 
-    final updatedSale = Sale(
-      id: _sale.id,
+    final updatedSale = _sale.copyWith(
       items: updatedItems,
       total: newTotal,
-      paymentMethod: _sale.paymentMethod,
-      customerId: _sale.customerId,
-      employeeId: _sale.employeeId,
       cashReceived: cashReceived,
       change: change,
-      createdAt: _sale.createdAt,
     );
 
     final productRepo = ref.read(productRepositoryProvider);
@@ -972,15 +1045,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                   selectedTime.minute,
                 );
 
-                final updatedSale = Sale(
-                  id: _sale.id,
-                  items: _sale.items,
-                  total: _sale.total,
+                final updatedSale = _sale.copyWith(
                   paymentMethod: paymentMethod,
                   customerId: customerController.text.isEmpty
                       ? null
                       : customerController.text,
-                  employeeId: _sale.employeeId,
                   cashReceived:
                       paymentMethod == 'Cash' ? _sale.cashReceived : null,
                   change: paymentMethod == 'Cash' ? _sale.change : null,

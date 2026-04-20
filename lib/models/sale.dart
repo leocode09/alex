@@ -31,16 +31,18 @@ class Sale {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  static const Object _keep = Object();
+
   Sale copyWith({
     String? id,
     List<SaleItem>? items,
     double? total,
     String? paymentMethod,
-    String? customerId,
-    String? customerNameSnapshot,
+    Object? customerId = _keep,
+    Object? customerNameSnapshot = _keep,
     String? employeeId,
-    double? cashReceived,
-    double? change,
+    Object? cashReceived = _keep,
+    Object? change = _keep,
     double? creditApplied,
     double? bonusEarned,
     double? customerTotalSpentAfter,
@@ -52,11 +54,17 @@ class Sale {
       items: items ?? this.items,
       total: total ?? this.total,
       paymentMethod: paymentMethod ?? this.paymentMethod,
-      customerId: customerId ?? this.customerId,
-      customerNameSnapshot: customerNameSnapshot ?? this.customerNameSnapshot,
+      customerId: identical(customerId, _keep)
+          ? this.customerId
+          : customerId as String?,
+      customerNameSnapshot: identical(customerNameSnapshot, _keep)
+          ? this.customerNameSnapshot
+          : customerNameSnapshot as String?,
       employeeId: employeeId ?? this.employeeId,
-      cashReceived: cashReceived ?? this.cashReceived,
-      change: change ?? this.change,
+      cashReceived: identical(cashReceived, _keep)
+          ? this.cashReceived
+          : cashReceived as double?,
+      change: identical(change, _keep) ? this.change : change as double?,
       creditApplied: creditApplied ?? this.creditApplied,
       bonusEarned: bonusEarned ?? this.bonusEarned,
       customerTotalSpentAfter:

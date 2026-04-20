@@ -30,6 +30,8 @@ class FirestorePaths {
   static const String moneyAccountsSubcollection = 'moneyAccounts';
   static const String moneyHistorySubcollection = 'moneyHistory';
   static const String inventoryMovementsSubcollection = 'inventoryMovements';
+  static const String customerCreditEntriesSubcollection =
+      'customerCreditEntries';
   static const String settingsSubcollection = 'settings';
 
   /// Collections that can receive live snapshot listeners for two-way sync.
@@ -44,6 +46,7 @@ class FirestorePaths {
     moneyAccountsSubcollection,
     moneyHistorySubcollection,
     inventoryMovementsSubcollection,
+    customerCreditEntriesSubcollection,
   ];
 }
 
@@ -61,5 +64,6 @@ class SoftDeletable {
     FirestorePaths.expensesSubcollection,
     FirestorePaths.storesSubcollection,
     FirestorePaths.moneyAccountsSubcollection,
+    FirestorePaths.customerCreditEntriesSubcollection,
   };
 }

@@ -218,8 +218,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           orElse: () => const <Expense>[],
         );
         final range = _getPeriodRange(_selectedPeriod);
-        final filteredSales = _filterSalesByRange(allSales, range);
-        final filteredExpenses = _filterExpensesByRange(allExpenses, range);
+        final periodSales = _filterSalesByRange(allSales, range);
+        final filteredSales =
+            _filterSalesByQueryAndChips(periodSales, products);
+        final periodExpenses = _filterExpensesByRange(allExpenses, range);
+        final filteredExpenses = _filterExpensesByQuery(periodExpenses);
         final metrics = _calculateSalesMetrics(filteredSales, products);
         final totalExpenses = filteredExpenses.fold<double>(
             0.0, (sum, expense) => sum + expense.amount);
@@ -541,7 +544,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     final varianceMovementsAsync = ref.watch(inventoryVariancesProvider);
 
     return productsAsync.when(
-      data: (products) {
+      data: (allProducts) {
+        final products = _filterProductsByQueryAndChips(allProducts);
         final totalProducts = products.length;
         final totalUnits = products.fold<int>(0, (sum, p) => sum + p.stock);
         final lowStockItems =
@@ -606,13 +610,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         final topValueProducts = [...products]
           ..sort((a, b) => (b.price * b.stock).compareTo(a.price * a.stock));
         final range = _getPeriodRange(_selectedPeriod);
-        final periodVariances = varianceMovementsAsync.maybeWhen(
+        final allPeriodVariances = varianceMovementsAsync.maybeWhen(
           data: (movements) => movements.where((movement) {
             return !movement.createdAt.isBefore(range.start) &&
                 !movement.createdAt.isAfter(range.end);
           }).toList(),
           orElse: () => const <InventoryMovement>[],
         );
+        final periodVariances =
+            _filterVariancesByQueryAndChips(allPeriodVariances);
         final varianceStats = InventoryVarianceStats.fromMovements(
           periodVariances,
         );
@@ -783,7 +789,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     return salesAsync.when(
       data: (allSales) {
         final range = _getPeriodRange(_selectedPeriod);
-        final filteredSales = _filterSalesByRange(allSales, range);
+        final periodSales = _filterSalesByRange(allSales, range);
+        final filteredSales = _normalizedQuery.isEmpty
+            ? periodSales
+            : periodSales.where((sale) {
+                return _matchesQuery([
+                  sale.employeeId,
+                  sale.employeeId.split('@').first,
+                ]);
+              }).toList();
         final employeeStats = <String, _EmployeePerformance>{};
         double totalRevenue = 0.0;
         for (var sale in filteredSales) {
@@ -868,23 +882,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     return AnimatedBuilder(
       animation: _lanSyncService,
       builder: (context, _) {
+        final extras = context.appExtras;
         final allActions = _lanSyncService.actions.reversed.toList();
-        final deviceFilters = _buildSyncDeviceFilters(allActions);
-        final selectedDevice = deviceFilters.any(
-          (filter) => filter.id == _selectedSyncDeviceFilter,
-        )
-            ? _selectedSyncDeviceFilter
-            : _allDevicesFilter;
-        final filteredActions = allActions.where((action) {
-          if (selectedDevice != _allDevicesFilter &&
-              action.deviceId != selectedDevice) {
-            return false;
-          }
-          return _matchesSyncTimeRange(
-            action.timestamp,
-            _selectedSyncTimeRange,
-          );
-        }).toList();
+        final filteredActions = _filterSyncActions(allActions);
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -897,71 +897,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               ),
               const SizedBox(height: 6),
               Text(
-                'Filter shared LAN activity by device and period.',
+                'Shared LAN activity. Use the filter strip to narrow by device or period.',
                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: selectedDevice,
-                      decoration: const InputDecoration(
-                        labelText: 'Device',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: deviceFilters
-                          .map(
-                            (filter) => DropdownMenuItem<String>(
-                              value: filter.id,
-                              child: Text(filter.label),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setState(() {
-                          _selectedSyncDeviceFilter = value;
-                        });
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<SyncActionTimeRange>(
-                      initialValue: _selectedSyncTimeRange,
-                      decoration: const InputDecoration(
-                        labelText: 'Period',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: SyncActionTimeRange.values
-                          .map(
-                            (value) => DropdownMenuItem<SyncActionTimeRange>(
-                              value: value,
-                              child: Text(_syncTimeRangeLabel(value)),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setState(() {
-                          _selectedSyncTimeRange = value;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Text(
                 '${filteredActions.length} action(s)',
                 style: TextStyle(
@@ -973,11 +912,12 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               if (filteredActions.isEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppTokens.space2),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
+                    color: extras.panel,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusM),
+                    border:
+                        Border.all(color: extras.border, width: AppTokens.border),
                   ),
                   child: Text(
                     'No sync actions match the selected filters.',
@@ -988,11 +928,12 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 ...filteredActions.take(200).map(
                       (action) => Container(
                         margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(AppTokens.space2),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[200]!),
+                          color: extras.panel,
+                          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+                          border: Border.all(
+                              color: extras.border, width: AppTokens.border),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1337,6 +1278,298 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
         return _hasActiveSyncFilter;
       default:
         return false;
+    }
+  }
+
+  Widget _buildFilterStrip() {
+    final extras = context.appExtras;
+    final theme = Theme.of(context);
+    final tabIndex = _tabController.index;
+    final chips = _buildChipsForTab(tabIndex);
+
+    if (chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final showReset = _hasActiveFilter(tabIndex);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space3,
+        vertical: AppTokens.space2,
+      ),
+      decoration: BoxDecoration(
+        color: extras.panel,
+        border: Border(
+          bottom: BorderSide(color: extras.border, width: AppTokens.border),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var i = 0; i < chips.length; i++) ...[
+                    chips[i],
+                    if (i < chips.length - 1)
+                      const SizedBox(width: AppTokens.space2),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (showReset) ...[
+            const SizedBox(width: AppTokens.space2),
+            TextButton(
+              onPressed: _resetFiltersForActiveTab,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Reset',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildChipsForTab(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return _buildSalesFilterChips();
+      case 1:
+        return _buildInventoryFilterChips();
+      case 2:
+        return const <Widget>[];
+      case 3:
+        return _buildSyncFilterChips();
+      default:
+        return const <Widget>[];
+    }
+  }
+
+  List<Widget> _buildSalesFilterChips() {
+    final sales = ref.watch(salesProvider).maybeWhen(
+          data: (items) => items,
+          orElse: () => const <Sale>[],
+        );
+    final products = ref.watch(productsProvider).maybeWhen(
+          data: (items) => items,
+          orElse: () => const <Product>[],
+        );
+    final productById = {for (final p in products) p.id: p};
+
+    final payments = <String>{};
+    for (final sale in sales) {
+      payments.add(sale.paymentMethod.isEmpty ? 'Unknown' : sale.paymentMethod);
+    }
+    final categories = <String>{};
+    for (final sale in sales) {
+      for (final item in sale.items) {
+        final cat = productById[item.productId]?.category ?? 'Uncategorized';
+        categories.add(cat);
+      }
+    }
+
+    final sortedPayments = payments.toList()..sort();
+    final sortedCategories = categories.toList()..sort();
+
+    final chips = <Widget>[];
+    if (sortedPayments.isNotEmpty) {
+      chips.add(_buildFilterMenuChip(
+        label: 'Payment',
+        value: _salesPaymentFilter,
+        options: sortedPayments,
+        onSelected: (v) => setState(() => _salesPaymentFilter = v),
+      ));
+    }
+    if (sortedCategories.isNotEmpty) {
+      chips.add(_buildFilterMenuChip(
+        label: 'Category',
+        value: _salesCategoryFilter,
+        options: sortedCategories,
+        onSelected: (v) => setState(() => _salesCategoryFilter = v),
+      ));
+    }
+    return chips;
+  }
+
+  List<Widget> _buildInventoryFilterChips() {
+    final products = ref.watch(productsProvider).maybeWhen(
+          data: (items) => items,
+          orElse: () => const <Product>[],
+        );
+    final movements = ref.watch(inventoryVariancesProvider).maybeWhen(
+          data: (items) => items,
+          orElse: () => const <InventoryMovement>[],
+        );
+    final categories = <String>{};
+    for (final p in products) {
+      categories.add(p.category ?? 'Uncategorized');
+    }
+    final sortedCategories = categories.toList()..sort();
+
+    final reasons = <String>{};
+    for (final m in movements) {
+      reasons.add(m.reason);
+    }
+    final sortedReasons = reasons.toList()..sort();
+
+    final chips = <Widget>[];
+    if (sortedCategories.isNotEmpty) {
+      chips.add(_buildFilterMenuChip(
+        label: 'Category',
+        value: _invCategoryFilter,
+        options: sortedCategories,
+        onSelected: (v) => setState(() => _invCategoryFilter = v),
+      ));
+    }
+
+    chips.add(_buildFilterMenuChip<_StockState>(
+      label: 'Stock',
+      value: _invStockState == _StockState.all ? null : _invStockState,
+      options: const [_StockState.low, _StockState.outOfStock],
+      displayLabel: _stockStateLabel,
+      onSelected: (v) => setState(
+          () => _invStockState = v ?? _StockState.all),
+    ));
+
+    if (sortedReasons.isNotEmpty) {
+      chips.add(_buildFilterMenuChip(
+        label: 'Variance',
+        value: _invVarianceReasonFilter,
+        options: sortedReasons,
+        displayLabel: _formatVarianceReason,
+        onSelected: (v) => setState(() => _invVarianceReasonFilter = v),
+      ));
+    }
+    return chips;
+  }
+
+  List<Widget> _buildSyncFilterChips() {
+    final actions = _lanSyncService.actions.reversed.toList();
+    final deviceFilters = _buildSyncDeviceFilters(actions);
+    final selectedDeviceId = deviceFilters.any(
+      (filter) => filter.id == _selectedSyncDeviceFilter,
+    )
+        ? _selectedSyncDeviceFilter
+        : _allDevicesFilter;
+
+    final deviceOptions = deviceFilters
+        .where((f) => f.id != _allDevicesFilter)
+        .map((f) => f.id)
+        .toList();
+    final labels = {
+      for (final f in deviceFilters) f.id: f.label,
+    };
+
+    return [
+      _buildFilterMenuChip<String>(
+        label: 'Device',
+        value: selectedDeviceId == _allDevicesFilter ? null : selectedDeviceId,
+        options: deviceOptions,
+        displayLabel: (id) => labels[id] ?? id,
+        onSelected: (v) => setState(
+            () => _selectedSyncDeviceFilter = v ?? _allDevicesFilter),
+      ),
+      _buildFilterMenuChip<SyncActionTimeRange>(
+        label: 'Period',
+        value: _selectedSyncTimeRange == SyncActionTimeRange.today
+            ? null
+            : _selectedSyncTimeRange,
+        options: SyncActionTimeRange.values
+            .where((v) => v != SyncActionTimeRange.today)
+            .toList(),
+        displayLabel: _syncTimeRangeLabel,
+        onSelected: (v) => setState(() =>
+            _selectedSyncTimeRange = v ?? SyncActionTimeRange.today),
+      ),
+    ];
+  }
+
+  Widget _buildFilterMenuChip<T>({
+    required String label,
+    required T? value,
+    required List<T> options,
+    String Function(T)? displayLabel,
+    required ValueChanged<T?> onSelected,
+  }) {
+    String labelFor(T v) => displayLabel?.call(v) ?? v.toString();
+    final isActive = value != null;
+    final chipLabel =
+        isActive ? '$label: ${labelFor(value as T)}' : label;
+
+    return Builder(
+      builder: (chipContext) {
+        return FilterChip(
+          label: Text(chipLabel),
+          selected: isActive,
+          showCheckmark: false,
+          avatar: isActive ? null : const Icon(Icons.filter_list, size: 16),
+          deleteIcon: isActive ? const Icon(Icons.close, size: 16) : null,
+          onDeleted: isActive ? () => onSelected(null) : null,
+          onSelected: (_) async {
+            final box = chipContext.findRenderObject() as RenderBox?;
+            final overlay = Overlay.of(chipContext)
+                .context
+                .findRenderObject() as RenderBox?;
+            if (box == null || overlay == null) return;
+            final topLeft =
+                box.localToGlobal(Offset(0, box.size.height), ancestor: overlay);
+            final bottomRight = box.localToGlobal(
+              box.size.bottomRight(Offset.zero),
+              ancestor: overlay,
+            );
+            final position = RelativeRect.fromLTRB(
+              topLeft.dx,
+              topLeft.dy,
+              overlay.size.width - bottomRight.dx,
+              overlay.size.height - bottomRight.dy,
+            );
+            final result = await showMenu<_MenuResult<T>>(
+              context: chipContext,
+              position: position,
+              items: [
+                PopupMenuItem<_MenuResult<T>>(
+                  value: _MenuResult<T>.clear(),
+                  child: Text('All ${label.toLowerCase()}'),
+                ),
+                const PopupMenuDivider(),
+                for (final option in options)
+                  PopupMenuItem<_MenuResult<T>>(
+                    value: _MenuResult<T>.value(option),
+                    child: Text(labelFor(option)),
+                  ),
+              ],
+            );
+            if (result == null) return;
+            onSelected(result.value);
+          },
+        );
+      },
+    );
+  }
+
+  String _stockStateLabel(_StockState state) {
+    switch (state) {
+      case _StockState.all:
+        return 'All';
+      case _StockState.low:
+        return 'Low';
+      case _StockState.outOfStock:
+        return 'Out of stock';
     }
   }
 
@@ -1940,6 +2173,13 @@ class _SyncDeviceFilter {
     required this.id,
     required this.label,
   });
+}
+
+class _MenuResult<T> {
+  final T? value;
+  const _MenuResult._(this.value);
+  factory _MenuResult.value(T v) => _MenuResult<T>._(v);
+  factory _MenuResult.clear() => _MenuResult<T>._(null);
 }
 
 class _SalesMetrics {

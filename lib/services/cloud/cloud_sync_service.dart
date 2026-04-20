@@ -8,6 +8,7 @@ import '../../helpers/license_gate.dart';
 import '../../models/account_history_record.dart';
 import '../../models/category.dart';
 import '../../models/customer.dart';
+import '../../models/customer_credit_entry.dart';
 import '../../models/employee.dart';
 import '../../models/expense.dart';
 import '../../models/inventory_movement.dart';
@@ -361,6 +362,20 @@ class CloudSyncService extends ChangeNotifier {
         CloudEntityMapper.inventoryMovementToDoc(m, deviceId: deviceId),
       ));
     }
+    for (final e in data.customerCreditEntries) {
+      writes.add(_PendingWrite(
+        FirestorePaths.customerCreditEntriesSubcollection,
+        e.id,
+        CloudEntityMapper.customerCreditEntryToDoc(e, deviceId: deviceId),
+      ));
+    }
+    for (final id in data.deletedCustomerCreditEntryIds) {
+      writes.add(_PendingWrite(
+        FirestorePaths.customerCreditEntriesSubcollection,
+        id,
+        _tombstoneDoc(id: id, deviceId: deviceId),
+      ));
+    }
 
     if (writes.isEmpty) {
       return;
@@ -456,6 +471,7 @@ class CloudSyncService extends ChangeNotifier {
       final moneyAccounts = <MoneyAccount>[];
       final moneyHistory = <AccountHistoryRecord>[];
       final movements = <InventoryMovement>[];
+      final creditEntries = <CustomerCreditEntry>[];
       final deletedProductIds = <String>[];
       final deletedCategoryIds = <String>[];
       final deletedCustomerIds = <String>[];
@@ -463,6 +479,7 @@ class CloudSyncService extends ChangeNotifier {
       final deletedExpenseIds = <String>[];
       final deletedStoreIds = <String>[];
       final deletedMoneyAccountIds = <String>[];
+      final deletedCreditEntryIds = <String>[];
 
       Timestamp cursor = Timestamp.fromMillisecondsSinceEpoch(0);
 
@@ -547,6 +564,14 @@ class CloudSyncService extends ChangeNotifier {
             final v = CloudEntityMapper.inventoryMovementFromDoc(data);
             if (v != null) movements.add(v);
             break;
+          case FirestorePaths.customerCreditEntriesSubcollection:
+            if (deleted) {
+              deletedCreditEntryIds.add(id);
+            } else {
+              final v = CloudEntityMapper.customerCreditEntryFromDoc(data);
+              if (v != null) creditEntries.add(v);
+            }
+            break;
         }
       }
 
@@ -560,13 +585,15 @@ class CloudSyncService extends ChangeNotifier {
           moneyAccounts.isNotEmpty ||
           moneyHistory.isNotEmpty ||
           movements.isNotEmpty ||
+          creditEntries.isNotEmpty ||
           deletedProductIds.isNotEmpty ||
           deletedCategoryIds.isNotEmpty ||
           deletedCustomerIds.isNotEmpty ||
           deletedEmployeeIds.isNotEmpty ||
           deletedExpenseIds.isNotEmpty ||
           deletedStoreIds.isNotEmpty ||
-          deletedMoneyAccountIds.isNotEmpty;
+          deletedMoneyAccountIds.isNotEmpty ||
+          deletedCreditEntryIds.isNotEmpty;
 
       if (!hasPayload) return;
 
@@ -582,6 +609,7 @@ class CloudSyncService extends ChangeNotifier {
         moneyAccounts: moneyAccounts,
         moneyHistory: moneyHistory,
         inventoryMovements: movements,
+        customerCreditEntries: creditEntries,
         deletedProductIds: deletedProductIds,
         deletedCategoryIds: deletedCategoryIds,
         deletedCustomerIds: deletedCustomerIds,
@@ -589,6 +617,7 @@ class CloudSyncService extends ChangeNotifier {
         deletedExpenseIds: deletedExpenseIds,
         deletedStoreIds: deletedStoreIds,
         deletedMoneyAccountIds: deletedMoneyAccountIds,
+        deletedCustomerCreditEntryIds: deletedCreditEntryIds,
         deviceId: deviceId,
       );
 
