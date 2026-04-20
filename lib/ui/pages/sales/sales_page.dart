@@ -8,18 +8,23 @@ import 'package:uuid/uuid.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/inventory_movement_provider.dart';
+import '../../../models/customer.dart';
 import '../../../models/product.dart';
 import '../../../models/sale.dart';
+import '../../../providers/customer_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../models/license_policy.dart';
+import '../../../services/bonus_engine.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/data_sync_triggers.dart';
 import '../../../services/receipt_print_service.dart';
 import '../../../services/lan_sync_service.dart';
+import '../../../services/sync_event_bus.dart';
 import 'receipts_page.dart';
+import 'widgets/customer_picker_sheet.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
   const SalesPage({super.key});
@@ -35,7 +40,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
   String _selectedCategory = 'All';
   String _paymentMethod = 'Cash';
   final TextEditingController _customerController = TextEditingController();
+  Customer? _selectedCustomer;
+  double _creditApplied = 0.0;
   final TextEditingController _cashReceivedController = TextEditingController();
+  final TextEditingController _creditAppliedController = TextEditingController();
   late TabController _tabController;
   SharedPreferences? _prefs;
   bool _hasLoadedEditingReceipt = false;

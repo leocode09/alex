@@ -346,7 +346,7 @@ class _CustomerEditorSheetState extends State<_CustomerEditorSheet> {
       );
       return;
     }
-    SyncEventBus.instance.publish(const SyncEvent(reason: 'customer_saved'));
+    SyncEventBus.instance.emit(reason: 'customer_saved');
     unawaitedTrigger();
     if (mounted) {
       Navigator.pop(context, customer);
