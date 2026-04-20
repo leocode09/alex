@@ -589,14 +589,31 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     showDialog(
       context: context,
       builder: (context) => _AddItemDialog(
-        onItemAdded: (Product product, int quantity) async {
-          // Add the product to the receipt
+        onItemAdded:
+            (Product product, ProductPackage? package, int quantity) async {
+          final isSinglePkg = package?.id == productPackageSingleItemId;
+          final unitsPerPackage = package?.unitsPerPackage ?? 1;
+          final price = (package != null && !isSinglePkg)
+              ? sellingPriceForPackage(unitPrice: product.price, pkg: package)
+              : product.price;
+          final costPrice = (package != null &&
+                  !isSinglePkg &&
+                  package.packageCostPrice != null)
+              ? package.packageCostPrice! / package.unitsPerPackage
+              : product.costPrice;
           final newItem = SaleItem(
             productId: product.id,
-            productName: product.name,
+            productName: (package != null && !isSinglePkg)
+                ? '${product.name} (${package.name})'
+                : product.name,
             quantity: quantity,
-            price: product.price,
-            costPrice: product.costPrice,
+            price: price,
+            packageId: (package != null && !isSinglePkg) ? package.id : null,
+            packageName:
+                (package != null && !isSinglePkg) ? package.name : null,
+            unitsPerPackage:
+                (package != null && !isSinglePkg) ? unitsPerPackage : null,
+            costPrice: costPrice,
           );
 
           final updatedItems = List<SaleItem>.from(_sale.items)..add(newItem);
@@ -1141,8 +1158,17 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
   }
 }
 
+class _AddEntry {
+  final Product product;
+  final ProductPackage? package;
+  const _AddEntry(this.product, [this.package]);
+
+  String get key => '${product.id}_${package?.id ?? ''}';
+}
+
 class _AddItemDialog extends ConsumerStatefulWidget {
-  final Function(Product product, int quantity) onItemAdded;
+  final Function(Product product, ProductPackage? package, int quantity)
+      onItemAdded;
 
   const _AddItemDialog({required this.onItemAdded});
 
@@ -1155,13 +1181,37 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
   final TextEditingController _quantityController =
       TextEditingController(text: '1');
   String _searchQuery = '';
-  Product? _selectedProduct;
+  _AddEntry? _selectedEntry;
 
   @override
   void dispose() {
     _searchController.dispose();
     _quantityController.dispose();
     super.dispose();
+  }
+
+  List<_AddEntry> _buildEntries(List<Product> products) {
+    final entries = <_AddEntry>[];
+    for (final product in products) {
+      if (product.packages.isEmpty) {
+        entries.add(_AddEntry(product));
+      } else {
+        if (product.price > 0) {
+          entries.add(_AddEntry(
+            product,
+            ProductPackage(
+              id: productPackageSingleItemId,
+              name: 'Single',
+              unitsPerPackage: 1,
+            ),
+          ));
+        }
+        for (final pkg in product.packages) {
+          entries.add(_AddEntry(product, pkg));
+        }
+      }
+    }
+    return entries;
   }
 
   @override
@@ -1225,7 +1275,7 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
             Expanded(
               child: productsAsync.when(
                 data: (products) {
-                  final filtered = _searchQuery.isEmpty
+                  final filteredProducts = _searchQuery.isEmpty
                       ? products
                       : products
                           .where((p) =>
@@ -1237,6 +1287,7 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                               (p.sku?.toLowerCase().contains(_searchQuery) ??
                                   false))
                           .toList();
+                  final filtered = _buildEntries(filteredProducts);
 
                   if (filtered.isEmpty) {
                     return Center(
@@ -1293,8 +1344,25 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                     itemCount: filtered.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, index) {
-                      final product = filtered[index];
-                      final isSelected = _selectedProduct?.id == product.id;
+                      final entry = filtered[index];
+                      final product = entry.product;
+                      final pkg = entry.package;
+                      final isSingleEntry =
+                          pkg?.id == productPackageSingleItemId;
+                      final isPackageEntry = pkg != null && !isSingleEntry;
+                      final isSelected = _selectedEntry?.key == entry.key;
+                      final displayPrice = isPackageEntry
+                          ? sellingPriceForPackage(
+                              unitPrice: product.price, pkg: pkg)
+                          : product.price;
+                      final stockCount = isPackageEntry
+                          ? pkg.packageCount
+                          : isSingleEntry
+                              ? product.looseStock
+                              : product.stock;
+                      final displayName = pkg != null
+                          ? '${product.name} (${pkg.name})'
+                          : product.name;
 
                       return ListTile(
                         selected: isSelected,
@@ -1315,17 +1383,17 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                           ),
                         ),
                         title: Text(
-                          product.name,
+                          displayName,
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('\$${product.price.toStringAsFixed(2)}'),
+                            Text('\$${displayPrice.toStringAsFixed(2)}'),
                             Text(
-                              'Stock: ${product.stock}',
+                              'Stock: $stockCount',
                               style: TextStyle(
-                                color: product.stock < 10
+                                color: stockCount < 10
                                     ? Colors.red[700]
                                     : Colors.grey[600],
                                 fontSize: 12,
@@ -1341,7 +1409,7 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
                             : null,
                         onTap: () {
                           setState(() {
-                            _selectedProduct = product;
+                            _selectedEntry = entry;
                           });
                         },
                       );
@@ -1356,71 +1424,91 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
             ),
 
             // Quantity and Add button
-            if (_selectedProduct != null) ...[
+            if (_selectedEntry != null) ...[
               const Divider(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _quantityController,
-                      decoration: const InputDecoration(
-                        labelText: 'Quantity',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final quantity =
-                            int.tryParse(_quantityController.text) ?? 1;
-                        if (quantity <= 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter a valid quantity'),
-                            ),
-                          );
-                          return;
-                        }
+              Builder(builder: (context) {
+                final selectedEntry = _selectedEntry!;
+                final product = selectedEntry.product;
+                final pkg = selectedEntry.package;
+                final isSingleEntry =
+                    pkg?.id == productPackageSingleItemId;
+                final isPackageEntry = pkg != null && !isSingleEntry;
+                final unitsPerPackage = pkg?.unitsPerPackage ?? 1;
+                final unitPrice = isPackageEntry
+                    ? sellingPriceForPackage(
+                        unitPrice: product.price, pkg: pkg)
+                    : product.price;
+                final qty = int.tryParse(_quantityController.text) ?? 1;
+                final displayName = pkg != null
+                    ? '${product.name} (${pkg.name})'
+                    : product.name;
 
-                        if (_selectedProduct!.stock < quantity) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Only ${_selectedProduct!.stock} units available.',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        await widget.onItemAdded(
-                            _selectedProduct!, quantity);
-                        if (mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '${_selectedProduct!.name} added to receipt',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.add),
-                      label: Text(
-                        'Add to Receipt (\$${(_selectedProduct!.price * (int.tryParse(_quantityController.text) ?? 1)).toStringAsFixed(2)})',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                return Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _quantityController,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          labelText:
+                              isPackageEntry ? 'Packs' : 'Quantity',
+                          border: const OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final quantity =
+                              int.tryParse(_quantityController.text) ?? 1;
+                          if (quantity <= 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter a valid quantity'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          final baseUnitsNeeded = quantity * unitsPerPackage;
+                          if (product.stock < baseUnitsNeeded) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Only ${product.stock} units available.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          await widget.onItemAdded(product, pkg, quantity);
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '$displayName added to receipt',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.add),
+                        label: Text(
+                          'Add to Receipt (\$${(unitPrice * qty).toStringAsFixed(2)})',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ],
           ],
         ),
