@@ -224,6 +224,11 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           thickness: 1, height: 24, color: Colors.black),
 
                       // Totals
+                      _buildLineRow(
+                        'Total units',
+                        _sale.totalUnits.toString(),
+                      ),
+                      const SizedBox(height: 4),
                       if (_sale.creditApplied > 0) ...[
                         _buildLineRow('Subtotal',
                             (_sale.total + _sale.creditApplied)

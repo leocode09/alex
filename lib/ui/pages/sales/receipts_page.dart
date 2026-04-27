@@ -230,6 +230,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
     final itemIds = sale.items.map((item) => item.productId).join(' ');
     final totalQuantity =
         sale.items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final totalUnits = sale.totalUnits;
     final dateA = DateFormat('MMM d, HH:mm').format(sale.createdAt);
     final dateB = DateFormat('MMM d, yyyy HH:mm').format(sale.createdAt);
     final dateC = DateFormat('yyyy-MM-dd').format(sale.createdAt);
@@ -253,6 +254,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
       itemIds,
       sale.items.length.toString(),
       totalQuantity.toString(),
+      totalUnits.toString(),
       dateA,
       dateB,
       dateC,
