@@ -225,8 +225,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
 
                       // Totals
                       _buildLineRow(
-                        'Total units',
-                        _sale.totalUnits.toString(),
+                        'Total products',
+                        _sale.totalProducts.toString(),
                       ),
                       const SizedBox(height: 4),
                       if (_sale.creditApplied > 0) ...[

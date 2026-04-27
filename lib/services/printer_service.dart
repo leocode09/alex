@@ -340,9 +340,9 @@ class PrinterService {
 
     // Totals
     bytes += generator.row([
-      PosColumn(text: 'Total units', width: 6),
+      PosColumn(text: 'Total products', width: 6),
       PosColumn(
-        text: '${sale.totalUnits}',
+        text: '${sale.totalProducts}',
         width: 6,
         styles: const PosStyles(align: PosAlign.right),
       ),

@@ -44,10 +44,10 @@ class Sale {
   /// True when the customer has fully paid for this sale.
   bool get isPaidInFull => amountDue <= 0.000001;
 
-  /// Total physical units sold across all line items. For packaged items this
-  /// expands to base units (e.g. 2 packs of 12 = 24 units), so it always
-  /// reflects the actual count of things the customer walked out with.
-  int get totalUnits =>
+  /// Total physical products sold across all line items. For packaged items
+  /// this expands to base units (e.g. 2 packs of 12 = 24 products), so it
+  /// always reflects the actual count of things the customer walked out with.
+  int get totalProducts =>
       items.fold<int>(0, (sum, item) => sum + item.baseUnitsSold);
 
   static const Object _keep = Object();

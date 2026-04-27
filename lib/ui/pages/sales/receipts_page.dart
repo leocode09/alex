@@ -140,8 +140,8 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                               children: [
                                 Text(
                                   '${sale.items.length} items, '
-                                  '${sale.totalUnits} '
-                                  '${sale.totalUnits == 1 ? 'unit' : 'units'}'
+                                  '${sale.totalProducts} '
+                                  '${sale.totalProducts == 1 ? 'product' : 'products'}'
                                   ' \u00B7 ${sale.paymentMethod}',
                                   style: TextStyle(color: Colors.grey[600]),
                                 ),
@@ -230,7 +230,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
     final itemIds = sale.items.map((item) => item.productId).join(' ');
     final totalQuantity =
         sale.items.fold<int>(0, (sum, item) => sum + item.quantity);
-    final totalUnits = sale.totalUnits;
+    final totalProducts = sale.totalProducts;
     final dateA = DateFormat('MMM d, HH:mm').format(sale.createdAt);
     final dateB = DateFormat('MMM d, yyyy HH:mm').format(sale.createdAt);
     final dateC = DateFormat('yyyy-MM-dd').format(sale.createdAt);
@@ -254,7 +254,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
       itemIds,
       sale.items.length.toString(),
       totalQuantity.toString(),
-      totalUnits.toString(),
+      totalProducts.toString(),
       dateA,
       dateB,
       dateC,
