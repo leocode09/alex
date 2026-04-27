@@ -12,6 +12,7 @@ class Sale {
   final double bonusEarned;
   final double customerTotalSpentAfter;
   final double customerCreditBalanceAfter;
+  final double amountPaid;
   final DateTime createdAt;
 
   Sale({
@@ -28,8 +29,20 @@ class Sale {
     this.bonusEarned = 0.0,
     this.customerTotalSpentAfter = 0.0,
     this.customerCreditBalanceAfter = 0.0,
+    double? amountPaid,
     DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+  })  : amountPaid = amountPaid ?? total,
+        createdAt = createdAt ?? DateTime.now();
+
+  /// How much of the sale total is still owed by the customer. Always
+  /// non-negative (overpayments don't surface here).
+  double get amountDue {
+    final due = total - amountPaid;
+    return due > 0 ? due : 0;
+  }
+
+  /// True when the customer has fully paid for this sale.
+  bool get isPaidInFull => amountDue <= 0.000001;
 
   /// Total physical units sold across all line items. For packaged items this
   /// expands to base units (e.g. 2 packs of 12 = 24 units), so it always
@@ -53,6 +66,7 @@ class Sale {
     double? bonusEarned,
     double? customerTotalSpentAfter,
     double? customerCreditBalanceAfter,
+    double? amountPaid,
     DateTime? createdAt,
   }) {
     return Sale(
@@ -77,6 +91,7 @@ class Sale {
           customerTotalSpentAfter ?? this.customerTotalSpentAfter,
       customerCreditBalanceAfter:
           customerCreditBalanceAfter ?? this.customerCreditBalanceAfter,
+      amountPaid: amountPaid ?? this.amountPaid,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -96,6 +111,7 @@ class Sale {
       'bonusEarned': bonusEarned,
       'customerTotalSpentAfter': customerTotalSpentAfter,
       'customerCreditBalanceAfter': customerCreditBalanceAfter,
+      'amountPaid': amountPaid,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -121,6 +137,8 @@ class Sale {
           (map['customerTotalSpentAfter'] as num?)?.toDouble() ?? 0.0,
       customerCreditBalanceAfter:
           (map['customerCreditBalanceAfter'] as num?)?.toDouble() ?? 0.0,
+      amountPaid: (map['amountPaid'] as num?)?.toDouble() ??
+          (map['total'] as num).toDouble(),
       createdAt: DateTime.parse(map['createdAt'] as String),
     );
   }

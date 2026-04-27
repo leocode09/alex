@@ -167,6 +167,20 @@ class _SalesPageState extends ConsumerState<SalesPage>
     return t < 0 ? 0 : t;
   }
 
+  /// How much the customer is actually paying up-front for the given
+  /// payment [method] and [total]. Pay Later books the entire amount as
+  /// due. For Cash, a partial cash entry creates a remainder due.
+  double _amountPaidFor(String method, double total) {
+    if (method == 'Pay Later') return 0.0;
+    if (method == 'Cash') {
+      final cash = double.tryParse(_cashReceivedController.text);
+      if (cash != null && cash > 0 && cash < total) {
+        return cash;
+      }
+    }
+    return total;
+  }
+
   double get _maxApplicableCredit {
     if (_selectedCustomer == null) return 0.0;
     final bal = _selectedCustomer!.creditBalance;
@@ -581,6 +595,21 @@ class _SalesPageState extends ConsumerState<SalesPage>
       return;
     }
 
+    // Determine the amount actually paid up-front. Anything less than the
+    // total leaves an "amount due" tied to the selected customer.
+    final amountPaid = _amountPaidFor(method, totalAmount);
+    final amountDue = totalAmount - amountPaid;
+    if (amountDue > 0.000001 && _selectedCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(method == 'Pay Later'
+              ? 'Select a customer before using Pay Later.'
+              : 'Partial payment requires a selected customer.'),
+        ),
+      );
+      return;
+    }
+
     // Capture navigators before async gap
     // showDialog uses root navigator by default
     final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -661,12 +690,18 @@ class _SalesPageState extends ConsumerState<SalesPage>
             }
           }
         }
+        final paidNow = amountPaid;
 
         if (isEditingMode) {
           final effectiveCustomerId = _selectedCustomer?.id ??
               (_customerController.text.isNotEmpty
                   ? _customerController.text
                   : null);
+          // Preserve any prior repayments: the new amount paid is the
+          // larger of the editing-time amount and what's actually been
+          // paid against the receipt so far.
+          final preservedPaid =
+              editingReceipt.amountPaid > paidNow ? editingReceipt.amountPaid : paidNow;
           final updatedSale = Sale(
             id: saleId,
             items: saleItems,
@@ -683,6 +718,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
             customerTotalSpentAfter: editingReceipt.customerTotalSpentAfter,
             customerCreditBalanceAfter:
                 editingReceipt.customerCreditBalanceAfter,
+            amountPaid: preservedPaid > totalAmount ? totalAmount : preservedPaid,
             createdAt: editingReceipt.createdAt,
           );
 
@@ -730,6 +766,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
             cashReceived: cashReceived,
             change: change,
             creditApplied: _creditApplied,
+            amountPaid: paidNow,
             createdAt: DateTime.now(),
           );
 
@@ -1036,6 +1073,45 @@ class _SalesPageState extends ConsumerState<SalesPage>
                           setModalState, 'Mobile Money', Icons.phone_android)),
                 ],
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildPaymentMethodChip(
+                        setModalState, 'Pay Later', Icons.schedule),
+                  ),
+                ],
+              ),
+              if (_paymentMethod == 'Pay Later') ...[
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final extras = Theme.of(context).colorScheme;
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: extras.errorContainer,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: extras.error.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: extras.onErrorContainer),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _selectedCustomer == null
+                                  ? 'Select a customer first \u2014 Pay Later books the full \$${_total.toStringAsFixed(2)} as amount due.'
+                                  : 'Booking \$${_total.toStringAsFixed(2)} as amount due for ${_selectedCustomer!.name}.',
+                              style: TextStyle(color: extras.onErrorContainer),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
               if (_paymentMethod == 'Cash') ...[
                 const SizedBox(height: 16),
                 TextField(
@@ -1138,7 +1214,17 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
-                child: Text('Pay \$${_total.toStringAsFixed(2)}'),
+                child: Builder(
+                  builder: (context) {
+                    final paid = _amountPaidFor(_paymentMethod, _total);
+                    final due = _total - paid;
+                    if (due > 0.000001) {
+                      return Text(
+                          'Charge \$${paid.toStringAsFixed(2)} now \u00B7 \$${due.toStringAsFixed(2)} due');
+                    }
+                    return Text('Pay \$${_total.toStringAsFixed(2)}');
+                  },
+                ),
               ),
               const SizedBox(height: 16),
             ],

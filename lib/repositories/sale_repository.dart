@@ -219,6 +219,51 @@ class SaleRepository {
     return Map.fromEntries(sortedEntries.take(limit));
   }
 
+  /// Apply a customer repayment by clearing the oldest unpaid sales first
+  /// (FIFO). Mutates each affected `Sale` in place by bumping `amountPaid`.
+  /// Returns the leftover [amount] that could not be applied because the
+  /// customer has no remaining balance — callers can surface it as an
+  /// overpayment to record manually.
+  Future<double> recordCustomerPayment({
+    required String customerId,
+    required double amount,
+  }) async {
+    if (amount <= 0) return 0.0;
+    final sales = await getAllSales();
+    final unpaid = sales
+        .where((s) => s.customerId == customerId && s.amountDue > 0.000001)
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    if (unpaid.isEmpty) return amount;
+
+    double remaining = amount;
+    bool dirty = false;
+    for (var i = 0; i < unpaid.length && remaining > 0.000001; i++) {
+      final sale = unpaid[i];
+      final due = sale.amountDue;
+      final applied = remaining < due ? remaining : due;
+      final updated = sale.copyWith(amountPaid: sale.amountPaid + applied);
+      final idx = sales.indexWhere((s) => s.id == sale.id);
+      if (idx != -1) {
+        sales[idx] = updated;
+        dirty = true;
+      }
+      remaining -= applied;
+    }
+    if (dirty) {
+      await _saveSales(sales);
+    }
+    return remaining > 0.000001 ? remaining : 0.0;
+  }
+
+  /// Total still owed by the customer across every sale on file.
+  Future<double> getCustomerAmountDue(String customerId) async {
+    final sales = await getAllSales();
+    return sales
+        .where((s) => s.customerId == customerId)
+        .fold<double>(0.0, (sum, s) => sum + s.amountDue);
+  }
+
   // Replace all sales (for sync)
   Future<bool> replaceAllSales(List<Sale> sales) async {
     return await _saveSales(sales);
