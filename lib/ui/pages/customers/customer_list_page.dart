@@ -39,6 +39,13 @@ class _CustomerListPageState extends ConsumerState<CustomerListPage> {
 
     return AppPageScaffold(
       title: 'Customers',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.dashboard_outlined),
+          tooltip: 'Customer management',
+          onPressed: () => context.push('/customers/manage'),
+        ),
+      ],
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           if (await PinProtection.requirePinIfNeeded(

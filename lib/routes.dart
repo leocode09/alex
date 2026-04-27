@@ -44,6 +44,7 @@ import 'ui/pages/inventory/inventory_page.dart';
 
 // Customers
 import 'ui/pages/customers/customer_list_page.dart';
+import 'ui/pages/customers/customer_management_page.dart';
 import 'ui/pages/customers/customer_profile_page.dart';
 
 // Reports
@@ -662,6 +663,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'customers',
             builder: (context, state) => const CustomerListPage(),
             routes: [
+              _animatedRoute(
+                path: 'manage',
+                name: 'customer-management',
+                builder: (context, state) => const CustomerManagementPage(),
+              ),
               _animatedRoute(
                 path: ':id',
                 name: 'customer-profile',

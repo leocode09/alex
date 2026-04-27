@@ -157,6 +157,26 @@ class SettingsPage extends ConsumerWidget {
                   }
                 },
               ),
+              _buildSettingTile(
+                context,
+                'Customer Management',
+                'Track amount due, store credit, and bonuses',
+                Icons.dashboard_outlined,
+                onTap: () async {
+                  if (await PinProtection.requirePinIfNeeded(
+                    context,
+                    isRequired: () =>
+                        PinService().isPinRequiredForViewCustomers(),
+                    title: 'Customer Management',
+                    subtitle: 'Enter PIN to view customer management',
+                  )) {
+                    if (!context.mounted) {
+                      return;
+                    }
+                    context.push('/customers/manage');
+                  }
+                },
+              ),
               const SizedBox(height: 24),
               _buildSectionHeader(context, 'Account & Security'),
               if (isVisible('viewEmployees'))

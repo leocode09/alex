@@ -421,11 +421,37 @@ class _SaleRow extends StatelessWidget {
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     final time =
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final hasDue = sale.amountDue > 0.000001;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      title: Text('\$${sale.total.toStringAsFixed(2)}',
-          style: const TextStyle(fontWeight: FontWeight.w700)),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('\$${sale.total.toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          if (hasDue) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: extras.danger.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppTokens.radiusS),
+                border:
+                    Border.all(color: extras.danger.withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                'DUE \$${sale.amountDue.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: extras.danger,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
       subtitle: Text(
         '${sale.items.length} items - ${sale.paymentMethod}'
         '${sale.bonusEarned > 0 ? ' - +\$${sale.bonusEarned.toStringAsFixed(2)} bonus' : ''}'
@@ -435,6 +461,113 @@ class _SaleRow extends StatelessWidget {
       trailing: Text('$date\n$time',
           textAlign: TextAlign.right,
           style: TextStyle(color: extras.muted, fontSize: 12)),
+    );
+  }
+}
+
+class _AmountDuePanel extends StatelessWidget {
+  final Customer customer;
+  final double amountDue;
+  final List<Sale> unpaid;
+  final VoidCallback onRecordPayment;
+
+  const _AmountDuePanel({
+    required this.customer,
+    required this.amountDue,
+    required this.unpaid,
+    required this.onRecordPayment,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = context.appExtras;
+    final hasDue = amountDue > 0.000001;
+    return AppPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Outstanding', style: TextStyle(color: extras.muted)),
+              Text(
+                '\$${amountDue.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: hasDue ? extras.danger : null,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          if (unpaid.isNotEmpty) ...[
+            const SizedBox(height: AppTokens.space2),
+            ...unpaid.take(5).map((s) => _UnpaidSaleRow(sale: s)),
+            if (unpaid.length > 5)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '+${unpaid.length - 5} more unpaid',
+                  style: TextStyle(color: extras.muted, fontSize: 12),
+                ),
+              ),
+          ] else ...[
+            const SizedBox(height: AppTokens.space1),
+            Text(
+              'No unpaid sales.',
+              style: TextStyle(color: extras.muted, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: AppTokens.space2),
+          FilledButton.icon(
+            onPressed: hasDue ? onRecordPayment : null,
+            icon: const Icon(Icons.payments_outlined),
+            label: const Text('Record payment'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnpaidSaleRow extends StatelessWidget {
+  final Sale sale;
+  const _UnpaidSaleRow({required this.sale});
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = context.appExtras;
+    final d = sale.createdAt;
+    final date =
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '\$${sale.total.toStringAsFixed(2)} \u00B7 ${sale.paymentMethod}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '$date \u00B7 paid \$${sale.amountPaid.toStringAsFixed(2)}',
+                  style: TextStyle(color: extras.muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            'Due \$${sale.amountDue.toStringAsFixed(2)}',
+            style: TextStyle(
+              color: extras.danger,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

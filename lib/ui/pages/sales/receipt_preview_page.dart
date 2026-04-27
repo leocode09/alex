@@ -314,6 +314,39 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                           ],
                         ),
                       ],
+                      if (!_sale.isPaidInFull) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Paid',
+                                style:
+                                    TextStyle(fontWeight: FontWeight.w600)),
+                            Text(
+                              _sale.amountPaid.toStringAsFixed(2),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Amount Due',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFC62828))),
+                            Text(
+                              _sale.amountDue.toStringAsFixed(2),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFC62828),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
 
                       if (_sale.customerId != null &&
                           (_sale.bonusEarned > 0 ||

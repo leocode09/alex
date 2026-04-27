@@ -408,6 +408,34 @@ class PrinterService {
       }
     }
 
+    // Pay Later / partial-payment summary: print Paid + Amount Due rows
+    // whenever the customer still owes money on this sale, regardless of
+    // payment method. Skip if the cash branch already printed Amount Due.
+    final hasUnpaidBalance = !sale.isPaidInFull;
+    final cashAlreadyShowedDue =
+        sale.paymentMethod == 'Cash' && sale.cashReceived != null;
+    if (hasUnpaidBalance && !cashAlreadyShowedDue) {
+      bytes += generator.row([
+        PosColumn(text: 'Paid', width: 6),
+        PosColumn(
+          text: '\$${sale.amountPaid.toStringAsFixed(2)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+      bytes += generator.row([
+        PosColumn(
+            text: 'Amount Due',
+            width: 6,
+            styles: const PosStyles(bold: true)),
+        PosColumn(
+          text: '\$${sale.amountDue.toStringAsFixed(2)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+    }
+
     // Customer Rewards block — bonus earned / updated credit balance /
     // updated lifetime spending. Only printed when the sale is attached to
     // a real customer record with non-zero reward activity.
