@@ -105,7 +105,7 @@ class AccountHistoryRecord {
     double? amount,
     double? balanceBefore,
     double? balanceAfter,
-    String? note,
+    String? Function()? note,
     DateTime? createdAt,
   }) {
     return AccountHistoryRecord(
@@ -116,7 +116,7 @@ class AccountHistoryRecord {
       amount: amount ?? this.amount,
       balanceBefore: balanceBefore ?? this.balanceBefore,
       balanceAfter: balanceAfter ?? this.balanceAfter,
-      note: note ?? this.note,
+      note: note != null ? note() : this.note,
       createdAt: createdAt ?? this.createdAt,
     );
   }

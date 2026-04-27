@@ -165,7 +165,7 @@ class MoneyRepository {
     final existing = accounts[index];
     final updated = existing.copyWith(
       name: trimmedName,
-      note: note?.trim().isEmpty ?? true ? null : note!.trim(),
+      note: () => note?.trim().isEmpty ?? true ? null : note!.trim(),
       updatedAt: DateTime.now(),
     );
     accounts[index] = updated;
@@ -413,6 +413,7 @@ class MoneyRepository {
     DateTime? createdAt,
   }) async {
     final history = await _readHistory();
+    final currentAccounts = await _readAccounts();
     final index = history.indexWhere((r) => r.id == recordId);
     if (index == -1) {
       return MoneyActionResult.fail('History record not found.');
@@ -421,14 +422,14 @@ class MoneyRepository {
     final existing = history[index];
     final updated = existing.copyWith(
       amount: amount ?? existing.amount,
-      note: note != null ? (note.trim().isEmpty ? null : note.trim()) : existing.note,
+      note: note != null ? () => note.trim().isEmpty ? null : note.trim() : null,
       createdAt: createdAt ?? existing.createdAt,
     );
 
     history[index] = updated;
     history.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-    final replayResult = _replayHistory(history);
+    final replayResult = _replayHistory(history, currentAccounts);
     if (replayResult == null) {
       return MoneyActionResult.fail(
         'Cannot apply edit: would result in invalid state (e.g. negative balance).',
@@ -447,77 +448,42 @@ class MoneyRepository {
     return MoneyActionResult.ok('History record updated.');
   }
 
-  _ReplayResult? _replayHistory(List<AccountHistoryRecord> records) {
+  _ReplayResult? _replayHistory(
+    List<AccountHistoryRecord> records,
+    List<MoneyAccount> currentAccounts,
+  ) {
     final accountBalances = <String, double>{};
-    final accounts = <MoneyAccount>[];
-    final accountById = <String, MoneyAccount>{};
     final updatedRecords = <AccountHistoryRecord>[];
 
     for (final record in records) {
-      final currentBalance = accountBalances[record.accountId] ?? 0;
+      final currentBalance = accountBalances[record.accountId] ?? 0.0;
 
       switch (record.action) {
         case MoneyHistoryAction.accountCreated:
-          if (accountById.containsKey(record.accountId)) {
-            return null;
-          }
           final balance = record.amount < 0 ? 0.0 : record.amount;
           accountBalances[record.accountId] = balance;
-          final acc = MoneyAccount(
-            id: record.accountId,
-            name: record.accountName,
-            balance: balance,
-            note: record.note,
-            createdAt: record.createdAt,
-            updatedAt: record.createdAt,
-          );
-          accounts.add(acc);
-          accountById[record.accountId] = acc;
           updatedRecords.add(record.copyWith(
             balanceBefore: 0,
             balanceAfter: balance,
           ));
           break;
         case MoneyHistoryAction.accountUpdated:
-          final acc = accountById[record.accountId];
-          if (acc == null) return null;
-          accountById[record.accountId] = acc.copyWith(
-            name: record.accountName,
-            note: record.note,
-            updatedAt: record.createdAt,
-          );
-          final idx = accounts.indexWhere((a) => a.id == record.accountId);
-          if (idx >= 0) {
-            accounts[idx] = accountById[record.accountId]!;
-          }
           updatedRecords.add(record.copyWith(
             balanceBefore: currentBalance,
             balanceAfter: currentBalance,
           ));
           break;
         case MoneyHistoryAction.accountDeleted:
-          if (!accountById.containsKey(record.accountId)) return null;
-          accountById.remove(record.accountId);
-          accountBalances.remove(record.accountId);
-          accounts.removeWhere((a) => a.id == record.accountId);
           updatedRecords.add(record.copyWith(
             balanceBefore: currentBalance,
             balanceAfter: 0,
           ));
+          accountBalances[record.accountId] = 0.0;
           break;
         case MoneyHistoryAction.moneyAdded:
-          final acc = accountById[record.accountId];
-          if (acc == null) return null;
           final addAmount = record.amount < 0 ? 0.0 : record.amount;
           final newBalance = currentBalance + addAmount;
           accountBalances[record.accountId] = newBalance;
-          final updatedAcc = acc.copyWith(
-            balance: newBalance,
-            updatedAt: record.createdAt,
-          );
-          accountById[record.accountId] = updatedAcc;
-          final accIdx = accounts.indexWhere((a) => a.id == record.accountId);
-          if (accIdx >= 0) accounts[accIdx] = updatedAcc;
           updatedRecords.add(record.copyWith(
             amount: addAmount,
             balanceBefore: currentBalance,
@@ -525,19 +491,10 @@ class MoneyRepository {
           ));
           break;
         case MoneyHistoryAction.moneyRemoved:
-          final acc = accountById[record.accountId];
-          if (acc == null) return null;
           final removeAmount = record.amount < 0 ? 0.0 : record.amount;
           final nextBalance = currentBalance - removeAmount;
           if (nextBalance < 0) return null;
           accountBalances[record.accountId] = nextBalance;
-          final updatedAcc = acc.copyWith(
-            balance: nextBalance,
-            updatedAt: record.createdAt,
-          );
-          accountById[record.accountId] = updatedAcc;
-          final accIdx = accounts.indexWhere((a) => a.id == record.accountId);
-          if (accIdx >= 0) accounts[accIdx] = updatedAcc;
           updatedRecords.add(record.copyWith(
             amount: removeAmount,
             balanceBefore: currentBalance,
@@ -546,6 +503,11 @@ class MoneyRepository {
           break;
       }
     }
+
+    final accounts = currentAccounts.map((acc) {
+      final finalBalance = accountBalances[acc.id] ?? 0.0;
+      return acc.copyWith(balance: finalBalance);
+    }).toList();
 
     accounts.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return _ReplayResult(accounts: accounts, records: updatedRecords);

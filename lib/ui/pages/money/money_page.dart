@@ -9,6 +9,7 @@ import '../../../providers/money_provider.dart';
 import '../../../repositories/money_repository.dart';
 import '../../../services/data_sync_triggers.dart';
 import '../../../services/pin_service.dart';
+import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
 import '../../design_system/widgets/app_panel.dart';
@@ -225,7 +226,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                     const SizedBox(height: AppTokens.space1),
                     Text(
                       '$error',
-                      style: const TextStyle(color: AppTokens.mutedText),
+                      style: TextStyle(color: context.appExtras.muted),
                     ),
                     const SizedBox(height: AppTokens.space2),
                     ElevatedButton.icon(
@@ -253,12 +254,12 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Overview',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppTokens.mutedText,
+              color: context.appExtras.muted,
             ),
           ),
           const SizedBox(height: AppTokens.space2),
@@ -300,8 +301,8 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: AppTokens.mutedText,
+          style: TextStyle(
+            color: context.appExtras.muted,
             fontSize: 12,
           ),
         ),
@@ -366,6 +367,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
   Widget _buildEmptyAccounts({String? query}) {
     final trimmedQuery = query?.trim() ?? '';
     final hasQuery = trimmedQuery.isNotEmpty;
+    final mutedColor = context.appExtras.muted;
 
     return AppPanel(
       child: Column(
@@ -386,8 +388,8 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                 ? 'Try a different account name, note, balance, or date.'
                 : 'Create your first account to start tracking balances and transaction history.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppTokens.mutedText,
+            style: TextStyle(
+              color: mutedColor,
               fontSize: 12,
             ),
           ),
@@ -440,13 +442,13 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                         ),
                       ),
                     const SizedBox(height: 4),
-                    Text(
-                      'Updated ${_dateFormat.format(account.updatedAt)}',
-                      style: const TextStyle(
-                        color: AppTokens.mutedText,
-                        fontSize: 11,
+                      Text(
+                        'Updated ${_dateFormat.format(account.updatedAt)}',
+                        style: TextStyle(
+                          color: context.appExtras.muted,
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -541,7 +543,7 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                   hasQuery
                       ? 'No activity matches "$trimmedQuery".'
                       : 'No transaction history yet.',
-                  style: const TextStyle(color: AppTokens.mutedText),
+                  style: TextStyle(color: context.appExtras.muted),
                 );
               }
               return Column(
@@ -729,25 +731,25 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                 if (showAccountName)
                   Text(
                     record.accountName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppTokens.mutedText,
+                      color: context.appExtras.muted,
                     ),
                   ),
                 Text(
                   'Balance ${_currencyFormat.format(record.balanceBefore)} -> '
                   '${_currencyFormat.format(record.balanceAfter)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppTokens.mutedText,
+                    color: context.appExtras.muted,
                   ),
                 ),
                 if ((record.note ?? '').isNotEmpty)
                   Text(
                     record.note!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppTokens.mutedText,
+                      color: context.appExtras.muted,
                     ),
                   ),
               ],
@@ -762,17 +764,17 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: record.isCredit
-                      ? AppTokens.success
+                      ? context.appExtras.success
                       : (record.action == MoneyHistoryAction.moneyRemoved
-                          ? AppTokens.danger
-                          : AppTokens.mutedText),
+                          ? context.appExtras.danger
+                          : context.appExtras.muted),
                 ),
               ),
               Text(
                 _dateFormat.format(record.createdAt),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
-                  color: AppTokens.mutedText,
+                  color: context.appExtras.muted,
                 ),
               ),
             ],
@@ -1199,10 +1201,10 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                       child: historyAsync.when(
                         data: (records) {
                           if (records.isEmpty) {
-                            return const Center(
+                            return Center(
                               child: Text(
                                 'No history records yet.',
-                                style: TextStyle(color: AppTokens.mutedText),
+                                style: TextStyle(color: context.appExtras.muted),
                               ),
                             );
                           }

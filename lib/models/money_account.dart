@@ -48,7 +48,7 @@ class MoneyAccount {
     String? id,
     String? name,
     double? balance,
-    String? note,
+    String? Function()? note,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -56,7 +56,7 @@ class MoneyAccount {
       id: id ?? this.id,
       name: name ?? this.name,
       balance: balance ?? this.balance,
-      note: note ?? this.note,
+      note: note != null ? note() : this.note,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

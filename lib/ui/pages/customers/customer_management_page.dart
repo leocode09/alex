@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../models/customer.dart';
 import '../../../models/sale.dart';
-import '../../../providers/customer_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../services/data_sync_triggers.dart';
 import '../../../services/pin_service.dart';
