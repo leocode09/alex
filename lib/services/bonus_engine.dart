@@ -103,16 +103,23 @@ class BonusEngine {
       }
 
       final entries = await _creditRepo.entriesForCustomer(customer.id);
-      int alreadyGrantedInWindow = 0;
+      double bonusAmountInWindow = 0.0;
       for (final e in entries) {
         if (e.type != CustomerCreditEntryType.bonus) continue;
         if (e.createdAt.isBefore(windowStart)) continue;
-        alreadyGrantedInWindow++;
+        bonusAmountInWindow += e.amount;
       }
+      // Each ledger entry can already represent multiple thresholds (a single
+      // qualifying sale grants `eligibleCount * bonusAmount` consolidated into
+      // one row), so derive thresholds satisfied from the granted amount, not
+      // from the entry count. `round()` tolerates legacy entries created at a
+      // slightly different bonus amount.
+      final thresholdsAlreadyGranted =
+          (bonusAmountInWindow / rule.bonusAmount).round();
 
       final eligibleCount =
           (spendInWindow / rule.thresholdAmount).floor() -
-              alreadyGrantedInWindow;
+              thresholdsAlreadyGranted;
       if (eligibleCount > 0) {
         bonusGranted = eligibleCount * rule.bonusAmount;
         await _creditRepo.insertEntry(
