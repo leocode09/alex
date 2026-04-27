@@ -435,8 +435,8 @@ class _MoneyPageState extends ConsumerState<MoneyPage> {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           account.note!,
-                          style: const TextStyle(
-                            color: AppTokens.mutedText,
+                          style: TextStyle(
+                            color: context.appExtras.muted,
                             fontSize: 12,
                           ),
                         ),
