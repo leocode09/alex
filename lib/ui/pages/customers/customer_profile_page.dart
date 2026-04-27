@@ -18,6 +18,7 @@ import '../../design_system/widgets/app_panel.dart';
 import '../../design_system/widgets/app_section_header.dart';
 import '../../design_system/widgets/app_stat_tile.dart';
 import 'customer_list_page.dart';
+import 'customer_management_page.dart';
 
 class CustomerProfilePage extends ConsumerWidget {
   final String customerId;
@@ -32,6 +33,8 @@ class CustomerProfilePage extends ConsumerWidget {
     final customerAsync = ref.watch(customerByIdProvider(customerId));
     final salesAsync = ref.watch(salesProvider);
     final entriesAsync = ref.watch(creditEntriesForCustomerProvider(customerId));
+    final unpaidAsync = ref.watch(customerUnpaidSalesProvider(customerId));
+    final amountDueAsync = ref.watch(customerAmountDueProvider(customerId));
     final extras = context.appExtras;
 
     return AppPageScaffold(
@@ -173,6 +176,29 @@ class CustomerProfilePage extends ConsumerWidget {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: AppTokens.space4),
+              const AppSectionHeader(title: 'Amount Due'),
+              _AmountDuePanel(
+                customer: customer,
+                amountDue: amountDueAsync.asData?.value ?? 0,
+                unpaid: unpaidAsync.asData?.value ?? const [],
+                onRecordPayment: () async {
+                  final allowed = await PinProtection.requirePinIfNeeded(
+                    context,
+                    isRequired: () =>
+                        PinService().isPinRequiredForEditCustomer(),
+                    title: 'Record Payment',
+                    subtitle: 'Enter PIN to record customer payment',
+                  );
+                  if (!allowed || !context.mounted) return;
+                  await showCustomerRepaymentDialog(
+                    context,
+                    ref: ref,
+                    customer: customer,
+                    defaultAmount: amountDueAsync.asData?.value ?? 0,
+                  );
+                },
               ),
               const SizedBox(height: AppTokens.space4),
               const AppSectionHeader(title: 'Spending History'),
