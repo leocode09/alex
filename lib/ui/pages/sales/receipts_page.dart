@@ -139,7 +139,10 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${sale.items.length} items - ${sale.paymentMethod}',
+                                  '${sale.items.length} items, '
+                                  '${sale.totalUnits} '
+                                  '${sale.totalUnits == 1 ? 'unit' : 'units'}'
+                                  ' \u00B7 ${sale.paymentMethod}',
                                   style: TextStyle(color: Colors.grey[600]),
                                 ),
                                 Builder(builder: (_) {
