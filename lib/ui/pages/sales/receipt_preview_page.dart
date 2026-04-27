@@ -13,6 +13,7 @@ import '../../../providers/product_provider.dart';
 import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../models/license_policy.dart';
+import '../../../services/bonus_rule_service.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/receipt_print_service.dart';
 import '../../../services/data_sync_triggers.dart';
@@ -39,6 +40,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(receiptSettingsProvider);
+    final bonusRuleEnabled = ref.watch(bonusRuleProvider).enabled;
 
     return Scaffold(
       appBar: AppBar(
@@ -348,7 +350,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                         ),
                       ],
 
-                      if (_sale.customerId != null &&
+                      if (bonusRuleEnabled &&
+                          _sale.customerId != null &&
                           (_sale.bonusEarned > 0 ||
                               _sale.customerCreditBalanceAfter > 0 ||
                               _sale.customerTotalSpentAfter > 0)) ...[

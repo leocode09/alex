@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../providers/receipt_provider.dart';
 import '../repositories/customer_repository.dart';
+import 'bonus_rule_service.dart';
 
 class PrinterService {
   BluetoothDevice? _connectedDevice;
@@ -437,9 +438,12 @@ class PrinterService {
     }
 
     // Customer Rewards block — bonus earned / updated credit balance /
-    // updated lifetime spending. Only printed when the sale is attached to
-    // a real customer record with non-zero reward activity.
-    if (sale.customerId != null &&
+    // updated lifetime spending. Only printed when the bonus system is
+    // enabled and the sale is attached to a real customer record with
+    // non-zero reward activity.
+    final bonusRule = await BonusRuleService().load();
+    if (bonusRule.enabled &&
+        sale.customerId != null &&
         (sale.bonusEarned > 0 ||
             sale.customerCreditBalanceAfter > 0 ||
             sale.customerTotalSpentAfter > 0)) {
