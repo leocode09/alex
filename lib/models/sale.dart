@@ -44,11 +44,11 @@ class Sale {
   /// True when the customer has fully paid for this sale.
   bool get isPaidInFull => amountDue <= 0.000001;
 
-  /// Total physical products sold across all line items. For packaged items
-  /// this expands to base units (e.g. 2 packs of 12 = 24 products), so it
-  /// always reflects the actual count of things the customer walked out with.
+  /// Number of distinct products on this sale (deduplicated by `productId`).
+  /// Two line items for the same product sold in different packages count as
+  /// one product, while `items.length` counts every line separately.
   int get totalProducts =>
-      items.fold<int>(0, (sum, item) => sum + item.baseUnitsSold);
+      items.map((item) => item.productId).toSet().length;
 
   static const Object _keep = Object();
 
