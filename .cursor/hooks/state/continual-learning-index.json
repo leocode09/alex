@@ -1,173 +1,205 @@
 ﻿{
     "version":  1,
     "transcripts":  {
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\531c225a-8be2-46a2-a108-d7e624bfeafe\\subagents\\3a5161fb-1d35-454f-bc0d-ee7ab1ef58b6.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1774816114085,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\aa2c02d4-3b6d-470a-9a69-adc605250b90\\aa2c02d4-3b6d-470a-9a69-adc605250b90.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1773905532835,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\subagents\\f9d6b360-4376-40b4-bd80-461b90c0d628.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1776494945461,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\aacac072-5d80-4168-bab0-ea46fe120f0f\\aacac072-5d80-4168-bab0-ea46fe120f0f.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774091354217,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776532279474,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\3896555a-0692-4fab-a487-d466f9f2e207\\3896555a-0692-4fab-a487-d466f9f2e207.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1773429953973,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\587aba41-bc14-46cf-9a7d-c50059f5955a\\587aba41-bc14-46cf-9a7d-c50059f5955a.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776630593482,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\c12026d9-d572-4b6b-851d-69d186bb9411\\c12026d9-d572-4b6b-851d-69d186bb9411.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1773428011478,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\d4a231af-e10c-49f5-ab1e-2caca809d73c\\d4a231af-e10c-49f5-ab1e-2caca809d73c.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776290501489,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
                         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\054c100f-a24b-422b-a923-c9c5f0dcea41\\054c100f-a24b-422b-a923-c9c5f0dcea41.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776495125691,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8\\subagents\\f4644ec7-1cdd-4f19-a499-5c24edcf30cf.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1774184312619,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\4e890004-e1dc-46e5-95cf-0244b8492dd9\\4e890004-e1dc-46e5-95cf-0244b8492dd9.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774555300785,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\subagents\\8bea26f4-38aa-4a3e-ba5f-e57a9be8fcee.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1776495677680,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\8a831792-faa8-406e-91fb-989a8dade54c\\8a831792-faa8-406e-91fb-989a8dade54c.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774199602627,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\7bc26c23-aec6-4b5b-a826-c2e945047d5b\\7bc26c23-aec6-4b5b-a826-c2e945047d5b.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776607210641,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\531c225a-8be2-46a2-a108-d7e624bfeafe\\subagents\\66cc24d3-6c67-4f74-a4d1-cbdbccff0e2c.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1774816096192,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0f0551af-9b36-4910-94e9-4ffa6aa4886d\\0f0551af-9b36-4910-94e9-4ffa6aa4886d.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776623170032,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8\\subagents\\9465ea02-764c-45e0-b730-f947816762d3.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1774182321002,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776622720582,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774197982792,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\c07db488-a306-4208-bfe9-e99ca9ed6231\\c07db488-a306-4208-bfe9-e99ca9ed6231.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776289685541,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\6e839b8b-e453-41f5-9567-82a88931337c\\6e839b8b-e453-41f5-9567-82a88931337c.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774122488048,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\47a6aa02-3aee-435f-b5a6-2f49ee4bfdca\\47a6aa02-3aee-435f-b5a6-2f49ee4bfdca.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774500329090,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                                                                                                                                                                                   "mtimeMs":  1776487925690,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                },
                         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0c75b1b3-9ba1-4a12-a2dd-ac229bbfd8d7\\0c75b1b3-9ba1-4a12-a2dd-ac229bbfd8d7.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776631295271,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                                                                                                                                                                                   "mtimeMs":  1776624249480,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\4e890004-e1dc-46e5-95cf-0244b8492dd9\\subagents\\3d23f6d4-64ef-4949-bcd7-f84e9e7481d8.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1774554915236,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\47a6aa02-3aee-435f-b5a6-2f49ee4bfdca\\subagents\\a813f74c-aa53-47e5-8077-3e713fb0730a.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1774499753825,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\c07db488-a306-4208-bfe9-e99ca9ed6231\\subagents\\1a2aa0de-251c-4937-9914-6faf8fde1278.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1776289667299,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\f29d8506-4c6b-403f-8c0e-0540ae9c53fb\\f29d8506-4c6b-403f-8c0e-0540ae9c53fb.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776493870374,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\8f716409-5788-4b41-957c-d581d7dbe217\\8f716409-5788-4b41-957c-d581d7dbe217.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774816318043,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\9a7b2cba-6d1c-49ee-a6d6-806e8387cf5c\\9a7b2cba-6d1c-49ee-a6d6-806e8387cf5c.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776494285343,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\83290711-b827-4e2a-a9a5-e0c31fea655f\\83290711-b827-4e2a-a9a5-e0c31fea655f.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776494910049,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\2dcc1253-3eee-4b23-99a2-fb7c98dad698\\2dcc1253-3eee-4b23-99a2-fb7c98dad698.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776611099956,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d\\subagents\\5f0c913d-2565-4432-9ece-09922b1c51e7.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1776611797406,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0c75b1b3-9ba1-4a12-a2dd-ac229bbfd8d7\\subagents\\87ecae74-aea3-42ce-8b4a-0b5a51770d3f.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776624241608,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                           },
                         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0dee8395-b2b8-434a-b83f-c77bb93d26a5\\0dee8395-b2b8-434a-b83f-c77bb93d26a5.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774188367027,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                                                                                                                                                                                   "mtimeMs":  1774181167027,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\subagents\\f0f218b5-a09a-4752-83e6-41e664dd178d.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1776494900889,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                                          },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\ea68c226-1e6a-4cfb-97b2-042bc3c9c32f\\ea68c226-1e6a-4cfb-97b2-042bc3c9c32f.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1773430285213,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\3fc8fdda-923c-4d17-bb91-bda9677c9635\\3fc8fdda-923c-4d17-bb91-bda9677c9635.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1776204810319,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0f0551af-9b36-4910-94e9-4ffa6aa4886d\\0f0551af-9b36-4910-94e9-4ffa6aa4886d.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776615970031,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                },
                         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\1087c405-d63a-4708-ae7f-f6cac824168e\\1087c405-d63a-4708-ae7f-f6cac824168e.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774817422096,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                                                                                                                                                                                   "mtimeMs":  1774810222096,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\8f716409-5788-4b41-957c-d581d7dbe217\\subagents\\2c6eec74-2668-4143-9d69-5664c6acfd77.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1774816108427,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\16060ae0-1683-4df5-8843-22a83efc90f0\\16060ae0-1683-4df5-8843-22a83efc90f0.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776699286598,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\2a05caeb-a18a-4128-ac9c-b4d5076c152f\\2a05caeb-a18a-4128-ac9c-b4d5076c152f.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776701022410,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\2dcc1253-3eee-4b23-99a2-fb7c98dad698\\2dcc1253-3eee-4b23-99a2-fb7c98dad698.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776603899955,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\3896555a-0692-4fab-a487-d466f9f2e207\\3896555a-0692-4fab-a487-d466f9f2e207.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1773422753972,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\3fc8fdda-923c-4d17-bb91-bda9677c9635\\3fc8fdda-923c-4d17-bb91-bda9677c9635.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776197610319,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1774190782791,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8\\subagents\\9465ea02-764c-45e0-b730-f947816762d3.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1774175121001,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                           },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\83290711-b827-4e2a-a9a5-e0c31fea655f\\subagents\\f21a3655-2d89-4822-bf6a-adfd0ce00fad.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1776494827012,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\466b6e31-ef16-4b43-82e5-3f8593f0bfc8\\subagents\\f4644ec7-1cdd-4f19-a499-5c24edcf30cf.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1774177112619,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                           },
-                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\0c75b1b3-9ba1-4a12-a2dd-ac229bbfd8d7\\subagents\\87ecae74-aea3-42ce-8b4a-0b5a51770d3f.jsonl":  {
-                                                                                                                                                                                              "mtimeMs":  1776631303194,
-                                                                                                                                                                                              "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\47a6aa02-3aee-435f-b5a6-2f49ee4bfdca\\47a6aa02-3aee-435f-b5a6-2f49ee4bfdca.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1774493129089,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\47a6aa02-3aee-435f-b5a6-2f49ee4bfdca\\subagents\\a813f74c-aa53-47e5-8077-3e713fb0730a.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1774492553824,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\4e890004-e1dc-46e5-95cf-0244b8492dd9\\4e890004-e1dc-46e5-95cf-0244b8492dd9.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1774548100785,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\4e890004-e1dc-46e5-95cf-0244b8492dd9\\subagents\\3d23f6d4-64ef-4949-bcd7-f84e9e7481d8.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1774547715235,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
                                                                                                                                                                                           },
                         "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\531c225a-8be2-46a2-a108-d7e624bfeafe\\531c225a-8be2-46a2-a108-d7e624bfeafe.jsonl":  {
-                                                                                                                                                                                   "mtimeMs":  1774816840238,
-                                                                                                                                                                                   "lastProcessedAt":  "2026-04-19T20:43:45.848Z"
-                                                                                                                                                                               }
+                                                                                                                                                                                   "mtimeMs":  1774809640238,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\531c225a-8be2-46a2-a108-d7e624bfeafe\\subagents\\3a5161fb-1d35-454f-bc0d-ee7ab1ef58b6.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1774808914084,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\531c225a-8be2-46a2-a108-d7e624bfeafe\\subagents\\66cc24d3-6c67-4f74-a4d1-cbdbccff0e2c.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1774808896192,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\587aba41-bc14-46cf-9a7d-c50059f5955a\\587aba41-bc14-46cf-9a7d-c50059f5955a.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776623393482,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\6c75790e-56fe-4713-84cc-231570facf9c\\6c75790e-56fe-4713-84cc-231570facf9c.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776699857896,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\6c75790e-56fe-4713-84cc-231570facf9c\\subagents\\56b40ca2-1291-4ee7-80b6-828be3ca2022.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776697504941,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\6caa6b14-777d-45f6-92ce-2b9b625448c8\\6caa6b14-777d-45f6-92ce-2b9b625448c8.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776697315500,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\6e839b8b-e453-41f5-9567-82a88931337c\\6e839b8b-e453-41f5-9567-82a88931337c.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1774115288047,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\7bc26c23-aec6-4b5b-a826-c2e945047d5b\\7bc26c23-aec6-4b5b-a826-c2e945047d5b.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776600010640,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\83290711-b827-4e2a-a9a5-e0c31fea655f\\83290711-b827-4e2a-a9a5-e0c31fea655f.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776487710048,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\83290711-b827-4e2a-a9a5-e0c31fea655f\\subagents\\f21a3655-2d89-4822-bf6a-adfd0ce00fad.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776487627011,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\8a831792-faa8-406e-91fb-989a8dade54c\\8a831792-faa8-406e-91fb-989a8dade54c.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1774192402627,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\8f716409-5788-4b41-957c-d581d7dbe217\\8f716409-5788-4b41-957c-d581d7dbe217.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1774809118042,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\8f716409-5788-4b41-957c-d581d7dbe217\\subagents\\2c6eec74-2668-4143-9d69-5664c6acfd77.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1774808908426,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\9a7b2cba-6d1c-49ee-a6d6-806e8387cf5c\\9a7b2cba-6d1c-49ee-a6d6-806e8387cf5c.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776487085343,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776525079473,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\subagents\\8bea26f4-38aa-4a3e-ba5f-e57a9be8fcee.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776488477680,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\subagents\\f0f218b5-a09a-4752-83e6-41e664dd178d.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776487700888,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\a5b9d275-a5e8-4a2b-8127-a4bf2d5d1b27\\subagents\\f9d6b360-4376-40b4-bd80-461b90c0d628.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776487745460,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\aa2c02d4-3b6d-470a-9a69-adc605250b90\\aa2c02d4-3b6d-470a-9a69-adc605250b90.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1773898332835,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\aacac072-5d80-4168-bab0-ea46fe120f0f\\aacac072-5d80-4168-bab0-ea46fe120f0f.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1774084154217,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\aba59e00-4113-4b8b-9d3d-eaf7ea5c8538\\aba59e00-4113-4b8b-9d3d-eaf7ea5c8538.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776633220778,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\b231b0a7-25ce-40ca-bc9d-46507c198d6b\\b231b0a7-25ce-40ca-bc9d-46507c198d6b.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1777305150463,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\b231b0a7-25ce-40ca-bc9d-46507c198d6b\\subagents\\ab62d668-9a6a-4e4c-8f07-70d219bc5480.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1777305158109,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\c07db488-a306-4208-bfe9-e99ca9ed6231\\c07db488-a306-4208-bfe9-e99ca9ed6231.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776282485541,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\c07db488-a306-4208-bfe9-e99ca9ed6231\\subagents\\1a2aa0de-251c-4937-9914-6faf8fde1278.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776282467298,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\c12026d9-d572-4b6b-851d-69d186bb9411\\c12026d9-d572-4b6b-851d-69d186bb9411.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1773420811478,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\d4a231af-e10c-49f5-ab1e-2caca809d73c\\d4a231af-e10c-49f5-ab1e-2caca809d73c.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776283301489,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\ea68c226-1e6a-4cfb-97b2-042bc3c9c32f\\ea68c226-1e6a-4cfb-97b2-042bc3c9c32f.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1773423085213,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\f29d8506-4c6b-403f-8c0e-0540ae9c53fb\\f29d8506-4c6b-403f-8c0e-0540ae9c53fb.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776486670373,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d.jsonl":  {
+                                                                                                                                                                                   "mtimeMs":  1776701729351,
+                                                                                                                                                                                   "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                               },
+                        "C:\\Users\\leoco\\.cursor\\projects\\c-i-alex\\agent-transcripts\\fa334105-75b8-4e82-a5bd-33ff23ba9f2d\\subagents\\5f0c913d-2565-4432-9ece-09922b1c51e7.jsonl":  {
+                                                                                                                                                                                              "mtimeMs":  1776604597405,
+                                                                                                                                                                                              "lastProcessedAt":  "2026-04-27T18:00:22.137Z"
+                                                                                                                                                                                          }
                     }
 }
