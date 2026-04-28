@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../models/customer.dart';
+import '../../../models/license_policy.dart';
 import '../../../models/sale.dart';
+import '../../../providers/printer_provider.dart';
+import '../../../providers/receipt_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../services/data_sync_triggers.dart';
 import '../../../services/pin_service.dart';
+import '../../../services/receipt_print_service.dart';
 import '../../../services/sync_event_bus.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
@@ -512,22 +517,75 @@ class _Pill extends StatelessWidget {
   }
 }
 
+/// Reprint each receipt whose paid / amount-due figures changed after
+/// [recordCustomerPayment]. Skipped silently when the printing license is
+/// disabled or there is nothing to print. Each printout is registered with
+/// [ReceiptPrintService] so reprint numbering stays consistent with the
+/// rest of the app.
+Future<void> reprintRepaidReceipts(
+  WidgetRef ref,
+  List<Sale> updatedSales,
+) async {
+  if (updatedSales.isEmpty) return;
+  if (!LicenseGate.isAllowed(FeatureKey.printing)) return;
+  final printerService = ref.read(printerServiceProvider);
+  final receiptSettings = ref.read(receiptSettingsProvider);
+  final receiptPrintService = ReceiptPrintService();
+  for (final sale in updatedSales) {
+    try {
+      final next = await receiptPrintService.getNextPrintNumber(sale.id);
+      await printerService.printReceipt(
+        sale,
+        receiptSettings,
+        printNumber: next,
+      );
+      await receiptPrintService.markPrinted(sale.id, printNumber: next);
+    } catch (_) {
+      // Swallow per-receipt errors so one failed printout doesn't block
+      // the rest of the batch (e.g. printer offline, paper out).
+    }
+  }
+}
+
+String _buildPaymentSummary(CustomerPaymentResult result) {
+  if (!result.didApplyAnything) {
+    return 'No outstanding balance to apply this payment to.';
+  }
+  final cleared = result.updatedSales.where((s) => s.isPaidInFull).length;
+  final partial = result.updatedSales.length - cleared;
+  final parts = <String>[
+    'Applied \$${result.totalApplied.toStringAsFixed(2)}',
+  ];
+  if (cleared > 0) parts.add('$cleared cleared');
+  if (partial > 0) parts.add('$partial partial');
+  if (result.leftover > 0.000001) {
+    parts.add('\$${result.leftover.toStringAsFixed(2)} unapplied');
+  }
+  return parts.join(' \u00B7 ');
+}
+
 /// Shared "Record payment" dialog. Applies the entered amount FIFO across
 /// the customer's unpaid sales via [SaleRepository.recordCustomerPayment]
-/// and refreshes the providers + sync peers.
+/// and refreshes the providers + sync peers. When [saleId] is provided the
+/// payment is restricted to that one receipt instead of fanning out across
+/// the customer's full ledger.
 Future<void> showCustomerRepaymentDialog(
   BuildContext context, {
   required WidgetRef ref,
   required Customer customer,
   required double defaultAmount,
+  String? saleId,
 }) async {
   final amountCtrl = TextEditingController(
     text: defaultAmount > 0 ? defaultAmount.toStringAsFixed(2) : '',
   );
   final noteCtrl = TextEditingController();
-  final unpaid =
+  final allUnpaid =
       await ref.read(customerUnpaidSalesProvider(customer.id).future);
   if (!context.mounted) return;
+  final unpaid = saleId == null
+      ? allUnpaid
+      : allUnpaid.where((s) => s.id == saleId).toList();
   final extras = context.appExtras;
 
   await showDialog<void>(
@@ -615,17 +673,29 @@ Future<void> showCustomerRepaymentDialog(
                     Navigator.pop(dctx);
                     return;
                   }
+                  final messenger = ScaffoldMessenger.maybeOf(context);
                   Navigator.pop(dctx);
-                  await ref
+                  final result = await ref
                       .read(saleRepositoryProvider)
                       .recordCustomerPayment(
                         customerId: customer.id,
                         amount: v,
+                        saleId: saleId,
                       );
                   SyncEventBus.instance
                       .emit(reason: 'customer_repayment');
                   await DataSyncTriggers.trigger(
                       reason: 'customer_repayment');
+                  // Reprint each updated receipt so the customer leaves
+                  // with paper proof of the new paid / amount-due totals.
+                  await reprintRepaidReceipts(ref, result.updatedSales);
+                  if (messenger != null) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(_buildPaymentSummary(result)),
+                      ),
+                    );
+                  }
                 },
                 child: const Text('Record'),
               ),

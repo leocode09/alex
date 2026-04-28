@@ -4,6 +4,23 @@ import '../models/sale.dart';
 import '../services/admin/usage_recorder.dart';
 import '../services/database_helper.dart';
 
+/// Outcome of [SaleRepository.recordCustomerPayment]. Contains the freshly
+/// mutated sales (so callers can reprint each receipt) plus any leftover
+/// overpayment that fell outside the customer's outstanding balance.
+class CustomerPaymentResult {
+  final List<Sale> updatedSales;
+  final double leftover;
+  final double totalApplied;
+
+  const CustomerPaymentResult({
+    required this.updatedSales,
+    required this.leftover,
+    required this.totalApplied,
+  });
+
+  bool get didApplyAnything => updatedSales.isNotEmpty;
+}
+
 class SaleRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _salesKey = 'sales';
@@ -221,21 +238,35 @@ class SaleRepository {
 
   /// Apply a customer repayment by clearing the oldest unpaid sales first
   /// (FIFO). Mutates each affected `Sale` in place by bumping `amountPaid`.
-  /// Returns the leftover [amount] that could not be applied because the
-  /// customer has no remaining balance — callers can surface it as an
-  /// overpayment to record manually.
-  Future<double> recordCustomerPayment({
+  /// When [saleId] is provided, the payment is restricted to that single
+  /// receipt instead of fanning out across the customer's whole ledger —
+  /// useful when a cashier is collecting payment for a specific sale.
+  /// Returns a [CustomerPaymentResult] describing the updated sales and
+  /// any leftover overpayment so callers can reprint receipts and surface
+  /// the credit-back option.
+  Future<CustomerPaymentResult> recordCustomerPayment({
     required String customerId,
     required double amount,
+    String? saleId,
   }) async {
-    if (amount <= 0) return 0.0;
+    if (amount <= 0) {
+      return const CustomerPaymentResult(
+          updatedSales: [], leftover: 0.0, totalApplied: 0.0);
+    }
     final sales = await getAllSales();
     final unpaid = sales
-        .where((s) => s.customerId == customerId && s.amountDue > 0.000001)
+        .where((s) =>
+            s.customerId == customerId &&
+            s.amountDue > 0.000001 &&
+            (saleId == null || s.id == saleId))
         .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    if (unpaid.isEmpty) return amount;
+    if (unpaid.isEmpty) {
+      return CustomerPaymentResult(
+          updatedSales: const [], leftover: amount, totalApplied: 0.0);
+    }
 
+    final updatedSales = <Sale>[];
     double remaining = amount;
     bool dirty = false;
     for (var i = 0; i < unpaid.length && remaining > 0.000001; i++) {
@@ -248,12 +279,18 @@ class SaleRepository {
         sales[idx] = updated;
         dirty = true;
       }
+      updatedSales.add(updated);
       remaining -= applied;
     }
     if (dirty) {
       await _saveSales(sales);
     }
-    return remaining > 0.000001 ? remaining : 0.0;
+    final leftover = remaining > 0.000001 ? remaining : 0.0;
+    return CustomerPaymentResult(
+      updatedSales: updatedSales,
+      leftover: leftover,
+      totalApplied: amount - leftover,
+    );
   }
 
   /// Total still owed by the customer across every sale on file.
