@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
@@ -546,6 +547,43 @@ class _SalesPageState extends ConsumerState<SalesPage>
     };
   }
 
+  /// Print the receipt off the checkout spinner path. BLE chunked writes
+  /// can take several seconds; we don't want to make the cashier wait.
+  /// Failures surface as a non-blocking snackbar.
+  Future<void> _printReceiptInBackground(
+    Sale sale,
+    ScaffoldMessengerState scaffoldMessenger,
+  ) async {
+    try {
+      final printerService = ref.read(printerServiceProvider);
+      final receiptSettings = ref.read(receiptSettingsProvider);
+      final receiptPrintService = ReceiptPrintService();
+      final nextPrintNumber =
+          await receiptPrintService.getNextPrintNumber(sale.id);
+
+      await printerService.printReceipt(
+        sale,
+        receiptSettings,
+        printNumber: nextPrintNumber,
+      );
+      await receiptPrintService.markPrinted(
+        sale.id,
+        printNumber: nextPrintNumber,
+      );
+    } catch (e) {
+      debugPrint('Auto-print failed: $e');
+      if (!mounted) return;
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Print failed: Check printer connection'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   void _processPayment(String method) async {
     if (_cart.isEmpty) return;
 
@@ -654,7 +692,6 @@ class _SalesPageState extends ConsumerState<SalesPage>
       final saleId = isEditingMode ? editingReceipt.id : const Uuid().v4();
       bool stockApplied = false;
       bool bucketsReconciled = false;
-      bool printFailed = false;
 
       if (stockDeltas.isNotEmpty) {
         await productRepo.applyStockChanges(
@@ -726,7 +763,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
           if (!updated) {
             throw Exception('Failed to update receipt.');
           }
-          await DataSyncTriggers.trigger(reason: 'receipt_updated');
+          // Fan-out to LAN/Wi-Fi Direct/Cloud sync runs in the background so
+          // network round-trips never block the checkout spinner.
+          unawaited(DataSyncTriggers.trigger(reason: 'receipt_updated'));
 
           // Clear editing state
           ref.read(editingReceiptProvider.notifier).state = null;
@@ -808,31 +847,15 @@ class _SalesPageState extends ConsumerState<SalesPage>
               debugPrint('BonusEngine.applyForNewSale failed: $e');
             }
           }
-          await DataSyncTriggers.trigger(reason: 'sale_created');
+          // Fan-out to LAN/Wi-Fi Direct/Cloud sync runs in the background so
+          // network round-trips never block the checkout spinner.
+          unawaited(DataSyncTriggers.trigger(reason: 'sale_created'));
 
-          // Attempt to print receipt (skipped silently if printing is
-          // disabled by the administrator — the sale itself still posts).
+          // Receipt printing happens off the spinner path: BLE chunked
+          // writes can take several seconds, and the sale is already
+          // committed — we surface failures via a separate snackbar below.
           if (LicenseGate.isAllowed(FeatureKey.printing)) {
-            try {
-              final printerService = ref.read(printerServiceProvider);
-              final receiptSettings = ref.read(receiptSettingsProvider);
-              final receiptPrintService = ReceiptPrintService();
-              final nextPrintNumber =
-                  await receiptPrintService.getNextPrintNumber(sale.id);
-
-              await printerService.printReceipt(
-                sale,
-                receiptSettings,
-                printNumber: nextPrintNumber,
-              );
-              await receiptPrintService.markPrinted(
-                sale.id,
-                printNumber: nextPrintNumber,
-              );
-            } catch (e) {
-              printFailed = true;
-              debugPrint('Auto-print failed: $e');
-            }
+            unawaited(_printReceiptInBackground(sale, scaffoldMessenger));
           }
         }
       } catch (e) {
@@ -904,7 +927,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   child: Text(
                     isEditingMode
                         ? 'Receipt updated successfully! \$${totalAmount.toStringAsFixed(2)}'
-                        : 'Payment successful! \$${totalAmount.toStringAsFixed(2)}${printFailed ? "\n(Print failed: Check printer connection)" : ""}',
+                        : 'Payment successful! \$${totalAmount.toStringAsFixed(2)}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
