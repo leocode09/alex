@@ -8,6 +8,7 @@ import '../../../models/customer.dart';
 import '../../../models/license_policy.dart';
 import '../../../models/sale.dart';
 import '../../../providers/printer_provider.dart';
+import '../../../repositories/sale_repository.dart';
 import '../../../providers/receipt_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../services/data_sync_triggers.dart';
@@ -643,7 +644,9 @@ Future<void> showCustomerRepaymentDialog(
                   if (unpaid.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
-                      'Will clear oldest first:',
+                      saleId != null
+                          ? 'Applies to this receipt:'
+                          : 'Will clear oldest first:',
                       style: TextStyle(color: extras.muted, fontSize: 12),
                     ),
                     const SizedBox(height: 6),

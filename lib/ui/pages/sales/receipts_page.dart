@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../../../models/sale.dart';
+import '../../../providers/customer_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../services/pin_service.dart';
+import '../customers/customer_management_page.dart';
 import 'receipt_preview_page.dart';
+import 'widgets/customer_picker_sheet.dart';
 
 class ReceiptsTab extends ConsumerStatefulWidget {
   const ReceiptsTab({super.key});
@@ -37,6 +40,12 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              TextButton.icon(
+                onPressed: _collectCustomerPayment,
+                icon: const Icon(Icons.payments_outlined),
+                label: const Text('Receive Payment'),
+              ),
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => _showPrinterDialog(context),
                 icon: const Icon(Icons.print),
@@ -120,12 +129,34 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  '\$${sale.total.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16),
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        '\$${sale.total.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16),
+                                      ),
+                                      if (sale.amountDue > 0.000001)
+                                        _DuePill(amount: sale.amountDue),
+                                    ],
+                                  ),
                                 ),
+                                if (sale.amountDue > 0.000001 &&
+                                    sale.customerId != null)
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: 'Receive payment',
+                                    icon: const Icon(
+                                        Icons.payments_outlined),
+                                    onPressed: () =>
+                                        _collectPaymentForSale(sale),
+                                  ),
                                 Text(
                                   DateFormat('MMM d, HH:mm')
                                       .format(sale.createdAt),
@@ -282,6 +313,95 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
     showDialog(
       context: context,
       builder: (context) => const PrinterDialog(),
+    );
+  }
+
+  /// Top-level "Receive Payment" flow: cashier picks any customer with
+  /// outstanding balance, then enters the amount. Repayment clears unpaid
+  /// receipts FIFO across the customer's whole ledger.
+  Future<void> _collectCustomerPayment() async {
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForEditCustomer(),
+      title: 'Receive Payment',
+      subtitle: 'Enter PIN to record customer payment',
+    );
+    if (!allowed || !mounted) return;
+    final picked = await showCustomerPickerSheet(context);
+    if (picked == null || !mounted) return;
+    final due = await ref
+        .read(saleRepositoryProvider)
+        .getCustomerAmountDue(picked.id);
+    if (!mounted) return;
+    if (due <= 0.000001) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${picked.name} has no outstanding balance.')),
+      );
+      return;
+    }
+    await showCustomerRepaymentDialog(
+      context,
+      ref: ref,
+      customer: picked,
+      defaultAmount: due,
+    );
+  }
+
+  /// Per-receipt repayment: cashier collects payment for one specific
+  /// unpaid sale (no FIFO across the rest of the customer's ledger).
+  Future<void> _collectPaymentForSale(Sale sale) async {
+    final customerId = sale.customerId;
+    if (customerId == null) return;
+    final allowed = await PinProtection.requirePinIfNeeded(
+      context,
+      isRequired: () => PinService().isPinRequiredForEditCustomer(),
+      title: 'Receive Payment',
+      subtitle: 'Enter PIN to record customer payment',
+    );
+    if (!allowed || !mounted) return;
+    final customer =
+        await ref.read(customerByIdProvider(customerId).future);
+    if (!mounted) return;
+    if (customer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Receipt is not linked to a saved customer. Open the customer profile to record payment.'),
+        ),
+      );
+      return;
+    }
+    await showCustomerRepaymentDialog(
+      context,
+      ref: ref,
+      customer: customer,
+      defaultAmount: sale.amountDue,
+      saleId: sale.id,
+    );
+  }
+}
+
+class _DuePill extends StatelessWidget {
+  final double amount;
+  const _DuePill({required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFE5E5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE57373)),
+      ),
+      child: Text(
+        'DUE \$${amount.toStringAsFixed(2)}',
+        style: const TextStyle(
+          color: Color(0xFFC62828),
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+        ),
+      ),
     );
   }
 }
