@@ -131,13 +131,6 @@ class PrinterService {
         .any((known) => lowerUuid.contains(known.toLowerCase()));
   }
 
-  String _buildPrintLabel(int printNumber) {
-    if (printNumber <= 1) {
-      return 'ORIGINAL PRINT';
-    }
-    return 'REPRINT #$printNumber';
-  }
-
   Future<void> _findWriteCharacteristic(BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
 
@@ -215,116 +208,157 @@ class PrinterService {
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
-    // Header
-    bytes += generator.text(settings.shopName,
-        styles: const PosStyles(
-          align: PosAlign.center,
-          height: PosTextSize.size2,
-          width: PosTextSize.size2,
-          bold: true,
-        ));
-    if (settings.addressLine1.isNotEmpty) {
-      bytes += generator.text(settings.addressLine1,
-          styles: const PosStyles(align: PosAlign.center));
-    }
-    if (settings.addressLine2.isNotEmpty) {
-      bytes += generator.text(settings.addressLine2,
-          styles: const PosStyles(align: PosAlign.center));
+    // ===== HEADER =====
+    // Shop name in double-height bold (single line for impact, no wasted
+    // double-width which often clips on 58mm). Address/phone are joined into
+    // a single centered line where possible to save paper.
+    bytes += generator.text(
+      settings.shopName.toUpperCase(),
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size2,
+        bold: true,
+      ),
+    );
+    final addressParts = <String>[
+      if (settings.addressLine1.isNotEmpty) settings.addressLine1,
+      if (settings.addressLine2.isNotEmpty) settings.addressLine2,
+    ];
+    if (addressParts.isNotEmpty) {
+      bytes += generator.text(
+        addressParts.join(' · '),
+        styles: const PosStyles(align: PosAlign.center),
+      );
     }
     if (settings.phone.isNotEmpty) {
-      bytes += generator.text(settings.phone,
-          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text(
+        settings.phone,
+        styles: const PosStyles(align: PosAlign.center),
+      );
     }
-    bytes += generator.hr();
 
-    // Sale Info
+    // ===== META: date · id, with print label inline when reprint =====
+    bytes += generator.hr(ch: '-');
     final dateFormat = DateFormat('d MMM y HH:mm');
     bytes += generator.row([
       PosColumn(text: dateFormat.format(sale.createdAt), width: 8),
       PosColumn(
-          text: '#${sale.id.substring(0, 6)}',
-          width: 4,
-          styles: const PosStyles(align: PosAlign.right)),
-    ]);
-    bytes += generator.text(
-      _buildPrintLabel(printNumber),
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
+        text: '#${sale.id.substring(0, 6)}',
+        width: 4,
+        styles: const PosStyles(align: PosAlign.right),
       ),
-    );
-    bytes += generator.hr();
-
-    final sellerLabel = sale.employeeId.trim();
-    if (sellerLabel.isNotEmpty && sellerLabel != 'default-employee') {
-      bytes += generator.text('Seller: $sellerLabel',
-          styles: const PosStyles(bold: false));
-      bytes += generator.feed(1);
+    ]);
+    if (printNumber > 1) {
+      bytes += generator.text(
+        'REPRINT #$printNumber',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
     }
 
-    // Customer Info — resolve display name + contact details from the
-    // repository when the sale's `customerId` is a real customer record id.
+    // ===== PARTIES (only when present) =====
+    final sellerLabel = sale.employeeId.trim();
+    final hasSeller =
+        sellerLabel.isNotEmpty && sellerLabel != 'default-employee';
+
+    String? customerName;
+    String? customerPhone;
+    String? customerEmail;
     if (sale.customerId != null) {
       final rawId = sale.customerId!;
       final looksLikeId = rawId.startsWith('cust_');
-      String displayName = rawId;
-      String? phone;
-      String? email;
+      customerName = rawId;
       if (looksLikeId) {
         final customer = await CustomerRepository().getCustomerById(rawId);
         if (customer != null) {
-          displayName = customer.name;
-          phone = customer.phone;
-          email = customer.email;
+          customerName = customer.name;
+          customerPhone = customer.phone;
+          customerEmail = customer.email;
         } else if (sale.customerNameSnapshot != null) {
-          displayName = sale.customerNameSnapshot!;
+          customerName = sale.customerNameSnapshot;
         }
       }
-      bytes += generator.text('Customer: $displayName',
-          styles: const PosStyles(bold: false));
-      if ((phone ?? '').isNotEmpty) {
-        bytes += generator.text('Phone: $phone',
-            styles: const PosStyles(bold: false));
-      }
-      if ((email ?? '').isNotEmpty) {
-        bytes += generator.text('Email: $email',
-            styles: const PosStyles(bold: false));
-      }
-      bytes += generator.feed(1);
     }
 
-    // Items
+    if (hasSeller || customerName != null) {
+      bytes += generator.hr(ch: '-');
+      if (hasSeller && customerName != null) {
+        // Pack seller and customer onto a single row when both are short
+        // enough; otherwise fall back to two compact lines.
+        final sellerText = 'Seller: $sellerLabel';
+        final customerText = 'Customer: $customerName';
+        if (sellerText.length + customerText.length + 2 <= 32) {
+          bytes += generator.row([
+            PosColumn(text: sellerText, width: 6),
+            PosColumn(
+              text: customerText,
+              width: 6,
+              styles: const PosStyles(align: PosAlign.right),
+            ),
+          ]);
+        } else {
+          bytes += generator.text(sellerText);
+          bytes += generator.text(customerText);
+        }
+      } else if (hasSeller) {
+        bytes += generator.text('Seller: $sellerLabel');
+      } else if (customerName != null) {
+        bytes += generator.text('Customer: $customerName');
+      }
+      if ((customerPhone ?? '').isNotEmpty) {
+        bytes += generator.text('  $customerPhone');
+      }
+      if ((customerEmail ?? '').isNotEmpty) {
+        bytes += generator.text('  $customerEmail');
+      }
+    }
+
+    // ===== ITEMS =====
+    bytes += generator.hr(ch: '-');
     for (var item in sale.items) {
-      bytes +=
-          generator.text(item.productName, styles: const PosStyles(bold: true));
-      bytes += generator.row([
-        PosColumn(
-            text: '${item.quantity}x \$${item.price.toStringAsFixed(2)}',
-            width: 8),
-        PosColumn(
-          text: '\$${item.subtotal.toStringAsFixed(2)}',
-          width: 4,
-          styles: const PosStyles(align: PosAlign.right),
-        ),
-      ]);
+      // Compact single-line for quantity 1 with no per-unit discount; the
+      // unit price equals the line subtotal so showing both is redundant.
+      final canSingleLine = item.quantity == 1 &&
+          (item.discount == null || item.discount == 0);
+      if (canSingleLine) {
+        bytes += generator.row([
+          PosColumn(
+            text: item.productName,
+            width: 8,
+            styles: const PosStyles(bold: true),
+          ),
+          PosColumn(
+            text: '\$${item.subtotal.toStringAsFixed(2)}',
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right, bold: true),
+          ),
+        ]);
+      } else {
+        bytes += generator.text(
+          item.productName,
+          styles: const PosStyles(bold: true),
+        );
+        bytes += generator.row([
+          PosColumn(
+            text: '  ${item.quantity} x \$${item.price.toStringAsFixed(2)}',
+            width: 8,
+          ),
+          PosColumn(
+            text: '\$${item.subtotal.toStringAsFixed(2)}',
+            width: 4,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
+        ]);
+      }
     }
 
-    bytes += generator.hr();
+    // ===== TOTALS =====
+    bytes += generator.hr(ch: '-');
 
-    // Delivery (Placeholder for now, as it's not in Sale model yet)
-    // bytes += generator.row([
-    //   PosColumn(text: 'Delivery', width: 8),
-    //   PosColumn(text: '0', width: 4, styles: const PosStyles(align: PosAlign.right)),
-    // ]);
-    // bytes += generator.hr();
-
-    // Credit applied as whole-sale discount, shown above Total.
     if (sale.creditApplied > 0) {
       bytes += generator.row([
         PosColumn(text: 'Subtotal', width: 6),
         PosColumn(
-          text:
-              '\$${(sale.total + sale.creditApplied).toStringAsFixed(2)}',
+          text: '\$${(sale.total + sale.creditApplied).toStringAsFixed(2)}',
           width: 6,
           styles: const PosStyles(align: PosAlign.right),
         ),
@@ -339,39 +373,36 @@ class PrinterService {
       ]);
     }
 
-    // Totals
     bytes += generator.row([
-      PosColumn(text: 'Total products', width: 6),
       PosColumn(
-        text: '${sale.totalProducts}',
+        text: 'TOTAL',
         width: 6,
-        styles: const PosStyles(align: PosAlign.right),
+        styles: const PosStyles(bold: true, height: PosTextSize.size2),
       ),
-    ]);
-    bytes += generator.row([
-      PosColumn(
-          text: 'Total',
-          width: 6,
-          styles: const PosStyles(bold: true, height: PosTextSize.size2)),
       PosColumn(
         text: '\$${sale.total.toStringAsFixed(2)}',
         width: 6,
         styles: const PosStyles(
-            align: PosAlign.right, bold: true, height: PosTextSize.size2),
+          align: PosAlign.right,
+          bold: true,
+          height: PosTextSize.size2,
+        ),
       ),
     ]);
 
-    bytes += generator.row([
-      PosColumn(text: sale.paymentMethod, width: 6),
-      PosColumn(
-        text: '\$${sale.total.toStringAsFixed(2)}',
-        width: 6,
-        styles: const PosStyles(align: PosAlign.right),
-      ),
-    ]);
-
-    // Cash received and change for cash payments
-    if (sale.paymentMethod == 'Cash' && sale.cashReceived != null) {
+    // Payment line (skipped for Cash since Cash Received is shown below)
+    final isCash =
+        sale.paymentMethod == 'Cash' && sale.cashReceived != null;
+    if (!isCash) {
+      bytes += generator.row([
+        PosColumn(text: sale.paymentMethod, width: 6),
+        PosColumn(
+          text: '\$${sale.amountPaid.toStringAsFixed(2)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    } else {
       bytes += generator.row([
         PosColumn(text: 'Cash Received', width: 6),
         PosColumn(
@@ -380,28 +411,15 @@ class PrinterService {
           styles: const PosStyles(align: PosAlign.right),
         ),
       ]);
-
       if (sale.change != null && sale.change! > 0) {
         bytes += generator.row([
           PosColumn(
-              text: 'Change Due',
-              width: 6,
-              styles: const PosStyles(bold: true)),
+            text: 'Change Due',
+            width: 6,
+            styles: const PosStyles(bold: true),
+          ),
           PosColumn(
             text: '\$${sale.change!.toStringAsFixed(2)}',
-            width: 6,
-            styles: const PosStyles(align: PosAlign.right, bold: true),
-          ),
-        ]);
-      } else if (sale.cashReceived! < sale.total) {
-        final amountDue = sale.total - sale.cashReceived!;
-        bytes += generator.row([
-          PosColumn(
-              text: 'Amount Due',
-              width: 6,
-              styles: const PosStyles(bold: true)),
-          PosColumn(
-            text: '\$${amountDue.toStringAsFixed(2)}',
             width: 6,
             styles: const PosStyles(align: PosAlign.right, bold: true),
           ),
@@ -411,11 +429,9 @@ class PrinterService {
 
     // Pay Later / partial-payment summary: print Paid + Amount Due rows
     // whenever the customer still owes money on this sale, regardless of
-    // payment method. Skip if the cash branch already printed Amount Due.
+    // payment method. Skip if the cash branch already covered the math.
     final hasUnpaidBalance = !sale.isPaidInFull;
-    final cashAlreadyShowedDue =
-        sale.paymentMethod == 'Cash' && sale.cashReceived != null;
-    if (hasUnpaidBalance && !cashAlreadyShowedDue) {
+    if (hasUnpaidBalance && !isCash) {
       bytes += generator.row([
         PosColumn(text: 'Paid', width: 6),
         PosColumn(
@@ -426,9 +442,24 @@ class PrinterService {
       ]);
       bytes += generator.row([
         PosColumn(
-            text: 'Amount Due',
-            width: 6,
-            styles: const PosStyles(bold: true)),
+          text: 'Amount Due',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: '\$${sale.amountDue.toStringAsFixed(2)}',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+    } else if (hasUnpaidBalance && isCash) {
+      // Cash undercharge → still surface the outstanding balance.
+      bytes += generator.row([
+        PosColumn(
+          text: 'Amount Due',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
         PosColumn(
           text: '\$${sale.amountDue.toStringAsFixed(2)}',
           width: 6,
@@ -437,26 +468,24 @@ class PrinterService {
       ]);
     }
 
-    // Customer Rewards block — bonus earned / updated credit balance /
-    // updated lifetime spending. Only printed when the bonus system is
-    // enabled and the sale is attached to a real customer record with
-    // non-zero reward activity.
+    // ===== REWARDS (compact, only when active) =====
     final bonusRule = await BonusRuleService().load();
     if (bonusRule.enabled &&
         sale.customerId != null &&
         (sale.bonusEarned > 0 ||
             sale.customerCreditBalanceAfter > 0 ||
             sale.customerTotalSpentAfter > 0)) {
-      bytes += generator.feed(1);
-      bytes += generator.hr();
-      bytes += generator.text('Customer Rewards',
-          styles: const PosStyles(bold: true));
+      bytes += generator.hr(ch: '-');
+      bytes += generator.text(
+        'REWARDS',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
       if (sale.bonusEarned > 0) {
         bytes += generator.row([
-          PosColumn(text: 'Bonus earned', width: 6),
+          PosColumn(text: 'Bonus earned', width: 7),
           PosColumn(
             text: '+\$${sale.bonusEarned.toStringAsFixed(2)}',
-            width: 6,
+            width: 5,
             styles: const PosStyles(align: PosAlign.right, bold: true),
           ),
         ]);
@@ -465,35 +494,32 @@ class PrinterService {
           sale.bonusEarned > 0 ||
           sale.creditApplied > 0) {
         bytes += generator.row([
-          PosColumn(text: 'Credit balance', width: 6),
+          PosColumn(text: 'Credit balance', width: 7),
           PosColumn(
-            text:
-                '\$${sale.customerCreditBalanceAfter.toStringAsFixed(2)}',
-            width: 6,
+            text: '\$${sale.customerCreditBalanceAfter.toStringAsFixed(2)}',
+            width: 5,
             styles: const PosStyles(align: PosAlign.right),
           ),
         ]);
       }
       if (sale.customerTotalSpentAfter > 0) {
         bytes += generator.row([
-          PosColumn(text: 'Total spending', width: 6),
+          PosColumn(text: 'Lifetime spent', width: 7),
           PosColumn(
-            text:
-                '\$${sale.customerTotalSpentAfter.toStringAsFixed(2)}',
-            width: 6,
+            text: '\$${sale.customerTotalSpentAfter.toStringAsFixed(2)}',
+            width: 5,
             styles: const PosStyles(align: PosAlign.right),
           ),
         ]);
       }
     }
 
-    bytes += generator.feed(1);
-    bytes += generator.text('_' * 20,
-        styles: const PosStyles(align: PosAlign.right)); // Signature line
-
-    bytes += generator.feed(1);
-    bytes += generator.text(settings.footerMessage,
-        styles: const PosStyles(align: PosAlign.center, bold: true));
+    // ===== FOOTER =====
+    bytes += generator.hr(ch: '-');
+    bytes += generator.text(
+      settings.footerMessage,
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
 
     bytes += generator.feed(2);
     bytes += generator.cut();
