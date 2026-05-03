@@ -69,342 +69,315 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
           ),
         ],
       ),
-      backgroundColor: Colors.grey[200],
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
               child: Center(
                 child: Container(
-                  width: 350, // Approximate width of a receipt
-                  padding: const EdgeInsets.all(24),
+                  width: 320,
+                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    border: Border.all(color: Colors.grey[300]!),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header
-                      Text(
-                        settings.shopName,
-                        style: const TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      if (settings.addressLine1.isNotEmpty)
+                  child: DefaultTextStyle(
+                    style: const TextStyle(
+                      fontFamily: 'IBMPlexMono',
+                      fontSize: 12,
+                      height: 1.35,
+                      color: Colors.black,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ===== HEADER =====
                         Text(
-                          settings.addressLine1,
+                          settings.shopName.toUpperCase(),
                           style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontFamily: 'IBMPlexMono',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                            color: Colors.black,
+                          ),
                           textAlign: TextAlign.center,
                         ),
-                      if (settings.addressLine2.isNotEmpty)
-                        Text(
-                          settings.addressLine2,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      if (settings.phone.isNotEmpty)
-                        Text(
-                          settings.phone,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      const SizedBox(height: 24),
+                        if (settings.addressLine1.isNotEmpty ||
+                            settings.addressLine2.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              [
+                                if (settings.addressLine1.isNotEmpty)
+                                  settings.addressLine1,
+                                if (settings.addressLine2.isNotEmpty)
+                                  settings.addressLine2,
+                              ].join(' · '),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        if (settings.phone.isNotEmpty)
+                          Text(
+                            settings.phone,
+                            textAlign: TextAlign.center,
+                          ),
 
-                      // Date & ID
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            DateFormat('d MMM y HH:mm').format(_sale.createdAt),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '#${_sale.id.substring(0, 6)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                        // ===== META =====
+                        const _DashedDivider(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              DateFormat('d MMM y HH:mm')
+                                  .format(_sale.createdAt),
+                            ),
+                            Text(
+                              '#${_sale.id.substring(0, 6)}',
+                              style: const TextStyle(
+                                fontFamily: 'IBMPlexMono',
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // ===== PARTIES =====
+                        if ((_sale.employeeId.trim().isNotEmpty &&
+                                _sale.employeeId != 'default-employee') ||
+                            _sale.customerId != null) ...[
+                          const _DashedDivider(),
+                          if (_sale.employeeId.trim().isNotEmpty &&
+                              _sale.employeeId != 'default-employee')
+                            Text('Seller: ${_sale.employeeId}'),
+                          if (_sale.customerId != null) _buildCustomerBlock(),
                         ],
-                      ),
-                      const Divider(
-                          thickness: 1, height: 24, color: Colors.black),
 
-                      // Seller (device name stored as employeeId at checkout)
-                      if (_sale.employeeId.trim().isNotEmpty &&
-                          _sale.employeeId != 'default-employee')
+                        // ===== ITEMS =====
+                        const _DashedDivider(),
+                        ..._sale.items.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final item = entry.value;
+                          return _buildItemRow(context, index, item);
+                        }),
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            'Seller: ${_sale.employeeId}',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold),
+                          padding: const EdgeInsets.only(top: 6, bottom: 2),
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showAddItemDialog(context),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Add Item'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black,
+                              side: const BorderSide(
+                                color: Colors.black26,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              minimumSize: const Size(double.infinity, 32),
+                              textStyle: const TextStyle(
+                                fontFamily: 'IBMPlexMono',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
                           ),
                         ),
 
-                      // Customer Info
-                      if (_sale.customerId != null) _buildCustomerBlock(),
-
-                      // Items
-                      ..._sale.items.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final item = entry.value;
-                        return InkWell(
-                          onTap: () => _editItem(context, index, item),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
+                        // ===== TOTALS =====
+                        const _DashedDivider(),
+                        if (_sale.creditApplied > 0) ...[
+                          _buildLineRow(
+                            'Subtotal',
+                            '\$${(_sale.total + _sale.creditApplied).toStringAsFixed(2)}',
+                          ),
+                          _buildLineRow(
+                            'Credit applied',
+                            '-\$${_sale.creditApplied.toStringAsFixed(2)}',
+                          ),
+                          const SizedBox(height: 2),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'TOTAL',
+                              style: TextStyle(
+                                fontFamily: 'IBMPlexMono',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: Colors.black,
+                              ),
+                            ),
+                            Text(
+                              '\$${_sale.total.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontFamily: 'IBMPlexMono',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Builder(builder: (_) {
+                          final profit = _computeSaleProfit(_sale);
+                          if (profit == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 2),
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.productName,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                              '${item.quantity}x ${item.price.toStringAsFixed(2)}'),
-                                          Text(
-                                            item.subtotal.toStringAsFixed(2),
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                        ],
-                                      ),
-                                      if (item.profit != null)
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Text(
-                                            'Profit: ${item.profit!.toStringAsFixed(2)}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: item.profit! >= 0
-                                                  ? Colors.green[700]
-                                                  : Colors.red[700],
-                                            ),
-                                          ),
-                                        ),
-                                    ],
+                                const Text(
+                                  'Profit',
+                                  style: TextStyle(
+                                    fontFamily: 'IBMPlexMono',
+                                    fontSize: 11,
+                                    color: Colors.black54,
                                   ),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline,
-                                      size: 20),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _removeItem(context, index),
+                                Text(
+                                  '\$${profit.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontFamily: 'IBMPlexMono',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: profit >= 0
+                                        ? Colors.green[800]
+                                        : Colors.red[800],
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                        );
-                      }),
-                      // Add item button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showAddItemDialog(context),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Item'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 36),
-                          ),
-                        ),
-                      ),
-                      const Divider(
-                          thickness: 1, height: 24, color: Colors.black),
+                          );
+                        }),
+                        const SizedBox(height: 4),
 
-                      // Totals
-                      _buildLineRow(
-                        'Total products',
-                        _sale.totalProducts.toString(),
-                      ),
-                      const SizedBox(height: 4),
-                      if (_sale.creditApplied > 0) ...[
-                        _buildLineRow('Subtotal',
-                            (_sale.total + _sale.creditApplied)
-                                .toStringAsFixed(2)),
-                        const SizedBox(height: 4),
-                        _buildLineRow('Credit applied',
-                            '-${_sale.creditApplied.toStringAsFixed(2)}'),
-                        const SizedBox(height: 4),
-                      ],
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total',
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text(
-                            _sale.total.toStringAsFixed(2),
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
+                        // Payment block: Cash + Change for cash, otherwise method + amount
+                        if (_sale.paymentMethod == 'Cash' &&
+                            _sale.cashReceived != null) ...[
+                          _buildLineRow(
+                            'Cash Received',
+                            '\$${_sale.cashReceived!.toStringAsFixed(2)}',
                           ),
-                        ],
-                      ),
-                      Builder(builder: (_) {
-                        final profit = _computeSaleProfit(_sale);
-                        if (profit == null) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
+                          if (_sale.change != null && _sale.change! > 0)
+                            _buildLineRow(
+                              'Change Due',
+                              '\$${_sale.change!.toStringAsFixed(2)}',
+                              bold: true,
+                            ),
+                        ] else
+                          _buildLineRow(
+                            _sale.paymentMethod,
+                            '\$${_sale.amountPaid.toStringAsFixed(2)}',
+                          ),
+
+                        // Pay-later / partial: only show Paid + Amount Due
+                        // when not already covered by the cash branch above.
+                        if (!_sale.isPaidInFull) ...[
+                          if (!(_sale.paymentMethod == 'Cash' &&
+                              _sale.cashReceived != null))
+                            _buildLineRow(
+                              'Paid',
+                              '\$${_sale.amountPaid.toStringAsFixed(2)}',
+                            ),
+                          Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Profit',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold)),
-                              Text(
-                                profit.toStringAsFixed(2),
+                              const Text(
+                                'Amount Due',
                                 style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: profit >= 0
-                                      ? Colors.green[700]
-                                      : Colors.red[700],
+                                  fontFamily: 'IBMPlexMono',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFC62828),
+                                ),
+                              ),
+                              Text(
+                                '\$${_sale.amountDue.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontFamily: 'IBMPlexMono',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFC62828),
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      }),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(_sale.paymentMethod,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          Text(
-                            _sale.cashReceived?.toStringAsFixed(2) ??
-                                _sale.total.toStringAsFixed(2),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
                         ],
-                      ),
-                      if (_sale.paymentMethod == 'Cash' &&
-                          _sale.cashReceived != null) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                                _sale.change != null && _sale.change! > 0
-                                    ? 'Change due'
-                                    : 'Amount due',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            Text(
-                              _sale.change != null && _sale.change! > 0
-                                  ? _sale.change!.toStringAsFixed(2)
-                                  : (_sale.total - _sale.cashReceived!)
-                                      .toStringAsFixed(2),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (!_sale.isPaidInFull) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Paid',
-                                style:
-                                    TextStyle(fontWeight: FontWeight.w600)),
-                            Text(
-                              _sale.amountPaid.toStringAsFixed(2),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Amount Due',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFC62828))),
-                            Text(
-                              _sale.amountDue.toStringAsFixed(2),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFC62828),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
 
-                      if (bonusRuleEnabled &&
-                          _sale.customerId != null &&
-                          (_sale.bonusEarned > 0 ||
-                              _sale.customerCreditBalanceAfter > 0 ||
-                              _sale.customerTotalSpentAfter > 0)) ...[
-                        const SizedBox(height: 16),
-                        const Divider(
-                            thickness: 1, height: 8, color: Colors.black),
-                        const SizedBox(height: 8),
-                        const Text('Customer Rewards',
+                        // ===== REWARDS =====
+                        if (bonusRuleEnabled &&
+                            _sale.customerId != null &&
+                            (_sale.bonusEarned > 0 ||
+                                _sale.customerCreditBalanceAfter > 0 ||
+                                _sale.customerTotalSpentAfter > 0)) ...[
+                          const _DashedDivider(),
+                          const Text(
+                            'REWARDS',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 6),
-                        if (_sale.bonusEarned > 0)
-                          _buildLineRow('Bonus earned',
-                              '+${_sale.bonusEarned.toStringAsFixed(2)}'),
-                        if (_sale.customerCreditBalanceAfter > 0 ||
-                            _sale.bonusEarned > 0 ||
-                            _sale.creditApplied > 0)
-                          _buildLineRow(
+                              fontFamily: 'IBMPlexMono',
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          if (_sale.bonusEarned > 0)
+                            _buildLineRow(
+                              'Bonus earned',
+                              '+\$${_sale.bonusEarned.toStringAsFixed(2)}',
+                              bold: true,
+                            ),
+                          if (_sale.customerCreditBalanceAfter > 0 ||
+                              _sale.bonusEarned > 0 ||
+                              _sale.creditApplied > 0)
+                            _buildLineRow(
                               'Credit balance',
-                              _sale.customerCreditBalanceAfter
-                                  .toStringAsFixed(2)),
-                        if (_sale.customerTotalSpentAfter > 0)
-                          _buildLineRow(
-                              'Total spending',
-                              _sale.customerTotalSpentAfter
-                                  .toStringAsFixed(2)),
-                      ],
-                      const SizedBox(height: 40),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          width: 150,
-                          height: 1,
-                          color: Colors.black,
-                        ),
-                      ),
+                              '\$${_sale.customerCreditBalanceAfter.toStringAsFixed(2)}',
+                            ),
+                          if (_sale.customerTotalSpentAfter > 0)
+                            _buildLineRow(
+                              'Lifetime spent',
+                              '\$${_sale.customerTotalSpentAfter.toStringAsFixed(2)}',
+                            ),
+                        ],
 
-                      const SizedBox(height: 24),
-                      Text(
-                        settings.footerMessage,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                        // ===== FOOTER =====
+                        const _DashedDivider(),
+                        Text(
+                          settings.footerMessage,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'IBMPlexMono',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
+            color: Theme.of(context).colorScheme.surface,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -437,29 +410,146 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
     );
   }
 
-  Widget _buildLineRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13)),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600)),
-      ],
+  Widget _buildLineRow(String label, String value, {bool bold = false}) {
+    final style = TextStyle(
+      fontFamily: 'IBMPlexMono',
+      fontSize: 12,
+      fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+      color: Colors.black,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: style),
+          Text(value, style: style),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemRow(BuildContext context, int index, SaleItem item) {
+    final canSingleLine =
+        item.quantity == 1 && (item.discount == null || item.discount == 0);
+
+    return InkWell(
+      onTap: () => _editItem(context, index, item),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (canSingleLine)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.productName,
+                            style: const TextStyle(
+                              fontFamily: 'IBMPlexMono',
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '\$${item.subtotal.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontFamily: 'IBMPlexMono',
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    Text(
+                      item.productName,
+                      style: const TextStyle(
+                        fontFamily: 'IBMPlexMono',
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12, top: 1),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${item.quantity} x \$${item.price.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontFamily: 'IBMPlexMono',
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            '\$${item.subtotal.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontFamily: 'IBMPlexMono',
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (item.profit != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12, top: 1),
+                      child: Text(
+                        'Profit: \$${item.profit!.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontFamily: 'IBMPlexMono',
+                          fontSize: 10,
+                          color: item.profit! >= 0
+                              ? Colors.green[800]
+                              : Colors.red[800],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 24,
+              child: IconButton(
+                icon: const Icon(Icons.close, size: 14, color: Colors.black54),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Remove item',
+                onPressed: () => _removeItem(context, index),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildCustomerBlock() {
     final rawId = _sale.customerId!;
     final looksLikeId = rawId.startsWith('cust_');
+    const nameStyle = TextStyle(
+      fontFamily: 'IBMPlexMono',
+      fontSize: 12,
+      color: Colors.black,
+    );
+    const subStyle = TextStyle(
+      fontFamily: 'IBMPlexMono',
+      fontSize: 11,
+      color: Colors.black87,
+    );
     if (!looksLikeId) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          'Customer: $rawId',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-      );
+      return Text('Customer: $rawId', style: nameStyle);
     }
     final async = ref.watch(customerByIdProvider(rawId));
     final displayName = async.asData?.value?.name ??
@@ -467,21 +557,21 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
         rawId;
     final phone = async.asData?.value?.phone;
     final email = async.asData?.value?.email;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Customer: $displayName',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Customer: $displayName', style: nameStyle),
+        if ((phone ?? '').isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(phone!, style: subStyle),
           ),
-          if ((phone ?? '').isNotEmpty)
-            Text('Phone: $phone', style: const TextStyle(fontSize: 12)),
-          if ((email ?? '').isNotEmpty)
-            Text('Email: $email', style: const TextStyle(fontSize: 12)),
-        ],
-      ),
+        if ((email ?? '').isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(email!, style: subStyle),
+          ),
+      ],
     );
   }
 
