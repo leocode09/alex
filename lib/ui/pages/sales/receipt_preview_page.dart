@@ -1716,3 +1716,38 @@ class _AddItemDialogState extends ConsumerState<_AddItemDialog> {
     );
   }
 }
+
+/// Thin dashed horizontal rule used between sections of the printed receipt
+/// preview. Tighter and lower-contrast than [Divider] so the receipt feels
+/// compact and readable in the same way thermal-printed dashes do.
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const dashWidth = 4.0;
+          const dashSpace = 3.0;
+          final count =
+              (constraints.maxWidth / (dashWidth + dashSpace)).floor();
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(
+              count,
+              (_) => const SizedBox(
+                width: dashWidth,
+                height: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: Colors.black54),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
