@@ -314,7 +314,9 @@ class PrinterService {
 
     // ===== ITEMS =====
     bytes += generator.hr(ch: '-');
-    for (var item in sale.items) {
+    for (var i = 0; i < sale.items.length; i++) {
+      final item = sale.items[i];
+      final numberedName = '${i + 1}. ${item.productName}';
       // Compact single-line for quantity 1 with no per-unit discount; the
       // unit price equals the line subtotal so showing both is redundant.
       final canSingleLine = item.quantity == 1 &&
@@ -322,7 +324,7 @@ class PrinterService {
       if (canSingleLine) {
         bytes += generator.row([
           PosColumn(
-            text: item.productName,
+            text: numberedName,
             width: 8,
             styles: const PosStyles(bold: true),
           ),
@@ -334,7 +336,7 @@ class PrinterService {
         ]);
       } else {
         bytes += generator.text(
-          item.productName,
+          numberedName,
           styles: const PosStyles(bold: true),
         );
         bytes += generator.row([

@@ -432,6 +432,8 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
   Widget _buildItemRow(BuildContext context, int index, SaleItem item) {
     final canSingleLine =
         item.quantity == 1 && (item.discount == null || item.discount == 0);
+    final lineNumber = '${index + 1}.';
+    final numberedName = '$lineNumber ${item.productName}';
 
     return InkWell(
       onTap: () => _editItem(context, index, item),
@@ -450,7 +452,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            item.productName,
+                            numberedName,
                             style: const TextStyle(
                               fontFamily: 'IBMPlexMono',
                               fontWeight: FontWeight.w600,
@@ -470,7 +472,7 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
                     )
                   else ...[
                     Text(
-                      item.productName,
+                      numberedName,
                       style: const TextStyle(
                         fontFamily: 'IBMPlexMono',
                         fontWeight: FontWeight.w600,
