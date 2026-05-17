@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 
+import '../../models/account_state.dart';
+import '../cloud/account_service.dart';
 import '../cloud/firebase_init.dart';
 import '../cloud/firestore_paths.dart';
 import '../cloud/shop_service.dart';
@@ -110,6 +112,7 @@ class DeviceHeartbeatService {
       await prefs.setString(_firstSeenPrefKey, firstSeen);
     }
 
+    final account = AccountService().current;
     return <String, dynamic>{
       'installId': _installId,
       'ownerUid': uid,
@@ -125,7 +128,27 @@ class DeviceHeartbeatService {
       'firstSeenAt': firstSeen,
       'lastSeenAt': FieldValue.serverTimestamp(),
       'lastSeenAtIso': DateTime.now().toIso8601String(),
+      'memberApprovalStatus': _statusForAccount(account),
+      'memberDisplayName': account.displayName,
+      'memberRole': account.role == AccountRole.owner ? 'owner' : 'staff',
     };
+  }
+
+  String _statusForAccount(AccountState account) {
+    switch (account.stage) {
+      case AccountStage.approved:
+        return AccountApproval.statusApproved;
+      case AccountStage.businessPending:
+        return AccountApproval.statusPendingSystemAdmin;
+      case AccountStage.staffPending:
+        return AccountApproval.statusPendingOwner;
+      case AccountStage.businessRejected:
+      case AccountStage.staffRejected:
+        return AccountApproval.statusRejected;
+      case AccountStage.noAccount:
+      case AccountStage.unknown:
+        return 'none';
+    }
   }
 
   Future<Map<String, dynamic>> _resolvePlatformInfo() async {

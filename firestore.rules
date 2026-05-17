@@ -10,6 +10,16 @@ rules_version = '2';
 //      full read/write across /shops, /devices, and /admins so they
 //      can manage the whole fleet from the in-app admin panel.
 //
+// Business-approval workflow:
+//   - A device user can create a new business via /shops/{newId} with
+//     `approvalStatus: pendingSystemAdmin`. Only super admins can
+//     change that field, so the new business is locked out of POS
+//     features until approved.
+//   - A device user can submit a staff join request by writing
+//     /shops/{shopId}/members/{auth.uid} with role `staff` and
+//     `approvalStatus: pendingOwner`. Only the approved owner of the
+//     shop (or a super admin) can change that doc's approval.
+//
 // IMPORTANT: the first admin must be created manually in the Firebase
 // console (Authentication → add email/password user, then Firestore →
 // create doc /admins/<that-uid> with any payload).
@@ -32,6 +42,74 @@ service cloud.firestore {
           && exists(
               /databases/$(database)/documents/shops/$(shopId)/members/$(request.auth.uid)
           );
+    }
+
+    // Returns the shop doc's approval status, defaulting to "approved"
+    // for legacy docs that predate the approval workflow.
+    function shopApprovalStatus(shopId) {
+      return get(/databases/$(database)/documents/shops/$(shopId))
+          .data.get('approvalStatus', 'approved');
+    }
+
+    // Returns the member doc's approval status, defaulting to "approved"
+    // so legacy member docs keep working.
+    function memberApprovalStatus(shopId, uid) {
+      return get(
+              /databases/$(database)/documents/shops/$(shopId)/members/$(uid)
+          ).data.get('approvalStatus', 'approved');
+    }
+
+    function memberRole(shopId, uid) {
+      return get(
+              /databases/$(database)/documents/shops/$(shopId)/members/$(uid)
+          ).data.get('role', 'staff');
+    }
+
+    function isApprovedShopMember(shopId) {
+      return isShopMember(shopId)
+          && memberApprovalStatus(shopId, request.auth.uid) == 'approved'
+          && shopApprovalStatus(shopId) == 'approved';
+    }
+
+    function isApprovedShopOwner(shopId) {
+      return isShopMember(shopId)
+          && memberRole(shopId, request.auth.uid) == 'owner'
+          && memberApprovalStatus(shopId, request.auth.uid) == 'approved';
+    }
+
+    // Fields on /shops/{shopId} that only admins may change.
+    function shopReservedFields() {
+      return [
+        'enabled',
+        'licenseExpiresAt',
+        'featureFlags',
+        'pinForcedFlags',
+        'maxProducts',
+        'maxSalesPerDay',
+        'notice',
+        'approvalStatus',
+        'approvedAt',
+        'approvedBy',
+        'rejectedAt',
+        'rejectedBy',
+        'rejectionReason',
+        'ownerUid',
+        'code',
+      ];
+    }
+
+    // Fields on /shops/{shopId}/members/{uid} that a member cannot
+    // change about themselves (they are set by the approver).
+    function memberReservedFields() {
+      return [
+        'role',
+        'approvalStatus',
+        'approvedAt',
+        'approvedBy',
+        'rejectedAt',
+        'rejectedBy',
+        'rejectionReason',
+      ];
     }
 
     // ---------- /admins ----------
@@ -82,50 +160,105 @@ service cloud.firestore {
     }
 
     // ---------- /shops ----------
-    // Members can read their shop doc (to receive live policy updates).
-    // Only admins can edit the shop-level license fields; members may
-    // still update non-privileged metadata (existing behaviour) but the
-    // following fields are reserved to admins:
-    //   enabled, licenseExpiresAt, featureFlags, pinForcedFlags,
-    //   maxProducts, maxSalesPerDay, notice.
     match /shops/{shopId} {
-      allow read: if isAdmin() || isShopMember(shopId);
+      // Any signed-in user can read the shop doc so the staff onboarding
+      // flow can search/browse businesses by name. Subcollections (sales,
+      // members, etc.) stay tightly scoped below.
+      allow read: if isSignedIn();
 
+      // A new business is always created as `pendingSystemAdmin` by the
+      // owner themselves. The system admin flips the status later.
       allow create: if isSignedIn()
-          && request.resource.data.ownerUid == request.auth.uid;
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.approvalStatus == 'pendingSystemAdmin';
 
+      // Admins may change anything. Members may only update
+      // non-reserved fields (display name, settings, etc.).
       allow update: if isAdmin()
           || (isShopMember(shopId)
               && !(
                   request.resource.data.diff(resource.data).affectedKeys()
-                      .hasAny([
-                        'enabled',
-                        'licenseExpiresAt',
-                        'featureFlags',
-                        'pinForcedFlags',
-                        'maxProducts',
-                        'maxSalesPerDay',
-                        'notice',
-                      ])
+                      .hasAny(shopReservedFields())
               ));
 
-      allow delete: if isAdmin();
+      // Admins can always delete. The owner of a still-pending or
+      // rejected shop can delete it themselves so they can resubmit.
+      allow delete: if isAdmin()
+          || (isSignedIn()
+              && resource.data.ownerUid == request.auth.uid
+              && resource.data.get('approvalStatus', 'approved') != 'approved');
 
-      // Admin-only audit trail. Must come BEFORE the wildcard subcollection
-      // match below so members cannot read/write it.
+      // ----- members subcollection (approval-aware) -----
+      match /members/{memberUid} {
+        // Read: admin, the member themselves (to learn their own
+        // approval state), or any approved member of the shop (so the
+        // owner can see staff requests).
+        allow read: if isAdmin()
+            || (isSignedIn() && request.auth.uid == memberUid)
+            || isApprovedShopMember(shopId);
+
+        // Create:
+        //   * admin can create any member;
+        //   * the shop owner (ownerUid on the shop doc) can create
+        //     themselves as the approved `owner` member;
+        //   * any signed-in user can submit themselves as a staff
+        //     request (pendingOwner) for an existing shop.
+        allow create: if isAdmin()
+            || (isSignedIn()
+                && request.auth.uid == memberUid
+                && request.resource.data.role == 'owner'
+                && request.resource.data.approvalStatus == 'approved'
+                && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUid
+                    == request.auth.uid)
+            || (isSignedIn()
+                && request.auth.uid == memberUid
+                && request.resource.data.role == 'staff'
+                && request.resource.data.approvalStatus == 'pendingOwner');
+
+        // Update:
+        //   * admin can change anything;
+        //   * an approved shop owner can change role/approvalStatus of
+        //     other members in their shop;
+        //   * a member can update their own non-reserved fields (e.g.
+        //     change their displayName/phone) but not their role or
+        //     approval state.
+        allow update: if isAdmin()
+            || isApprovedShopOwner(shopId)
+            || (isSignedIn()
+                && request.auth.uid == memberUid
+                && !(
+                    request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(memberReservedFields())
+                ));
+
+        // Delete: admin, the user themselves (leave the shop), or an
+        // approved owner (remove a staff member).
+        allow delete: if isAdmin()
+            || (isSignedIn() && request.auth.uid == memberUid)
+            || isApprovedShopOwner(shopId);
+      }
+
+      // Admin-only audit trail. The wildcard subcollection rule below
+      // explicitly excludes `auditLog` so members cannot read/write it.
       match /auditLog/{entryId} {
         allow read, create: if isAdmin();
         allow update, delete: if false;
       }
 
-      // Subcollections (entities) — existing pattern: shop members
-      // read/write; admins also have full access.
+      // Subcollections (entities) — existing pattern: an APPROVED shop
+      // member (or admin) reads / writes shop data. The wildcard
+      // excludes the two collections handled by their own blocks
+      // above (members, auditLog).
       match /{subcollection}/{docId} {
-        allow read, write: if isAdmin() || isShopMember(shopId);
+        allow read, write: if subcollection != 'members'
+            && subcollection != 'auditLog'
+            && (isAdmin() || isApprovedShopMember(shopId));
       }
 
       match /{subcollection}/{docId}/{rest=**} {
-        allow read, write: if isAdmin() || isShopMember(shopId);
+        allow read, write: if subcollection != 'members'
+            && subcollection != 'auditLog'
+            && (isAdmin() || isApprovedShopMember(shopId));
       }
     }
 

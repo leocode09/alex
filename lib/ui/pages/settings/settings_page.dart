@@ -179,6 +179,13 @@ class SettingsPage extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               _buildSectionHeader(context, 'Account & Security'),
+              _buildSettingTile(
+                context,
+                'Team',
+                'Approve staff join requests for this business',
+                Icons.groups_outlined,
+                onTap: () => context.push('/team'),
+              ),
               if (isVisible('viewEmployees'))
                 _buildSettingTile(
                   context,

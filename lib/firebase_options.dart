@@ -2,7 +2,7 @@
 // Project: alex-pos (dimeincltd@gmail.com)
 // To regenerate / add more platforms:
 //   dart pub global run flutterfire_cli:flutterfire configure \
-//       --project=alex-pos --platforms=android,ios
+//       --project=alex-pos --platforms=android,web
 // Cloud sync is purely additive: if any platform here still throws
 // (e.g. iOS not configured), FirebaseInit catches it and the app keeps
 // working fully offline with LAN / Wi-Fi Direct sync intact.
@@ -16,11 +16,7 @@ class DefaultFirebaseOptions {
 
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web. '
-        'Run `flutterfire configure --platforms=web` to regenerate '
-        'lib/firebase_options.dart.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -48,6 +44,15 @@ class DefaultFirebaseOptions {
     appId: '1:901163093322:android:ee5ba627de3745d59085b3',
     messagingSenderId: '901163093322',
     projectId: 'alex-pos',
+    storageBucket: 'alex-pos.firebasestorage.app',
+  );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyBVEW_VEkLoROkvPdfybOiwmuS6uMSwP0E',
+    appId: '1:901163093322:web:39c39d922258a3e39085b3',
+    messagingSenderId: '901163093322',
+    projectId: 'alex-pos',
+    authDomain: 'alex-pos.firebaseapp.com',
     storageBucket: 'alex-pos.firebasestorage.app',
   );
 

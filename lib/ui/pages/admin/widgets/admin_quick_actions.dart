@@ -47,6 +47,10 @@ class AdminQuickActions extends ConsumerWidget {
 
     final isShopEnabled = isShop ? (data['enabled'] as bool? ?? true) : true;
     final isBlocked = !isShop && (data['blocked'] as bool? ?? false);
+    final approval =
+        isShop ? AdminHeuristics.approvalStatus(data) : ApprovalStatus.approved;
+    final needsApproval = approval == ApprovalStatus.pendingSystemAdmin;
+    final isRejected = approval == ApprovalStatus.rejected;
 
     return AppPanel(
       padding: const EdgeInsets.all(AppTokens.space2),
@@ -66,6 +70,28 @@ class AdminQuickActions extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
+              if (needsApproval)
+                _actionChip(
+                  context,
+                  icon: Icons.check_circle_outline,
+                  label: 'Approve business',
+                  onTap: () => _approveShop(context, ref),
+                ),
+              if (needsApproval)
+                _actionChip(
+                  context,
+                  icon: Icons.cancel_outlined,
+                  label: 'Reject business',
+                  destructive: true,
+                  onTap: () => _rejectShop(context, ref),
+                ),
+              if (isRejected)
+                _actionChip(
+                  context,
+                  icon: Icons.replay,
+                  label: 'Approve anyway',
+                  onTap: () => _approveShop(context, ref),
+                ),
               _actionChip(
                 context,
                 icon: Icons.add,
@@ -245,6 +271,81 @@ class AdminQuickActions extends ConsumerWidget {
       payload: {'enabled': nextEnabled},
       action: nextEnabled ? 'Enabled shop' : 'Disabled shop',
       successMessage: nextEnabled ? 'Shop enabled' : 'Shop disabled',
+    );
+  }
+
+  Future<void> _approveShop(BuildContext context, WidgetRef ref) async {
+    if (target != AdminQuickTarget.shop) return;
+    final nowIso = DateTime.now().toIso8601String();
+    await _commit(
+      context,
+      ref,
+      before: data,
+      payload: {
+        'approvalStatus': 'approved',
+        'approvedAt': nowIso,
+        'rejectedAt': null,
+        'rejectionReason': null,
+      },
+      action: 'Approved business registration',
+      successMessage: 'Business approved',
+    );
+  }
+
+  Future<void> _rejectShop(BuildContext context, WidgetRef ref) async {
+    if (target != AdminQuickTarget.shop) return;
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject this business?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'The owner sees this status and an optional reason on '
+              'their device.',
+            ),
+            const SizedBox(height: AppTokens.space2),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Reason (optional)',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final reason = controller.text.trim();
+    await _commit(
+      context,
+      ref,
+      before: data,
+      payload: {
+        'approvalStatus': 'rejected',
+        'rejectedAt': DateTime.now().toIso8601String(),
+        if (reason.isNotEmpty) 'rejectionReason': reason,
+      },
+      action: reason.isEmpty
+          ? 'Rejected business registration'
+          : 'Rejected business registration: $reason',
+      successMessage: 'Business rejected',
     );
   }
 

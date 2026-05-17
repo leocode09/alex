@@ -39,6 +39,7 @@ class AdminDashboardPage extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           const AdminAlertsBanner(),
+          _PendingBusinesses(db: db),
           const AppSectionHeader(title: 'Fleet overview'),
           _StatsGrid(db: db),
           const SizedBox(height: AppTokens.space3),
@@ -52,6 +53,103 @@ class AdminDashboardPage extends ConsumerWidget {
           const AdminAuditLogList(scope: AdminAuditScope.global, limit: 10),
           const SizedBox(height: AppTokens.space4),
         ],
+      ),
+    );
+  }
+}
+
+// =========================================================================
+// Pending businesses
+// =========================================================================
+
+/// Surfaces businesses that have submitted a registration but have not
+/// yet been approved by the system admin. Empty when nothing is
+/// pending so the dashboard stays uncluttered.
+class _PendingBusinesses extends StatelessWidget {
+  final FirebaseFirestore db;
+  const _PendingBusinesses({required this.db});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: db
+          .collection(FirestorePaths.shopsCollection)
+          .where('approvalStatus', isEqualTo: 'pendingSystemAdmin')
+          .snapshots(),
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? const [];
+        if (docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          children: [
+            AppSectionHeader(
+              title: 'Pending business approvals (${docs.length})',
+            ),
+            for (final d in docs) _PendingBusinessTile(doc: d),
+            const SizedBox(height: AppTokens.space3),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PendingBusinessTile extends StatelessWidget {
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  const _PendingBusinessTile({required this.doc});
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = context.appExtras;
+    final data = doc.data();
+    final name = (data['name'] as String?) ?? 'Business';
+    final ownerName = (data['ownerName'] as String?)?.trim();
+    final phone = ((data['ownerPhone'] as String?) ??
+            (data['businessPhone'] as String?))
+        ?.trim();
+    final requestedAt =
+        AdminHeuristics.parseTs(data['approvalRequestedAt']);
+
+    return AppPanel(
+      margin: const EdgeInsets.only(bottom: AppTokens.space1),
+      onTap: () => context.push('/admin/shops/${doc.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.space2,
+          vertical: AppTokens.space2,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.hourglass_top,
+                size: 18, color: extras.warning),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    [
+                      if (ownerName != null && ownerName.isNotEmpty)
+                        ownerName,
+                      if (phone != null && phone.isNotEmpty) phone,
+                      if (requestedAt != null)
+                        'requested ${AdminHeuristics.relativeShort(requestedAt)}',
+                    ].join('  \u00B7  '),
+                    style: TextStyle(color: extras.muted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
       ),
     );
   }

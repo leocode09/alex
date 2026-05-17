@@ -1,0 +1,201 @@
+# Builds the latest Android APK and publishes update.json for the in-app updater.
+#
+# Run from GitHub: Actions -> "Build Latest APK" -> Run workflow.
+name: Build Latest APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Optional version name. Defaults to the name in pubspec.yaml, e.g. 1.0.4.'
+        required: false
+        type: string
+      release_notes:
+        description: 'Release notes shown by the in-app updater.'
+        required: false
+        default: 'Latest ALEX APK build.'
+        type: string
+      mandatory:
+        description: 'Force users to install before dismissing the update dialog.'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: build-latest-apk
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Compute next APK version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+
+          PUBSPEC_VERSION="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("pubspec.yaml").read_text(encoding="utf-8")
+          match = re.search(r"^version:\s*([^\s#]+)", text, re.MULTILINE)
+          if not match:
+              raise SystemExit("No version: entry found in pubspec.yaml")
+
+          version = match.group(1)
+          if "+" in version:
+              name, code = version.rsplit("+", 1)
+          else:
+              name, code = version, "1"
+
+          if not code.isdigit():
+              raise SystemExit(f"pubspec.yaml version code is not numeric: {code}")
+
+          print(f"{name}|{code}")
+          PY
+          )"
+
+          PUBSPEC_NAME="${PUBSPEC_VERSION%%|*}"
+          PUBSPEC_CODE="${PUBSPEC_VERSION##*|}"
+          VERSION_NAME="${INPUT_VERSION_NAME:-$PUBSPEC_NAME}"
+          BASE_CODE="$PUBSPEC_CODE"
+
+          LATEST_DIR="${RUNNER_TEMP}/latest-release"
+          mkdir -p "$LATEST_DIR"
+          LATEST_UPDATE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq 'first(.[] | select(.draft == false and any(.assets[]?; .name == "update.json")) | .tag_name) // ""')"
+
+          if [[ -n "$LATEST_UPDATE_TAG" ]] && gh release download "$LATEST_UPDATE_TAG" --repo "$GITHUB_REPOSITORY" --pattern update.json --dir "$LATEST_DIR" >/dev/null 2>&1; then
+            LATEST_CODE="$(python3 - <<PY
+          import json
+          from pathlib import Path
+
+          path = Path("$LATEST_DIR") / "update.json"
+          try:
+              value = json.loads(path.read_text(encoding="utf-8")).get("versionCode")
+          except Exception:
+              value = None
+          print(value if isinstance(value, int) else "")
+          PY
+          )"
+            if [[ "$LATEST_CODE" =~ ^[0-9]+$ ]] && (( LATEST_CODE > BASE_CODE )); then
+              BASE_CODE="$LATEST_CODE"
+            fi
+          fi
+
+          VERSION_CODE="$((BASE_CODE + 1))"
+          TAG="apk-v${VERSION_NAME}-${VERSION_CODE}"
+          VERSIONED_APK_NAME="alex-${VERSION_NAME}-${VERSION_CODE}.apk"
+
+          {
+            echo "version_name=${VERSION_NAME}"
+            echo "version_code=${VERSION_CODE}"
+            echo "tag=${TAG}"
+            echo "versioned_apk_name=${VERSIONED_APK_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Building ${VERSION_NAME}+${VERSION_CODE}"
+
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --build-name "${{ steps.version.outputs.version_name }}" \
+            --build-number "${{ steps.version.outputs.version_code }}"
+
+      - name: Package release files
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSIONED_APK_NAME: ${{ steps.version.outputs.versioned_apk_name }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          MANDATORY: ${{ inputs.mandatory }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/alex-pos.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/${VERSIONED_APK_NAME}"
+
+          SHA256="$(sha256sum dist/alex-pos.apk | awk '{ print $1 }')"
+          APK_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/alex-pos.apk"
+          export APK_URL SHA256
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = {
+              "versionCode": int(os.environ["VERSION_CODE"]),
+              "versionName": os.environ["VERSION_NAME"],
+              "apkUrl": os.environ["APK_URL"],
+              "releaseNotes": os.environ["RELEASE_NOTES"],
+              "mandatory": os.environ["MANDATORY"].lower() == "true",
+              "sha256": os.environ["SHA256"],
+          }
+
+          Path("dist/update.json").write_text(
+              json.dumps(manifest, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          cat > dist/release-notes.md <<EOF
+          ${RELEASE_NOTES}
+
+          Version: ${VERSION_NAME}+${VERSION_CODE}
+          SHA-256: ${SHA256}
+          EOF
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alex-apk-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code }}
+          path: |
+            dist/alex-pos.apk
+            dist/${{ steps.version.outputs.versioned_apk_name }}
+            dist/update.json
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VERSIONED_APK_NAME: ${{ steps.version.outputs.versioned_apk_name }}
+        run: |
+          gh release create "$TAG" \
+            "dist/alex-pos.apk" \
+            "dist/${VERSIONED_APK_NAME}" \
+            "dist/update.json" \
+            --latest \
+            --title "ALEX ${VERSION_NAME}+${VERSION_CODE}" \
+            --notes-file "dist/release-notes.md"

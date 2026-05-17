@@ -1,4 +1,25 @@
 {
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "redirects": [
+      {
+        "source": "/download/alex-pos.apk",
+        "destination": "https://github.com/leocode09/alex/releases/latest/download/alex-pos.apk",
+        "type": 302
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
   "firestore": {
     "database": "(default)",
     "location": "nam5",
@@ -18,7 +39,8 @@
         "lib/firebase_options.dart": {
           "projectId": "alex-pos",
           "configurations": {
-            "android": "1:901163093322:android:ee5ba627de3745d59085b3"
+            "android": "1:901163093322:android:ee5ba627de3745d59085b3",
+            "web": "1:901163093322:web:39c39d922258a3e39085b3"
           }
         }
       }

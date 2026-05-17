@@ -13,6 +13,7 @@ import '../../design_system/widgets/app_section_header.dart';
 import 'admin_heuristics.dart';
 import 'widgets/admin_audit_log_list.dart';
 import 'widgets/admin_feature_controls.dart';
+import 'widgets/admin_members_list.dart';
 import 'widgets/admin_quick_actions.dart';
 import 'widgets/admin_status_badge.dart';
 import 'widgets/admin_usage_chart.dart';
@@ -66,6 +67,12 @@ class AdminShopDetailPage extends ConsumerWidget {
                 targetId: shopId,
                 data: data,
               ),
+              const SizedBox(height: AppTokens.space3),
+              const AppSectionHeader(title: 'Owner contact'),
+              _OwnerContact(data: data),
+              const SizedBox(height: AppTokens.space3),
+              const AppSectionHeader(title: 'Members'),
+              AdminMembersList(db: db, shopId: shopId),
               const SizedBox(height: AppTokens.space3),
               const AppSectionHeader(title: 'License & lifecycle'),
               AdminFeatureControls(
@@ -377,6 +384,93 @@ class _ShopDeviceTile extends StatelessWidget {
             const Icon(Icons.chevron_right),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _OwnerContact extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _OwnerContact({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = context.appExtras;
+    final theme = Theme.of(context);
+    final ownerName = (data['ownerName'] as String?)?.trim();
+    final phone =
+        ((data['ownerPhone'] as String?) ?? (data['businessPhone'] as String?))
+            ?.trim();
+    final requestedAt =
+        AdminHeuristics.parseTs(data['approvalRequestedAt']);
+    final approval = AdminHeuristics.approvalStatus(data);
+
+    return AppPanel(
+      padding: const EdgeInsets.all(AppTokens.space3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _row(
+            theme,
+            extras,
+            label: 'Owner',
+            value: (ownerName == null || ownerName.isEmpty)
+                ? 'Not provided'
+                : ownerName,
+          ),
+          _row(
+            theme,
+            extras,
+            label: 'Phone',
+            value: (phone == null || phone.isEmpty)
+                ? 'Not provided'
+                : phone,
+          ),
+          if (requestedAt != null)
+            _row(
+              theme,
+              extras,
+              label: 'Requested',
+              value: AdminHeuristics.fmtDate(requestedAt),
+            ),
+          if (approval == ApprovalStatus.rejected &&
+              (data['rejectionReason'] as String?)?.trim().isNotEmpty == true)
+            _row(
+              theme,
+              extras,
+              label: 'Reason',
+              value: (data['rejectionReason'] as String).trim(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(
+    ThemeData theme,
+    AppThemeExtras extras, {
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(color: extras.muted),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }

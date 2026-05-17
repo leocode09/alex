@@ -134,12 +134,22 @@
   </style>
 </head>
 <body>
+  <script>
+    (function () {
+      var isAndroid = /Android/i.test(navigator.userAgent || '');
+      var isRoot = window.location.pathname === '/' || window.location.pathname === '';
+      if (isAndroid && isRoot && window.location.search !== '?web=1') {
+        window.location.replace('/download/');
+      }
+    })();
+  </script>
+
   <!--
     Download QR panel. The URL below must match `AppShareConfig.downloadUrl`
     in lib/config/app_share_config.dart. If you change one, change both.
   -->
   <div id="alex-download-panel" role="complementary" aria-label="Download mobile app"
-       data-download-url="https://alex-pos.web.app">
+       data-download-url="https://alex-pos.web.app/download/">
     <div class="alex-dl-head">
       <span class="alex-dl-title">Get ALEX on mobile</span>
       <button type="button" class="alex-dl-close" aria-label="Dismiss">&times;</button>

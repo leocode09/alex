@@ -13,11 +13,20 @@ import 'ui/pages/auth/pin_entry_page.dart';
 import 'ui/pages/auth/pin_preferences_page.dart';
 import 'providers/pin_unlock_provider.dart';
 import 'providers/license_provider.dart';
+import 'providers/account_provider.dart';
 import 'services/pin_service.dart';
 import 'models/license_policy.dart';
+import 'models/account_state.dart';
 import 'providers/time_tamper_provider.dart';
 import 'ui/pages/security/time_tamper_page.dart';
 import 'ui/pages/security/license_locked_page.dart';
+
+// Onboarding (business approval)
+import 'ui/pages/onboarding/onboarding_page.dart';
+import 'ui/pages/onboarding/create_business_page.dart';
+import 'ui/pages/onboarding/join_business_page.dart';
+import 'ui/pages/onboarding/pending_approval_page.dart';
+import 'ui/pages/team/team_management_page.dart';
 
 // Admin
 import 'ui/pages/admin/admin_login_page.dart';
@@ -325,12 +334,16 @@ final routerProvider = Provider<GoRouter>((ref) {
   final pinUnlocked = ref.watch(pinUnlockedProvider);
   final timeTamper = ref.watch(timeTamperProvider);
 
-  // Re-run the redirect whenever the license policy changes so remote
-  // admin toggles apply live. Use a ValueNotifier + ref.listen instead
-  // of ref.watch so the GoRouter itself is not rebuilt (which would
-  // drop navigation history on every policy tick).
+  // Re-run the redirect whenever the license policy or account state
+  // changes so remote admin toggles and approval changes apply live.
+  // Use a ValueNotifier + ref.listen instead of ref.watch so the
+  // GoRouter itself is not rebuilt (which would drop navigation
+  // history on every policy tick).
   final policyRefresh = ValueNotifier<int>(0);
   ref.listen(licensePolicyProvider, (_, __) {
+    policyRefresh.value = policyRefresh.value + 1;
+  });
+  ref.listen(accountStateProvider, (_, __) {
     policyRefresh.value = policyRefresh.value + 1;
   });
   ref.onDispose(policyRefresh.dispose);
@@ -350,6 +363,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnTimeLock = state.uri.path == '/time-lock';
       final isOnLicenseLocked = state.uri.path == '/license-locked';
       final isOnAdminRoute = state.uri.path.startsWith('/admin');
+      final isOnOnboarding = state.uri.path.startsWith('/onboarding');
+      final isOnPendingApproval = state.uri.path == '/pending-approval';
+      final isOnAccountGate = isOnOnboarding || isOnPendingApproval;
       final requireLoginPin = await pinService.isPinRequiredForLogin();
       final isSessionVerified = pinService.isSessionVerified();
       final isUnlocked = pinUnlocked || isSessionVerified;
@@ -365,6 +381,46 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/license-locked';
       }
       if (!isBlocked && isOnLicenseLocked) {
+        return '/money';
+      }
+
+      // Business-approval gate. Owners must register and be approved
+      // by the system admin; staff must be approved by their owner.
+      // Admin routes bypass this so support can fix accounts remotely.
+      final account = ref.read(currentAccountStateProvider);
+      if (!account.allowsAppAccess && !isOnAdminRoute) {
+        switch (account.stage) {
+          case AccountStage.noAccount:
+            if (!isOnOnboarding) {
+              return '/onboarding';
+            }
+            return null;
+          case AccountStage.businessPending:
+          case AccountStage.staffPending:
+          case AccountStage.businessRejected:
+          case AccountStage.staffRejected:
+            if (!isOnPendingApproval) {
+              return '/pending-approval';
+            }
+            return null;
+          case AccountStage.unknown:
+          case AccountStage.approved:
+            // While Firebase/account state is still loading, keep the
+            // user on the account gate instead of letting first-run PIN
+            // setup win. If Firebase is unavailable, allowsAppAccess is
+            // true and this block is skipped for local-only fallback.
+            if (!isOnAccountGate) {
+              return '/onboarding';
+            }
+            return null;
+        }
+      }
+
+      // Once approved, never strand the user on an onboarding/pending
+      // screen.
+      if (account.allowsAppAccess &&
+          account.stage == AccountStage.approved &&
+          isOnAccountGate) {
         return '/money';
       }
 
@@ -423,6 +479,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/license-locked',
         name: 'license-locked',
         builder: (context, state) => const LicenseLockedPage(),
+      ),
+
+      // Business approval workflow (account onboarding).
+      _animatedRoute(
+        path: '/onboarding',
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingPage(),
+        routes: [
+          _animatedRoute(
+            path: 'create-business',
+            name: 'onboarding-create-business',
+            builder: (context, state) => const CreateBusinessPage(),
+          ),
+          _animatedRoute(
+            path: 'join-business',
+            name: 'onboarding-join-business',
+            builder: (context, state) => const JoinBusinessPage(),
+          ),
+        ],
+      ),
+      _animatedRoute(
+        path: '/pending-approval',
+        name: 'pending-approval',
+        builder: (context, state) => const PendingApprovalPage(),
       ),
 
       // Admin login (hidden entry from settings long-press).
@@ -627,6 +707,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const BonusRulePage(),
               ),
             ],
+          ),
+
+          // Team / staff management (owner-only view of pending and
+          // approved staff requests for the current business).
+          _animatedRoute(
+            path: '/team',
+            name: 'team',
+            builder: (context, state) => const TeamManagementPage(),
           ),
 
           // LAN Manager

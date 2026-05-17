@@ -12,6 +12,7 @@ import 'services/admin/install_id_service.dart';
 import 'services/admin/usage_recorder.dart';
 import 'services/cloud/firebase_init.dart';
 import 'ui/themes/app_theme.dart';
+import 'ui/widgets/account_watcher.dart';
 import 'ui/widgets/apk_update_watcher.dart';
 import 'ui/widgets/cloud_sync_watcher.dart';
 import 'ui/widgets/license_watcher.dart';
@@ -77,24 +78,26 @@ class POSApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    return LicenseWatcher(
-      child: TimeTamperWatcher(
-        child: CloudSyncWatcher(
-          child: WifiDirectSyncWatcher(
-            child: MaterialApp.router(
-              title: 'ALEX',
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.lightTheme,
-              darkTheme: AppTheme.darkTheme,
-              themeMode: themeMode,
-              routerConfig: router,
-              builder: (context, child) {
-                return ApkUpdateWatcher(
-                  child: LanSyncWatcher(
-                    child: child ?? const SizedBox.shrink(),
-                  ),
-                );
-              },
+    return AccountWatcher(
+      child: LicenseWatcher(
+        child: TimeTamperWatcher(
+          child: CloudSyncWatcher(
+            child: WifiDirectSyncWatcher(
+              child: MaterialApp.router(
+                title: 'ALEX',
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.lightTheme,
+                darkTheme: AppTheme.darkTheme,
+                themeMode: themeMode,
+                routerConfig: router,
+                builder: (context, child) {
+                  return ApkUpdateWatcher(
+                    child: LanSyncWatcher(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),

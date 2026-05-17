@@ -44,6 +44,27 @@ class AdminHeuristics {
     return ShopStatus.active;
   }
 
+  /// Maps the raw approval field on a shop or member doc to the
+  /// matching [ApprovalStatus] enum value. Missing values default to
+  /// [ApprovalStatus.approved] so legacy docs without the field keep
+  /// working.
+  static ApprovalStatus approvalStatus(Map<String, dynamic> data) {
+    final raw = data['approvalStatus'];
+    if (raw is! String) return ApprovalStatus.approved;
+    switch (raw) {
+      case 'pendingSystemAdmin':
+        return ApprovalStatus.pendingSystemAdmin;
+      case 'pendingOwner':
+        return ApprovalStatus.pendingOwner;
+      case 'rejected':
+        return ApprovalStatus.rejected;
+      case 'approved':
+        return ApprovalStatus.approved;
+      default:
+        return ApprovalStatus.approved;
+    }
+  }
+
   /// Derived status for a device, driven by `blocked` + expiry +
   /// last-seen timestamp.
   static DeviceStatus deviceStatus(Map<String, dynamic> data) {
@@ -163,4 +184,13 @@ enum DeviceStatus {
   blocked,
   expiringSoon,
   expired,
+}
+
+/// Business / member approval state mirroring the values written by
+/// the onboarding workflow.
+enum ApprovalStatus {
+  approved,
+  pendingSystemAdmin,
+  pendingOwner,
+  rejected,
 }

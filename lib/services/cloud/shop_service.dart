@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../models/account_state.dart';
 import '../admin/device_heartbeat_service.dart';
 import '../admin/license_service.dart';
 import 'firebase_init.dart';
@@ -250,13 +251,21 @@ class ShopService {
         'ownerUid': uid,
         'createdAt': now.toIso8601String(),
         'memberCount': 1,
+        // New shops start pending system-admin approval. The /shops
+        // create rule enforces this — surface it explicitly here so
+        // legacy callers keep working.
+        AccountApproval.fieldStatus:
+            AccountApproval.statusPendingSystemAdmin,
+        AccountApproval.fieldRequestedAt: now.toIso8601String(),
       });
       await shopRef
           .collection(FirestorePaths.membersSubcollection)
           .doc(uid)
           .set({
-        'role': 'owner',
+        'role': AccountApproval.roleOwner,
         'joinedAt': now.toIso8601String(),
+        AccountApproval.fieldStatus: AccountApproval.statusApproved,
+        AccountApproval.fieldApprovedAt: now.toIso8601String(),
       });
 
       final shop = ShopInfo(
@@ -311,12 +320,17 @@ class ShopService {
       final shop = _shopFromDoc(shopDoc);
 
       final now = DateTime.now();
+      // Staff join must go through the owner-approval gate. Mark the
+      // new member doc as pending so the rules accept it and the
+      // business owner can approve / reject from the team page.
       await shopDoc.reference
           .collection(FirestorePaths.membersSubcollection)
           .doc(uid)
           .set({
-        'role': 'member',
+        'role': AccountApproval.roleStaff,
         'joinedAt': now.toIso8601String(),
+        AccountApproval.fieldStatus: AccountApproval.statusPendingOwner,
+        AccountApproval.fieldRequestedAt: now.toIso8601String(),
       }, SetOptions(merge: true));
 
       await _persistCache(shop);
@@ -344,13 +358,28 @@ class ShopService {
   }
 
   Future<void> _persistCache(ShopInfo shop) async {
+    await persistShopCache(
+      id: shop.id,
+      code: shop.code,
+      name: shop.name,
+    );
+  }
+
+  /// Persists the shop identity locally (id, code, name) and refreshes
+  /// in-memory caches. Public so the new onboarding/account workflow
+  /// can reuse it without duplicating SharedPreferences keys.
+  Future<void> persistShopCache({
+    required String id,
+    required String code,
+    required String name,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(shopIdPrefsKey, shop.id);
-    await prefs.setString(shopNamePrefsKey, shop.name);
-    await prefs.setString(shopCodePrefsKey, shop.code);
-    _cachedShopId = shop.id;
-    _cachedShopName = shop.name;
-    _cachedShopCode = shop.code;
+    await prefs.setString(shopIdPrefsKey, id);
+    await prefs.setString(shopNamePrefsKey, name);
+    await prefs.setString(shopCodePrefsKey, code);
+    _cachedShopId = id;
+    _cachedShopName = name;
+    _cachedShopCode = code;
   }
 
   Future<String> _generateUniqueCode() async {

@@ -29,8 +29,19 @@ class AdminStatusBadge extends StatelessWidget {
       final status = AdminHeuristics.deviceStatus(data);
       labels.add(_deviceBadge(status, data));
     } else {
-      final status = AdminHeuristics.shopStatus(data);
-      labels.add(_shopBadge(status, data));
+      final approval = AdminHeuristics.approvalStatus(data);
+      final approvalBadge = _approvalBadge(approval);
+      if (approvalBadge != null) {
+        labels.add(approvalBadge);
+      }
+      // Suppress the active/expiring license badge while the business
+      // is still pending or rejected; once approved we surface the
+      // normal license signal again so admins still see disabled /
+      // expiring states.
+      if (approval == ApprovalStatus.approved) {
+        final status = AdminHeuristics.shopStatus(data);
+        labels.add(_shopBadge(status, data));
+      }
     }
 
     if (outdated) {
@@ -44,6 +55,19 @@ class AdminStatusBadge extends StatelessWidget {
         for (final b in labels) AppBadge(label: b.label, tone: b.tone),
       ],
     );
+  }
+
+  static _BadgeData? _approvalBadge(ApprovalStatus status) {
+    switch (status) {
+      case ApprovalStatus.pendingSystemAdmin:
+        return const _BadgeData('Pending review', AppBadgeTone.warning);
+      case ApprovalStatus.pendingOwner:
+        return const _BadgeData('Pending owner', AppBadgeTone.warning);
+      case ApprovalStatus.rejected:
+        return const _BadgeData('Rejected', AppBadgeTone.danger);
+      case ApprovalStatus.approved:
+        return null;
+    }
   }
 
   static _BadgeData _shopBadge(ShopStatus status, Map<String, dynamic> data) {

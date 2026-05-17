@@ -116,6 +116,17 @@ commit-style for you.
    `/releases/latest/download/update.json` now resolves to this file. Existing
    installs will see the update on next launch.
 
+### GitHub Action shortcut
+
+Use **Actions → Build Latest APK → Run workflow** to build and publish the APK
+without editing `pubspec.yaml` manually. The workflow reads the newest
+published `update.json`, increments `versionCode`, builds with
+`--build-number`, and uploads:
+
+- `alex-pos.apk` — stable latest APK asset for QR/download redirects.
+- `alex-<versionName>-<versionCode>.apk` — versioned archive copy.
+- `update.json` — manifest consumed by the in-app updater.
+
 ### Hotfix shortcut
 
 Same steps, smaller notes. Bump the `+N` build number even if `versionName`
