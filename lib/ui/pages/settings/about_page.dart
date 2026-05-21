@@ -99,7 +99,7 @@ class _AboutPageState extends State<AboutPage> {
                           'assets/logo.jpg',
                           width: 96,
                           height: 96,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => Container(
                             width: 96,
                             height: 96,

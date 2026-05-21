@@ -31,6 +31,16 @@ class ShareAppPage extends StatelessWidget {
             padding: const EdgeInsets.all(AppTokens.space4),
             child: Column(
               children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTokens.radiusL),
+                  child: Image.asset(
+                    'assets/logo.jpg',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: AppTokens.space3),
                 Text(
                   AppShareConfig.appName,
                   style: theme.textTheme.titleMedium?.copyWith(

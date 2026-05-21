@@ -198,7 +198,7 @@ class ShopService {
       final cred = await auth.signInAnonymously();
       final user = cred.user;
       final uid = user?.uid;
-      if (uid == null) {
+      if (user == null || uid == null) {
         return const AuthResult.fail(
           code: 'no-uid',
           message: 'Firebase returned no user id.',
