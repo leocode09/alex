@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/account_state.dart';
 import '../admin/device_heartbeat_service.dart';
@@ -33,6 +34,8 @@ class AccountService {
   AccountService._internal();
   static final AccountService _instance = AccountService._internal();
   factory AccountService() => _instance;
+
+  static const String _accountLoggedOutPrefsKey = 'account_logged_out';
 
   final ShopService _shopService = ShopService();
 
@@ -92,6 +95,11 @@ class AccountService {
       }
 
       if (shopId == null || shopId.isEmpty) {
+        if (await _isAccountLoggedOut()) {
+          await _detach();
+          _emit(AccountState.noAccount);
+          return;
+        }
         final recoveredShopId = await _findOwnedShopId(uid);
         if (recoveredShopId == null || recoveredShopId.isEmpty) {
           await _detach();
@@ -606,6 +614,7 @@ class AccountService {
         code: code,
         name: name,
       );
+      await _setAccountLoggedOut(false);
       unawaited(refresh());
       unawaited(DeviceHeartbeatService().refreshShopMembership());
       unawaited(LicenseService().refresh());
@@ -683,6 +692,7 @@ class AccountService {
           code: shopCode,
           name: shopName,
         );
+        await _setAccountLoggedOut(false);
         unawaited(refresh());
         unawaited(DeviceHeartbeatService().refreshShopMembership());
         unawaited(LicenseService().refresh());
@@ -708,6 +718,7 @@ class AccountService {
         code: shopCode,
         name: shopName,
       );
+      await _setAccountLoggedOut(false);
       unawaited(refresh());
       unawaited(DeviceHeartbeatService().refreshShopMembership());
       unawaited(LicenseService().refresh());
@@ -884,6 +895,33 @@ class AccountService {
     }
   }
 
+  /// Logs this device out of the current business account without
+  /// removing the server-side shop membership.
+  Future<AccountActionResult> logoutAccount() async {
+    try {
+      await _setAccountLoggedOut(true);
+      await _shopService.leaveShop();
+      await _detach();
+      _emit(AccountState.noAccount);
+      return AccountActionResult.ok('Logged out of account.');
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('logoutAccount error: $e');
+      }
+      return AccountActionResult.fail('Failed to log out: $e');
+    }
+  }
+
+  Future<bool> _isAccountLoggedOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_accountLoggedOutPrefsKey) ?? false;
+  }
+
+  Future<void> _setAccountLoggedOut(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_accountLoggedOutPrefsKey, value);
+  }
+
   /// Clears the device's current shop binding so the user can submit a
   /// fresh request after a rejection. Best-effort: also removes the
   /// owner's pending/rejected shop doc (rules permit owners to delete
@@ -937,6 +975,7 @@ class AccountService {
       }
     }
     await _shopService.leaveShop();
+    await _setAccountLoggedOut(true);
     await refresh();
     return AccountActionResult.ok('You can submit a new request now.');
   }

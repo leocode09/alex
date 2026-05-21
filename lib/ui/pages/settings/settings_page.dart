@@ -362,11 +362,7 @@ class SettingsPage extends ConsumerWidget {
                 ),
               const SizedBox(height: 32),
               OutlinedButton(
-                onPressed: () {
-                  PinService().clearSessionVerified();
-                  ref.read(pinUnlockedProvider.notifier).state = false;
-                  context.go('/pin-entry');
-                },
+                onPressed: () => _logOut(context, ref),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red),
@@ -380,6 +376,39 @@ class SettingsPage extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _logOut(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text(
+          'This will log this device out of the current account and '
+          'clear the PIN session. Shop data in the cloud is kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    PinService().clearSessionVerified();
+    ref.read(pinUnlockedProvider.notifier).state = false;
+    final result = await ref.read(accountServiceProvider).logoutAccount();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message)),
+    );
+    context.go('/onboarding');
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
