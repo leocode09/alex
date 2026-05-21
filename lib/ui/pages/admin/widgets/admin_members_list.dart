@@ -121,8 +121,8 @@ class _MemberTileState extends State<_MemberTile> {
       final nowIso = DateTime.now().toIso8601String();
       if (status == 'approved') {
         payload['approvedAt'] = nowIso;
-        payload['rejectedAt'] = null;
-        payload['rejectionReason'] = null;
+        payload['rejectedAt'] = FieldValue.delete();
+        payload['rejectionReason'] = FieldValue.delete();
       } else if (status == 'rejected') {
         payload['rejectedAt'] = nowIso;
         if (reason != null && reason.trim().isNotEmpty) {

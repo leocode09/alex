@@ -135,6 +135,7 @@ class AccountService {
         );
       }
 
+      await _fetchLatestDocs(shopId, uid);
       _emitMerged();
     } finally {
       _attaching = false;
@@ -152,6 +153,29 @@ class AccountService {
     _lastMember = null;
   }
 
+  /// Force-read the latest shop + member docs. The pending-approval
+  /// screen's Refresh button relies on this because re-attaching
+  /// listeners alone does not re-fetch when ids are unchanged.
+  Future<void> _fetchLatestDocs(String shopId, String uid) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final shopSnap =
+          await db.collection(FirestorePaths.shopsCollection).doc(shopId).get();
+      _lastShop = shopSnap.exists ? shopSnap.data() : null;
+      final memberSnap = await db
+          .collection(FirestorePaths.shopsCollection)
+          .doc(shopId)
+          .collection(FirestorePaths.membersSubcollection)
+          .doc(uid)
+          .get();
+      _lastMember = memberSnap.exists ? memberSnap.data() : null;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AccountService._fetchLatestDocs error: $e');
+      }
+    }
+  }
+
   void _emitMerged() {
     final shopId = _attachedShopId;
     if (shopId == null || shopId.isEmpty) {
@@ -160,9 +184,22 @@ class AccountService {
     }
     final shop = _lastShop;
     if (shop == null) {
-      // Doc not yet readable / does not exist. Don't lock the user out
-      // permanently — show the unknown stage so onboarding can recover.
-      _emit(AccountState.noAccount);
+      // Still loading or temporarily unreadable — keep the user on the
+      // pending gate using cached shop identity instead of bouncing
+      // them back to onboarding.
+      final cachedName = _shopService.cachedShopName;
+      final cachedCode = _shopService.cachedShopCode;
+      if (cachedName != null || cachedCode != null) {
+        _emit(AccountState(
+          stage: AccountStage.businessPending,
+          shopId: shopId,
+          shopName: cachedName,
+          shopCode: cachedCode,
+          role: AccountRole.owner,
+        ));
+      } else {
+        _emit(AccountState.noAccount);
+      }
       return;
     }
 
@@ -203,9 +240,13 @@ class AccountService {
     // current device's member status.
     final member = _lastMember;
     if (member == null) {
-      // Device no longer has a member doc under this shop. Treat as
-      // not-yet-onboarded so the user can pick a path again.
-      _emit(AccountState.noAccount);
+      _emit(AccountState(
+        stage: AccountStage.staffPending,
+        shopId: shopId,
+        shopName: shopName,
+        shopCode: shopCode,
+        role: AccountRole.staff,
+      ));
       return;
     }
 
@@ -303,6 +344,36 @@ class AccountService {
 
     try {
       final db = FirebaseFirestore.instance;
+      final existingOwned = await db
+          .collection(FirestorePaths.shopsCollection)
+          .where('ownerUid', isEqualTo: uid)
+          .limit(5)
+          .get();
+      for (final doc in existingOwned.docs) {
+        final data = doc.data();
+        final status =
+            (data[AccountApproval.fieldStatus] as String?) ??
+                AccountApproval.statusApproved;
+        if (status == AccountApproval.statusRejected) {
+          continue;
+        }
+        final existingCode = (data['code'] as String?) ?? '';
+        final existingName = (data['name'] as String?) ?? name;
+        await _shopService.persistShopCache(
+          id: doc.id,
+          code: existingCode,
+          name: existingName,
+        );
+        await refresh();
+        return AccountActionResult.ok(
+          status == AccountApproval.statusApproved
+              ? 'This device is already linked to $existingName '
+                  '(code $existingCode).'
+              : 'You already submitted $existingName '
+                  '(code $existingCode). Waiting for approval.',
+        );
+      }
+
       final code = await _generateShopCode(db);
       final shopRef =
           db.collection(FirestorePaths.shopsCollection).doc();
@@ -519,8 +590,8 @@ class AccountService {
       payload: {
         AccountApproval.fieldStatus: AccountApproval.statusApproved,
         AccountApproval.fieldApprovedAt: DateTime.now().toIso8601String(),
-        AccountApproval.fieldRejectionReason: null,
-        AccountApproval.fieldRejectedAt: null,
+        AccountApproval.fieldRejectedAt: FieldValue.delete(),
+        AccountApproval.fieldRejectionReason: FieldValue.delete(),
       },
       okMessage: 'Staff member approved.',
     );

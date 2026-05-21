@@ -76,8 +76,9 @@ function pick(f, k) {
 }
 
 (async () => {
-  for (const code of ['KQ9TGR', 'DFDXXY']) {
+  for (const code of ['KQ9TGR', 'DFDXXY', 'kq9tgr']) {
     const q = await runQuery('shops', 'code', code);
+    console.log('query status', code, q.status);
     const docs = (q.json || [])
       .filter((x) => x.document)
       .map((x) => {
@@ -95,7 +96,23 @@ function pick(f, k) {
     console.log('SHOP', code, JSON.stringify(docs, null, 2));
   }
 
+  const nameQ = await runQuery('shops', 'name', 'ALEX SHOP');
+  console.log('name query status', nameQ.status);
+  const nameDocs = (nameQ.json || [])
+    .filter((x) => x.document)
+    .map((x) => {
+      const f = x.document.fields || {};
+      const id = x.document.name.split('/').pop();
+      return {
+        id,
+        code: pick(f, 'code'),
+        approvalStatus: pick(f, 'approvalStatus'),
+      };
+    });
+  console.log('SHOPS named ALEX SHOP', JSON.stringify(nameDocs, null, 2));
+
   const members = await listMembers('Y6XpFI3Qp0vqS19tEeWK');
+  console.log('members status', members.status, members.json?.error?.message || '');
   const docs = (members.json.documents || []).map((d) => {
     const f = d.fields || {};
     const id = d.name.split('/').pop();
