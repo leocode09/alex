@@ -139,26 +139,51 @@ class SettingsPage extends ConsumerWidget {
                     }
                   },
                 ),
-              _buildSettingTile(
-                context,
-                'Customer Rewards',
-                'Configure the bonus rule for repeat customers',
-                Icons.card_giftcard_outlined,
-                onTap: () async {
-                  if (await PinProtection.requirePinIfNeeded(
-                    context,
-                    isRequired: () =>
-                        PinService().isPinRequiredForReceiptSettings(),
-                    title: 'Customer Rewards',
-                    subtitle: 'Enter PIN to update rewards settings',
-                  )) {
-                    if (!context.mounted) {
-                      return;
+              if (!account.isStaff)
+                _buildSettingTile(
+                  context,
+                  'Customer Rewards',
+                  'Configure the bonus rule for repeat customers',
+                  Icons.card_giftcard_outlined,
+                  onTap: () async {
+                    if (await PinProtection.requirePinIfNeeded(
+                      context,
+                      isRequired: () =>
+                          PinService().isPinRequiredForReceiptSettings(),
+                      title: 'Customer Rewards',
+                      subtitle: 'Enter PIN to update rewards settings',
+                    )) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      context.push('/settings/bonus-rule');
                     }
-                    context.push('/settings/bonus-rule');
-                  }
-                },
-              ),
+                  },
+                ),
+              if (account.isStaff)
+                AppPanel(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.card_giftcard_outlined,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 22,
+                    ),
+                    title: Text(
+                      'Customer Rewards',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    subtitle: Text(
+                      'Bonus rules are managed by your shop owner',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: context.appExtras.muted,
+                            fontSize: 12,
+                          ),
+                    ),
+                  ),
+                ),
               _buildSettingTile(
                 context,
                 'Customer Management',

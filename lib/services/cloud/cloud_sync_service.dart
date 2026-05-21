@@ -485,6 +485,14 @@ class CloudSyncService extends ChangeNotifier {
           db.collection(FirestorePaths.shopsCollection).doc(shopId);
       final deviceId = await _syncService.getDeviceId();
       final prefs = await SharedPreferences.getInstance();
+      var maxCursor = Timestamp.fromMillisecondsSinceEpoch(0);
+
+      void trackCursor(Map<String, dynamic> data) {
+        final ts = data[CloudFieldKeys.cloudUpdatedAt];
+        if (ts is Timestamp && ts.compareTo(maxCursor) > 0) {
+          maxCursor = ts;
+        }
+      }
 
       Future<List<T>> readLiveTracked<T>(
         String collection,

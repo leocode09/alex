@@ -15,6 +15,7 @@ import 'ui/themes/app_theme.dart';
 import 'ui/widgets/account_watcher.dart';
 import 'ui/widgets/apk_update_watcher.dart';
 import 'ui/widgets/cloud_sync_watcher.dart';
+import 'ui/widgets/shop_team_watcher.dart';
 import 'ui/widgets/license_watcher.dart';
 import 'ui/widgets/time_tamper_watcher.dart';
 import 'ui/widgets/lan_sync_watcher.dart';
@@ -79,11 +80,12 @@ class POSApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return AccountWatcher(
-      child: LicenseWatcher(
-        child: TimeTamperWatcher(
-          child: CloudSyncWatcher(
-            child: WifiDirectSyncWatcher(
-              child: MaterialApp.router(
+      child: ShopTeamWatcher(
+        child: LicenseWatcher(
+          child: TimeTamperWatcher(
+            child: CloudSyncWatcher(
+              child: WifiDirectSyncWatcher(
+                child: MaterialApp.router(
                 title: 'ALEX',
                 debugShowCheckedModeBanner: false,
                 theme: AppTheme.lightTheme,
@@ -102,6 +104,7 @@ class POSApp extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

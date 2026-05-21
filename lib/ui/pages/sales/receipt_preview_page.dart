@@ -10,6 +10,7 @@ import '../../../providers/printer_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
+import '../../../providers/account_provider.dart';
 import '../../../helpers/license_gate.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../models/license_policy.dart';
@@ -1219,6 +1220,21 @@ class _ReceiptPreviewPageState extends ConsumerState<ReceiptPreviewPage> {
 
   Future<void> _showSettingsDialog(
       BuildContext context, ReceiptSettings currentSettings) async {
+    final account = ref.read(currentAccountStateProvider);
+    if (account.isStaff) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Receipt settings are managed by your shop owner and sync to all team devices.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final allowed = await PinProtection.requirePinIfNeeded(
       context,
       isRequired: () => PinService().isPinRequiredForReceiptSettings(),

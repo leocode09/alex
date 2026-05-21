@@ -168,6 +168,8 @@ class _CloudSyncPageState extends ConsumerState<CloudSyncPage> {
         return ('CONNECTING', Theme.of(context).colorScheme.primary);
       case CloudSyncStatus.notJoined:
         return ('NOT JOINED', extras.muted);
+      case CloudSyncStatus.pendingApproval:
+        return ('PENDING APPROVAL', extras.warning);
       case CloudSyncStatus.error:
         return ('ERROR', extras.danger);
       case CloudSyncStatus.disabled:

@@ -33,9 +33,11 @@ class _ShopTeamWatcherState extends ConsumerState<ShopTeamWatcher> {
         return;
       }
 
-      final becameApproved =
-          account.stage == AccountStage.approved && _lastStage != account.stage;
-      final shopChanged = account.shopId != null && account.shopId != _lastShopId;
+      final becameApproved = _lastStage != null &&
+          _lastStage != AccountStage.approved &&
+          account.stage == AccountStage.approved;
+      final shopChanged =
+          account.shopId != null && account.shopId != _lastShopId;
 
       if (account.allowsAppAccess &&
           account.shopId != null &&

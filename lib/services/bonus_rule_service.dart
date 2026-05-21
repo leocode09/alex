@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'cloud/account_service.dart';
 import 'data_sync_triggers.dart';
 import 'shop_app_settings_service.dart';
 import '../providers/sync_events_provider.dart';
