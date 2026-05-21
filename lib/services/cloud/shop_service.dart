@@ -325,6 +325,36 @@ class ShopService {
       final shop = _shopFromDoc(shopDoc);
 
       final now = DateTime.now();
+      if (shop.ownerUid == uid) {
+        final memberRef = shopDoc.reference
+            .collection(FirestorePaths.membersSubcollection)
+            .doc(uid);
+        final memberSnap = await memberRef.get();
+        final memberData = memberSnap.data();
+        final isAlreadyOwner = memberSnap.exists &&
+            memberData?['role'] == AccountApproval.roleOwner &&
+            ((memberData?[AccountApproval.fieldStatus] as String?) ??
+                    AccountApproval.statusApproved) ==
+                AccountApproval.statusApproved;
+        if (!isAlreadyOwner && memberSnap.exists) {
+          await memberRef.delete();
+        }
+        if (!isAlreadyOwner) {
+          await memberRef.set({
+            'uid': uid,
+            'role': AccountApproval.roleOwner,
+            'joinedAt': now.toIso8601String(),
+            AccountApproval.fieldStatus: AccountApproval.statusApproved,
+            AccountApproval.fieldApprovedAt: now.toIso8601String(),
+          });
+        }
+
+        await _persistCache(shop);
+        unawaited(DeviceHeartbeatService().refreshShopMembership());
+        unawaited(LicenseService().refresh());
+        return ShopResult.ok('Welcome back to "${shop.name}".', shop);
+      }
+
       // Staff join must go through the owner-approval gate. Mark the
       // new member doc as pending so the rules accept it and the
       // business owner can approve / reject from the team page.

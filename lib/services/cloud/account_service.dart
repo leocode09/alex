@@ -92,12 +92,28 @@ class AccountService {
       }
 
       if (shopId == null || shopId.isEmpty) {
-        await _detach();
-        _emit(AccountState.noAccount);
-        return;
+        final recoveredShopId = await _findOwnedShopId(uid);
+        if (recoveredShopId == null || recoveredShopId.isEmpty) {
+          await _detach();
+          _emit(AccountState.noAccount);
+          return;
+        }
+        final recoveredSnap = await FirebaseFirestore.instance
+            .collection(FirestorePaths.shopsCollection)
+            .doc(recoveredShopId)
+            .get();
+        final recoveredData = recoveredSnap.data() ?? <String, dynamic>{};
+        await _shopService.persistShopCache(
+          id: recoveredShopId,
+          code: (recoveredData['code'] as String?) ?? '',
+          name: (recoveredData['name'] as String?) ?? 'Business',
+        );
       }
 
-      var activeShopId = await _resolveShopId(shopId, uid);
+      final activeShopId = await _resolveShopId(
+        _shopService.cachedShopId ?? shopId ?? '',
+        uid,
+      );
 
       if (_attachedShopId != activeShopId || _attachedUid != uid) {
         await _detach();
@@ -138,6 +154,17 @@ class AccountService {
       }
 
       await _fetchLatestDocs(activeShopId, uid);
+      final shop = _lastShop;
+      if (shop != null && shop['ownerUid'] == uid) {
+        final repaired = await _ensureOwnerMemberDoc(
+          shopId: activeShopId,
+          shopData: shop,
+          uid: uid,
+        );
+        if (repaired) {
+          await _fetchLatestDocs(activeShopId, uid);
+        }
+      }
       _emitMerged();
     } finally {
       _attaching = false;
@@ -241,6 +268,86 @@ class AccountService {
         debugPrint('AccountService._resolveShopId error: $e');
       }
       return cachedShopId;
+    }
+  }
+
+  Future<String?> _findOwnedShopId(String uid) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection(FirestorePaths.shopsCollection)
+          .where('ownerUid', isEqualTo: uid)
+          .limit(5)
+          .get();
+      if (snap.docs.isEmpty) return null;
+
+      DocumentSnapshot<Map<String, dynamic>>? approved;
+      DocumentSnapshot<Map<String, dynamic>>? pending;
+      for (final doc in snap.docs) {
+        final status =
+            (doc.data()[AccountApproval.fieldStatus] as String?) ??
+                AccountApproval.statusApproved;
+        if (status == AccountApproval.statusApproved) {
+          approved = doc;
+          break;
+        }
+        pending ??= doc;
+      }
+      return (approved ?? pending)?.id;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AccountService._findOwnedShopId error: $e');
+      }
+      return null;
+    }
+  }
+
+  Future<bool> _ensureOwnerMemberDoc({
+    required String shopId,
+    required Map<String, dynamic> shopData,
+    required String uid,
+  }) async {
+    try {
+      final memberRef = FirebaseFirestore.instance
+          .collection(FirestorePaths.shopsCollection)
+          .doc(shopId)
+          .collection(FirestorePaths.membersSubcollection)
+          .doc(uid);
+      final memberSnap = await memberRef.get();
+      final memberData = memberSnap.data();
+      final isAlreadyOwner = memberSnap.exists &&
+          memberData?['role'] == AccountApproval.roleOwner &&
+          ((memberData?[AccountApproval.fieldStatus] as String?) ??
+                  AccountApproval.statusApproved) ==
+              AccountApproval.statusApproved;
+      if (isAlreadyOwner) return false;
+
+      if (memberSnap.exists) {
+        await memberRef.delete();
+      }
+
+      final nowIso = DateTime.now().toIso8601String();
+      final ownerName =
+          ((shopData['ownerName'] as String?)?.trim().isNotEmpty ?? false)
+              ? (shopData['ownerName'] as String).trim()
+              : 'Owner';
+      final ownerPhone = (shopData['ownerPhone'] as String?) ??
+          (shopData['businessPhone'] as String?);
+      await memberRef.set({
+        'uid': uid,
+        'role': AccountApproval.roleOwner,
+        'displayName': ownerName,
+        if (ownerPhone != null && ownerPhone.trim().isNotEmpty)
+          'phone': ownerPhone.trim(),
+        'joinedAt': nowIso,
+        AccountApproval.fieldStatus: AccountApproval.statusApproved,
+        AccountApproval.fieldApprovedAt: nowIso,
+      });
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AccountService._ensureOwnerMemberDoc error: $e');
+      }
+      return false;
     }
   }
 
@@ -556,6 +663,32 @@ class AccountService {
       }
 
       final nowIso = DateTime.now().toIso8601String();
+      final shopName = (shopData['name'] as String?) ?? 'Business';
+      final shopCode = (shopData['code'] as String?) ?? '';
+
+      if (shopData['ownerUid'] == uid) {
+        await _ensureOwnerMemberDoc(
+          shopId: shopId,
+          shopData: {
+            ...shopData,
+            'ownerName': name,
+            if (phoneNumber != null && phoneNumber.trim().isNotEmpty)
+              'ownerPhone': phoneNumber.trim(),
+          },
+          uid: uid,
+        );
+
+        await _shopService.persistShopCache(
+          id: shopId,
+          code: shopCode,
+          name: shopName,
+        );
+        unawaited(refresh());
+        unawaited(DeviceHeartbeatService().refreshShopMembership());
+        unawaited(LicenseService().refresh());
+        return AccountActionResult.ok('Welcome back to $shopName.');
+      }
+
       await shopRef
           .collection(FirestorePaths.membersSubcollection)
           .doc(uid)
@@ -572,8 +705,8 @@ class AccountService {
 
       await _shopService.persistShopCache(
         id: shopId,
-        code: (shopData['code'] as String?) ?? '',
-        name: (shopData['name'] as String?) ?? 'Business',
+        code: shopCode,
+        name: shopName,
       );
       unawaited(refresh());
       unawaited(DeviceHeartbeatService().refreshShopMembership());
@@ -772,7 +905,10 @@ class AccountService {
                   AccountApproval.statusApproved;
 
           // Owner of a non-approved shop: delete shop + own member doc.
-          if (ownerUid == uid &&
+          if (ownerUid == uid && status == AccountApproval.statusApproved) {
+            // Owner logout is local-only. Deleting the approved owner
+            // member doc would make the owner re-enter as pending staff.
+          } else if (ownerUid == uid &&
               status != AccountApproval.statusApproved) {
             try {
               await shopRef
