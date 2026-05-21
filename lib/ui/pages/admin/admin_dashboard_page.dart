@@ -72,12 +72,29 @@ class _PendingBusinesses extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: db
-          .collection(FirestorePaths.shopsCollection)
-          .where('approvalStatus', isEqualTo: 'pendingSystemAdmin')
-          .snapshots(),
+      stream: db.collection(FirestorePaths.shopsCollection).snapshots(),
       builder: (context, snap) {
-        final docs = snap.data?.docs ?? const [];
+        final docs = (snap.data?.docs ?? const [])
+            .where(
+              (d) =>
+                  AdminHeuristics.approvalStatus(d.data()) ==
+                  ApprovalStatus.pendingSystemAdmin,
+            )
+            .toList()
+          ..sort((a, b) {
+            final at = AdminHeuristics.parseTs(
+                  a.data()['approvalRequestedAt'],
+                ) ??
+                AdminHeuristics.parseTs(a.data()['createdAt']);
+            final bt = AdminHeuristics.parseTs(
+                  b.data()['approvalRequestedAt'],
+                ) ??
+                AdminHeuristics.parseTs(b.data()['createdAt']);
+            if (at == null && bt == null) return 0;
+            if (at == null) return 1;
+            if (bt == null) return -1;
+            return bt.compareTo(at);
+          });
         if (docs.isEmpty) {
           return const SizedBox.shrink();
         }

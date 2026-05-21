@@ -44,25 +44,45 @@ class AdminHeuristics {
     return ShopStatus.active;
   }
 
+  /// True when a shop doc still needs a system-admin decision.
+  ///
+  /// Besides an explicit `approvalStatus: pendingSystemAdmin`, we
+  /// treat owner registrations that never received `approvedAt` as
+  /// pending so older/partial writes are still visible in the admin UI.
+  static bool needsSystemAdminApproval(Map<String, dynamic> data) {
+    final raw = data['approvalStatus'];
+    if (raw == 'pendingSystemAdmin') return true;
+    if (raw == 'approved' || raw == 'rejected') return false;
+    if (parseTs(data['approvedAt']) != null) return false;
+    final ownerUid = data['ownerUid'];
+    if (ownerUid is! String || ownerUid.isEmpty) return false;
+    if (parseTs(data['approvalRequestedAt']) != null) return true;
+    final ownerName = data['ownerName'];
+    return ownerName is String && ownerName.trim().isNotEmpty;
+  }
+
   /// Maps the raw approval field on a shop or member doc to the
-  /// matching [ApprovalStatus] enum value. Missing values default to
-  /// [ApprovalStatus.approved] so legacy docs without the field keep
-  /// working.
+  /// matching [ApprovalStatus] enum value. Missing values on owner
+  /// registrations fall back to [needsSystemAdminApproval]; otherwise
+  /// legacy docs without the field stay [ApprovalStatus.approved].
   static ApprovalStatus approvalStatus(Map<String, dynamic> data) {
     final raw = data['approvalStatus'];
-    if (raw is! String) return ApprovalStatus.approved;
-    switch (raw) {
-      case 'pendingSystemAdmin':
-        return ApprovalStatus.pendingSystemAdmin;
-      case 'pendingOwner':
-        return ApprovalStatus.pendingOwner;
-      case 'rejected':
-        return ApprovalStatus.rejected;
-      case 'approved':
-        return ApprovalStatus.approved;
-      default:
-        return ApprovalStatus.approved;
+    if (raw is String) {
+      switch (raw) {
+        case 'pendingSystemAdmin':
+          return ApprovalStatus.pendingSystemAdmin;
+        case 'pendingOwner':
+          return ApprovalStatus.pendingOwner;
+        case 'rejected':
+          return ApprovalStatus.rejected;
+        case 'approved':
+          return ApprovalStatus.approved;
+      }
     }
+    if (needsSystemAdminApproval(data)) {
+      return ApprovalStatus.pendingSystemAdmin;
+    }
+    return ApprovalStatus.approved;
   }
 
   /// Derived status for a device, driven by `blocked` + expiry +

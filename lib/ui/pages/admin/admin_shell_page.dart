@@ -1,11 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../providers/admin_auth_provider.dart';
+import '../../../services/cloud/firestore_paths.dart';
 import '../../design_system/app_tokens.dart';
 import 'admin_dashboard_page.dart';
 import 'admin_devices_page.dart';
+import 'admin_heuristics.dart';
 import 'admin_shops_page.dart';
 import 'widgets/admin_global_search_sheet.dart';
 
@@ -103,24 +106,56 @@ class _AdminShellPageState extends ConsumerState<AdminShellPage> {
               break;
           }
         },
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
+            icon: _ShopsNavIcon(selected: false, db: ref.watch(adminAuthServiceProvider).db),
+            selectedIcon:
+                _ShopsNavIcon(selected: true, db: ref.watch(adminAuthServiceProvider).db),
             label: 'Shops',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.devices_other_outlined),
             selectedIcon: Icon(Icons.devices_other),
             label: 'Devices',
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ShopsNavIcon extends StatelessWidget {
+  final bool selected;
+  final FirebaseFirestore? db;
+
+  const _ShopsNavIcon({required this.selected, required this.db});
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Icon(
+      selected ? Icons.storefront : Icons.storefront_outlined,
+    );
+    if (db == null) return icon;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: db!.collection(FirestorePaths.shopsCollection).snapshots(),
+      builder: (context, snap) {
+        final pending = (snap.data?.docs ?? const []).where(
+          (d) =>
+              AdminHeuristics.approvalStatus(d.data()) ==
+              ApprovalStatus.pendingSystemAdmin,
+        ).length;
+        if (pending <= 0) return icon;
+        return Badge(
+          label: Text(pending > 9 ? '9+' : '$pending'),
+          child: icon,
+        );
+      },
     );
   }
 }

@@ -16,7 +16,7 @@ import 'widgets/admin_skeleton_list.dart';
 import 'widgets/admin_status_badge.dart';
 
 /// Filters applied to the shops list. Wired to the filter-chip row.
-enum _ShopFilter { all, active, disabled, expiringSoon, expired }
+enum _ShopFilter { all, pendingApproval, active, disabled, expiringSoon, expired }
 
 /// Sort options exposed in the overflow menu.
 enum _ShopSort { name, devices, revenue7d }
@@ -31,6 +31,9 @@ class AdminShopsPage extends ConsumerStatefulWidget {
   /// Parse the query-param flavour that routes use.
   static AdminShopsPage withQueryFilter(String? raw) {
     switch (raw) {
+      case 'pending':
+      case 'pendingApproval':
+        return const AdminShopsPage(initialFilter: _ShopFilter.pendingApproval);
       case 'active':
         return const AdminShopsPage(initialFilter: _ShopFilter.active);
       case 'disabled':
@@ -109,7 +112,12 @@ class _AdminShopsPageState extends ConsumerState<AdminShopsPage> {
                 _deviceCountByShop.putIfAbsent(d.id, () => 0);
               }
 
-              docs.sort(_compareByCurrentSort);
+              docs.sort((a, b) {
+                final pendingCmp = _pendingSortKey(b.data())
+                    .compareTo(_pendingSortKey(a.data()));
+                if (pendingCmp != 0) return pendingCmp;
+                return _compareByCurrentSort(a, b);
+              });
 
               if (docs.isEmpty) {
                 return RefreshIndicator(
@@ -180,19 +188,32 @@ class _AdminShopsPageState extends ConsumerState<AdminShopsPage> {
         return false;
       }
     }
+    final approval = AdminHeuristics.approvalStatus(data);
     final status = AdminHeuristics.shopStatus(data);
     switch (_filter) {
       case _ShopFilter.all:
         return true;
+      case _ShopFilter.pendingApproval:
+        return approval == ApprovalStatus.pendingSystemAdmin;
       case _ShopFilter.active:
-        return status == ShopStatus.active;
+        return approval == ApprovalStatus.approved &&
+            status == ShopStatus.active;
       case _ShopFilter.disabled:
         return status == ShopStatus.disabled;
       case _ShopFilter.expiringSoon:
-        return status == ShopStatus.expiringSoon;
+        return approval == ApprovalStatus.approved &&
+            status == ShopStatus.expiringSoon;
       case _ShopFilter.expired:
-        return status == ShopStatus.expired;
+        return approval == ApprovalStatus.approved &&
+            status == ShopStatus.expired;
     }
+  }
+
+  int _pendingSortKey(Map<String, dynamic> data) {
+    return AdminHeuristics.approvalStatus(data) ==
+            ApprovalStatus.pendingSystemAdmin
+        ? 1
+        : 0;
   }
 
   int _compareByCurrentSort(
@@ -236,6 +257,7 @@ class _FilterRow extends StatelessWidget {
       child: Row(
         children: [
           _chip('All', _ShopFilter.all),
+          _chip('Pending', _ShopFilter.pendingApproval),
           _chip('Active', _ShopFilter.active),
           _chip('Expiring', _ShopFilter.expiringSoon),
           _chip('Expired', _ShopFilter.expired),
@@ -304,9 +326,20 @@ class _ShopTile extends ConsumerWidget {
     final name = (data['name'] as String?) ?? 'Shop';
     final code = (data['code'] as String?) ?? '';
     final db = ref.watch(adminAuthServiceProvider).db!;
+    final pendingApproval =
+        AdminHeuristics.approvalStatus(data) ==
+            ApprovalStatus.pendingSystemAdmin;
+    final ownerName = (data['ownerName'] as String?)?.trim();
+    final ownerPhone = ((data['ownerPhone'] as String?) ??
+            (data['businessPhone'] as String?))
+        ?.trim();
+    final requestedAt =
+        AdminHeuristics.parseTs(data['approvalRequestedAt']) ??
+            AdminHeuristics.parseTs(data['createdAt']);
 
     return AppPanel(
       onTap: () => context.push('/admin/shops/${doc.id}'),
+      color: pendingApproval ? extras.warning.withValues(alpha: 0.08) : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppTokens.space2,
@@ -335,6 +368,28 @@ class _ShopTile extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
+                  if (pendingApproval &&
+                      (ownerName != null ||
+                          ownerPhone != null ||
+                          requestedAt != null))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        [
+                          if (ownerName != null && ownerName.isNotEmpty)
+                            ownerName,
+                          if (ownerPhone != null && ownerPhone.isNotEmpty)
+                            ownerPhone,
+                          if (requestedAt != null)
+                            'Requested ${AdminHeuristics.relativeShort(requestedAt)} ago',
+                        ].join(' · '),
+                        style: TextStyle(
+                          color: extras.warning,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   Row(
                     children: [
                       if (code.isNotEmpty) ...[

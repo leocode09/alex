@@ -39,6 +39,12 @@ class AdminAlertsBanner extends ConsumerWidget {
                   AdminHeuristics.shopStatus(s.data()) == ShopStatus.expired,
             ).length;
 
+            final pendingApprovals = shops.where(
+              (s) =>
+                  AdminHeuristics.approvalStatus(s.data()) ==
+                  ApprovalStatus.pendingSystemAdmin,
+            ).length;
+
             final offlineDevices = devices.where(
               (d) =>
                   AdminHeuristics.deviceStatus(d.data()) == DeviceStatus.offline,
@@ -55,7 +61,8 @@ class AdminAlertsBanner extends ConsumerWidget {
                         AdminHeuristics.compareAppVersions(v, maxVersion) < 0;
                   }).length;
 
-            final hasAny = expiringShops > 0 ||
+            final hasAny = pendingApprovals > 0 ||
+                expiringShops > 0 ||
                 offlineDevices > 0 ||
                 outdatedDevices > 0;
             if (!hasAny) return const SizedBox.shrink();
@@ -63,6 +70,17 @@ class AdminAlertsBanner extends ConsumerWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (pendingApprovals > 0)
+                  _AlertRow(
+                    tone: context.appExtras.warning,
+                    icon: Icons.hourglass_top,
+                    title:
+                        '$pendingApprovals business registration(s) waiting',
+                    subtitle: 'Review and approve new shop owners',
+                    onTap: () => context.push(
+                      '/admin/shops?filter=pending',
+                    ),
+                  ),
                 if (expiringShops > 0)
                   _AlertRow(
                     tone: Theme.of(context).colorScheme.error,
