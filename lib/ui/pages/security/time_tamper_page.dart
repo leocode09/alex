@@ -45,7 +45,9 @@ class _TimeTamperPageState extends ConsumerState<TimeTamperPage>
   }
 
   Future<void> _loadPinStatus() async {
-    final isSet = await PinService().isPinSet();
+    final pinService = PinService();
+    await pinService.ensurePinReady();
+    final isSet = await pinService.isPinSet();
     if (!mounted) {
       return;
     }

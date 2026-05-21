@@ -98,6 +98,11 @@ class _PinSetupPageState extends State<PinSetupPage> {
   void initState() {
     super.initState();
     _shuffleNumbers();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!await _pinService.canManagePinSettings() && mounted) {
+        context.go('/');
+      }
+    });
   }
 
   void _shuffleNumbers() {

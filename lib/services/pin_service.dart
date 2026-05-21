@@ -98,13 +98,18 @@ class PinService {
   /// Staff inherit the owner's PIN from Firestore; owners publish on save.
   Future<bool> ensurePinReady({AccountState? account}) async {
     final state = account ?? AccountService().current;
-    if (await isPinSet()) {
+    if (state.isStaff && state.shopId != null) {
+      final loaded = await ShopPinService().loadForStaff(state.shopId!);
+      if (loaded == null) {
+        return false;
+      }
+      await importShopOwnerPin(
+        pin: loaded.pin,
+        preferences: loaded.preferences,
+      );
       return true;
     }
-    if (!state.isStaff || state.shopId == null) {
-      return false;
-    }
-    return ShopPinService().applyForStaff(state.shopId!);
+    return isPinSet();
   }
 
   Future<void> importShopOwnerPin({
@@ -140,7 +145,16 @@ class PinService {
     if (!account.isOwner || account.shopId == null) {
       return;
     }
-    await ShopPinService().publishFromLocal(account.shopId!);
+    final pin = await getStoredPin();
+    if (pin == null) {
+      return;
+    }
+    final preferences = await getPinPreferences();
+    await ShopPinService().publish(
+      shopId: account.shopId!,
+      pin: pin,
+      preferences: preferences,
+    );
   }
 
   Future<void> setPin(

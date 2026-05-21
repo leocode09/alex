@@ -5,10 +5,8 @@ import 'package:flutter/foundation.dart';
 
 import 'cloud/firebase_init.dart';
 import 'cloud/firestore_paths.dart';
-import 'pin_service.dart';
 
-/// Syncs the shop owner's PIN + preference map to Firestore so staff
-/// devices inherit the same protection rules without creating their own.
+/// Firestore-backed shop PIN config shared from owner to staff devices.
 class ShopPinService {
   ShopPinService._internal();
   static final ShopPinService _instance = ShopPinService._internal();
@@ -42,36 +40,32 @@ class ShopPinService {
     }
   }
 
-  /// Pull the owner's PIN config onto this device for a staff member.
-  /// Returns true when a shop PIN was applied locally.
-  Future<bool> applyForStaff(String shopId) async {
+  /// Returns the owner's PIN + preference map when configured.
+  Future<({String pin, Map<String, bool> preferences})?> loadForStaff(
+    String shopId,
+  ) async {
     final config = await fetchConfig(shopId);
     if (config == null) {
-      return false;
+      return null;
     }
     final pin = config['pin'];
     if (pin is! String || pin.length != 4) {
-      return false;
+      return null;
     }
-    final preferences = _decodePreferences(config['preferences']);
-    await PinService().importShopOwnerPin(
+    return (
       pin: pin,
-      preferences: preferences,
+      preferences: _decodePreferences(config['preferences']),
     );
-    return true;
   }
 
-  /// Push the locally configured PIN + preferences to the shop doc.
-  Future<void> publishFromLocal(String shopId) async {
+  Future<void> publish({
+    required String shopId,
+    required String pin,
+    required Map<String, bool> preferences,
+  }) async {
     if (!FirebaseInit.available) {
       return;
     }
-    final pinService = PinService();
-    final pin = await pinService.getStoredPin();
-    if (pin == null) {
-      return;
-    }
-    final preferences = await pinService.getPinPreferences();
     try {
       await _doc(shopId).set({
         'pin': pin,
@@ -80,7 +74,7 @@ class ShopPinService {
       }, SetOptions(merge: true));
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('ShopPinService.publishFromLocal error: $e');
+        debugPrint('ShopPinService.publish error: $e');
       }
     }
   }
@@ -106,5 +100,3 @@ class ShopPinService {
     return const {};
   }
 }
-
-// PinService reads SharedPreferences directly for publish; expose import there.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../services/pin_service.dart';
 
 class PinPreferencesPage extends StatefulWidget {
@@ -142,6 +143,11 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!await _pinService.canManagePinSettings() && mounted) {
+        context.go('/settings');
+      }
+    });
     _loadPreferences();
   }
 

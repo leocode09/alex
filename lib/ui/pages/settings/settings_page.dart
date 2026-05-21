@@ -219,12 +219,28 @@ class SettingsPage extends ConsumerWidget {
                   onTap: () => _showSecurityOptions(context),
                 ),
               if (account.isStaff)
-                _buildSettingTile(
-                  context,
-                  'Security',
-                  'PIN and access rules are managed by your shop owner',
-                  Icons.lock_outline,
-                  enabled: false,
+                AppPanel(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.lock_outline,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 22,
+                    ),
+                    title: Text(
+                      'Security',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    subtitle: Text(
+                      'PIN and access rules are managed by your shop owner',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: context.appExtras.muted,
+                            fontSize: 12,
+                          ),
+                    ),
+                  ),
                 ),
               const SizedBox(height: 24),
               _buildSectionHeader(context, 'App Preferences'),

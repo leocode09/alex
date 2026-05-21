@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../helpers/pin_protection.dart';
-import '../../../models/account_state.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -55,7 +54,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
     final account = ref.read(currentAccountStateProvider);
     await pinService.ensurePinReady(account: account);
     final isPinSet = await pinService.isPinSet();
-    final canManagePin = await pinService.canManagePinSettings();
 
     if (!mounted) {
       return;
@@ -74,10 +72,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
       context.go('/pin-setup');
       return;
-    }
-
-    if (!canManagePin && mounted) {
-      // Staff always enter the shared shop PIN at login when required.
     }
 
     final requireLoginPin = await pinService.isPinRequiredForLogin();
