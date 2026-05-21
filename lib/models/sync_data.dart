@@ -9,6 +9,7 @@ import 'money_account.dart';
 import 'product.dart';
 import 'sale.dart';
 import 'store.dart';
+import 'shop_app_settings.dart';
 
 /// Envelope for all synced data.
 ///
@@ -38,7 +39,9 @@ class SyncData {
   final List<String> deletedStoreIds;
   final List<String> deletedMoneyAccountIds;
   final List<String> deletedCustomerCreditEntryIds;
+  final List<String> deletedSaleIds;
 
+  final ShopAppSettings? shopAppSettings;
   final DateTime syncTimestamp;
   final String deviceId;
   final String syncVersion;
@@ -63,6 +66,8 @@ class SyncData {
     this.deletedStoreIds = const [],
     this.deletedMoneyAccountIds = const [],
     this.deletedCustomerCreditEntryIds = const [],
+    this.deletedSaleIds = const [],
+    this.shopAppSettings,
     DateTime? syncTimestamp,
     required this.deviceId,
     this.syncVersion = '2.0.0',
@@ -90,6 +95,8 @@ class SyncData {
       'deletedStoreIds': deletedStoreIds,
       'deletedMoneyAccountIds': deletedMoneyAccountIds,
       'deletedCustomerCreditEntryIds': deletedCustomerCreditEntryIds,
+      'deletedSaleIds': deletedSaleIds,
+      if (shopAppSettings != null) 'shopAppSettings': shopAppSettings!.toJson(),
       'syncTimestamp': syncTimestamp.toIso8601String(),
       'deviceId': deviceId,
       'syncVersion': syncVersion,
@@ -162,6 +169,12 @@ class SyncData {
         deletedMoneyAccountIds: _decodeIds(json['deletedMoneyAccountIds']),
         deletedCustomerCreditEntryIds:
             _decodeIds(json['deletedCustomerCreditEntryIds']),
+        deletedSaleIds: _decodeIds(json['deletedSaleIds']),
+        shopAppSettings: json['shopAppSettings'] is Map
+            ? ShopAppSettings.fromJson(
+                Map<String, dynamic>.from(json['shopAppSettings'] as Map),
+              )
+            : null,
         syncTimestamp: json['syncTimestamp'] != null
             ? DateTime.parse(json['syncTimestamp'] as String)
             : DateTime.now(),
@@ -225,6 +238,8 @@ class SyncData {
     List<String>? deletedStoreIds,
     List<String>? deletedMoneyAccountIds,
     List<String>? deletedCustomerCreditEntryIds,
+    List<String>? deletedSaleIds,
+    ShopAppSettings? shopAppSettings,
     DateTime? syncTimestamp,
     String? deviceId,
     String? syncVersion,
@@ -252,6 +267,8 @@ class SyncData {
           deletedMoneyAccountIds ?? this.deletedMoneyAccountIds,
       deletedCustomerCreditEntryIds: deletedCustomerCreditEntryIds ??
           this.deletedCustomerCreditEntryIds,
+      deletedSaleIds: deletedSaleIds ?? this.deletedSaleIds,
+      shopAppSettings: shopAppSettings ?? this.shopAppSettings,
       syncTimestamp: syncTimestamp ?? this.syncTimestamp,
       deviceId: deviceId ?? this.deviceId,
       syncVersion: syncVersion ?? this.syncVersion,

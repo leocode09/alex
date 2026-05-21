@@ -74,8 +74,9 @@ class CloudEntityMapper {
   static Map<String, dynamic> saleToDoc(
     Sale sale, {
     required String deviceId,
+    bool deleted = false,
   }) =>
-      _stamp(sale.toMap(), deviceId: deviceId, deleted: false);
+      _stamp(sale.toMap(), deviceId: deviceId, deleted: deleted);
 
   static Map<String, dynamic> storeToDoc(
     Store store, {

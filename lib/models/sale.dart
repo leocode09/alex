@@ -14,6 +14,7 @@ class Sale {
   final double customerCreditBalanceAfter;
   final double amountPaid;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   Sale({
     required this.id,
@@ -31,8 +32,10 @@ class Sale {
     this.customerCreditBalanceAfter = 0.0,
     double? amountPaid,
     DateTime? createdAt,
+    DateTime? updatedAt,
   })  : amountPaid = amountPaid ?? total,
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
   /// How much of the sale total is still owed by the customer. Always
   /// non-negative (overpayments don't surface here).
@@ -68,6 +71,7 @@ class Sale {
     double? customerCreditBalanceAfter,
     double? amountPaid,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Sale(
       id: id ?? this.id,
@@ -93,6 +97,7 @@ class Sale {
           customerCreditBalanceAfter ?? this.customerCreditBalanceAfter,
       amountPaid: amountPaid ?? this.amountPaid,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -113,6 +118,7 @@ class Sale {
       'customerCreditBalanceAfter': customerCreditBalanceAfter,
       'amountPaid': amountPaid,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
@@ -140,6 +146,9 @@ class Sale {
       amountPaid: (map['amountPaid'] as num?)?.toDouble() ??
           (map['total'] as num).toDouble(),
       createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.parse(map['updatedAt'] as String)
+          : DateTime.parse(map['createdAt'] as String),
     );
   }
 }

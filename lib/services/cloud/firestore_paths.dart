@@ -65,5 +65,6 @@ class SoftDeletable {
     FirestorePaths.storesSubcollection,
     FirestorePaths.moneyAccountsSubcollection,
     FirestorePaths.customerCreditEntriesSubcollection,
+    FirestorePaths.salesSubcollection,
   };
 }

@@ -24,6 +24,7 @@ class CustomerPaymentResult {
 class SaleRepository {
   final StorageHelper _storage = StorageHelper();
   static const String _salesKey = 'sales';
+  static const String _deletedSaleIdsKey = 'deleted_sale_ids';
 
   // Get all sales
   Future<List<Sale>> getAllSales() async {
@@ -88,8 +89,14 @@ class SaleRepository {
   Future<bool> deleteSale(String id) async {
     try {
       final sales = await getAllSales();
+      final initialLength = sales.length;
       sales.removeWhere((s) => s.id == id);
-      return await _saveSales(sales);
+      if (sales.length == initialLength) return false;
+      final saved = await _saveSales(sales);
+      if (saved) {
+        await addDeletedSaleIds([id]);
+      }
+      return saved;
     } catch (e) {
       print('Error deleting sale: $e');
       return false;
@@ -102,7 +109,7 @@ class SaleRepository {
       final sales = await getAllSales();
       final index = sales.indexWhere((s) => s.id == updatedSale.id);
       if (index != -1) {
-        sales[index] = updatedSale;
+        sales[index] = updatedSale.copyWith(updatedAt: DateTime.now());
         return await _saveSales(sales);
       }
       return false;
@@ -273,7 +280,10 @@ class SaleRepository {
       final sale = unpaid[i];
       final due = sale.amountDue;
       final applied = remaining < due ? remaining : due;
-      final updated = sale.copyWith(amountPaid: sale.amountPaid + applied);
+      final updated = sale.copyWith(
+        amountPaid: sale.amountPaid + applied,
+        updatedAt: DateTime.now(),
+      );
       final idx = sales.indexWhere((s) => s.id == sale.id);
       if (idx != -1) {
         sales[idx] = updated;
@@ -304,5 +314,37 @@ class SaleRepository {
   // Replace all sales (for sync)
   Future<bool> replaceAllSales(List<Sale> sales) async {
     return await _saveSales(sales);
+  }
+
+  Future<List<String>> getDeletedSaleIds() async {
+    final jsonData = await _storage.getData(_deletedSaleIdsKey);
+    if (jsonData == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      return decoded.cast<String>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addDeletedSaleIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final existing = (await getDeletedSaleIds()).toSet();
+    existing.addAll(ids);
+    await _storage.saveData(
+      _deletedSaleIdsKey,
+      jsonEncode(existing.toList()),
+    );
+  }
+
+  Future<void> applyDeletedSaleIds(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final deletedSet = ids.toSet();
+    final sales = await getAllSales();
+    final filtered = sales.where((s) => !deletedSet.contains(s.id)).toList();
+    if (filtered.length < sales.length) {
+      await _saveSales(filtered);
+    }
+    await addDeletedSaleIds(ids);
   }
 }

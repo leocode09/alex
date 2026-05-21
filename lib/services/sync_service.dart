@@ -23,6 +23,7 @@ import '../repositories/sale_repository.dart';
 import '../repositories/store_repository.dart';
 import '../repositories/money_repository.dart';
 import '../repositories/inventory_movement_repository.dart';
+import 'shop_app_settings_service.dart';
 import 'sync_event_bus.dart';
 
 enum SyncStrategy {
@@ -43,6 +44,7 @@ class SyncService {
   final MoneyRepository _moneyRepo = MoneyRepository();
   final InventoryMovementRepository _movementRepo =
       InventoryMovementRepository();
+  final ShopAppSettingsService _shopSettingsService = ShopAppSettingsService();
 
   /// Get unique device identifier
   Future<String> getDeviceId() async {
@@ -95,6 +97,8 @@ class SyncService {
       final deletedMoneyAccountIds =
           await _moneyRepo.getDeletedMoneyAccountIds();
       final deletedCreditEntryIds = await _creditRepo.getDeletedIds();
+      final deletedSaleIds = await _saleRepo.getDeletedSaleIds();
+      final shopAppSettings = await _shopSettingsService.snapshotForSync();
 
       return SyncData(
         products: products,
@@ -116,6 +120,8 @@ class SyncService {
         deletedStoreIds: deletedStoreIds,
         deletedMoneyAccountIds: deletedMoneyAccountIds,
         deletedCustomerCreditEntryIds: deletedCreditEntryIds,
+        deletedSaleIds: deletedSaleIds,
+        shopAppSettings: shopAppSettings.isEmpty ? null : shopAppSettings,
         deviceId: deviceId,
       );
     } catch (e) {
@@ -235,6 +241,11 @@ class SyncService {
           break;
       }
 
+      if (incomingData.shopAppSettings != null &&
+          !incomingData.shopAppSettings!.isEmpty) {
+        await _shopSettingsService.mergeIncoming(incomingData.shopAppSettings!);
+      }
+
       syncResult.success = true;
       syncResult.message = 'Sync completed successfully';
       SyncEventBus.instance.emit(reason: 'import');
@@ -274,6 +285,9 @@ class SyncService {
     if (incoming.deletedCustomerCreditEntryIds.isNotEmpty) {
       await _creditRepo
           .applyDeletedIds(incoming.deletedCustomerCreditEntryIds);
+    }
+    if (incoming.deletedSaleIds.isNotEmpty) {
+      await _saleRepo.applyDeletedSaleIds(incoming.deletedSaleIds);
     }
   }
 
