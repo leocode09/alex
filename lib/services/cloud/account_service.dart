@@ -97,13 +97,15 @@ class AccountService {
         return;
       }
 
-      if (_attachedShopId != shopId || _attachedUid != uid) {
+      var activeShopId = await _resolveShopId(shopId, uid);
+
+      if (_attachedShopId != activeShopId || _attachedUid != uid) {
         await _detach();
-        _attachedShopId = shopId;
+        _attachedShopId = activeShopId;
         _attachedUid = uid;
         _shopSub = FirebaseFirestore.instance
             .collection(FirestorePaths.shopsCollection)
-            .doc(shopId)
+            .doc(activeShopId)
             .snapshots()
             .listen(
           (doc) {
@@ -118,7 +120,7 @@ class AccountService {
         );
         _memberSub = FirebaseFirestore.instance
             .collection(FirestorePaths.shopsCollection)
-            .doc(shopId)
+            .doc(activeShopId)
             .collection(FirestorePaths.membersSubcollection)
             .doc(uid)
             .snapshots()
@@ -135,7 +137,7 @@ class AccountService {
         );
       }
 
-      await _fetchLatestDocs(shopId, uid);
+      await _fetchLatestDocs(activeShopId, uid);
       _emitMerged();
     } finally {
       _attaching = false;
@@ -173,6 +175,72 @@ class AccountService {
       if (kDebugMode) {
         debugPrint('AccountService._fetchLatestDocs error: $e');
       }
+    }
+  }
+
+  /// If this device cached a shop id/code that never landed in Firestore
+  /// (or a duplicate registration was started), re-bind to the owner's
+  /// real approved business when one exists.
+  Future<String> _resolveShopId(String cachedShopId, String uid) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final cachedSnap = await db
+          .collection(FirestorePaths.shopsCollection)
+          .doc(cachedShopId)
+          .get();
+      final cachedStatus = cachedSnap.exists
+          ? ((cachedSnap.data()?[AccountApproval.fieldStatus] as String?) ??
+              AccountApproval.statusApproved)
+          : null;
+
+      if (cachedSnap.exists &&
+          cachedStatus == AccountApproval.statusApproved) {
+        return cachedShopId;
+      }
+
+      final owned = await db
+          .collection(FirestorePaths.shopsCollection)
+          .where('ownerUid', isEqualTo: uid)
+          .limit(5)
+          .get();
+      if (owned.docs.isEmpty) {
+        return cachedShopId;
+      }
+
+      DocumentSnapshot<Map<String, dynamic>>? approved;
+      DocumentSnapshot<Map<String, dynamic>>? pending;
+      for (final doc in owned.docs) {
+        final status =
+            (doc.data()[AccountApproval.fieldStatus] as String?) ??
+                AccountApproval.statusApproved;
+        if (status == AccountApproval.statusApproved) {
+          approved = doc;
+          break;
+        }
+        pending ??= doc;
+      }
+
+      final target = approved ?? pending;
+      if (target == null) {
+        return cachedShopId;
+      }
+
+      if (target.id == cachedShopId && cachedSnap.exists) {
+        return cachedShopId;
+      }
+
+      final data = target.data()!;
+      await _shopService.persistShopCache(
+        id: target.id,
+        code: (data['code'] as String?) ?? '',
+        name: (data['name'] as String?) ?? 'Business',
+      );
+      return target.id;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AccountService._resolveShopId error: $e');
+      }
+      return cachedShopId;
     }
   }
 
