@@ -18,6 +18,7 @@ import 'widgets/admin_status_badge.dart';
 enum _DeviceFilter {
   all,
   online,
+  pendingApproval,
   offline,
   blocked,
   expiringSoon,
@@ -29,24 +30,43 @@ enum _DeviceSort { lastSeen, deviceName, appVersion }
 
 class AdminDevicesPage extends ConsumerStatefulWidget {
   /// Optional initial filter (comes from query param).
-  final _DeviceFilter? initialFilter;
+  final _DeviceFilter? _initialFilter;
 
-  const AdminDevicesPage({super.key, this.initialFilter});
+  const AdminDevicesPage({super.key}) : _initialFilter = null;
+
+  const AdminDevicesPage._withFilter({
+    required _DeviceFilter initialFilter,
+  }) : _initialFilter = initialFilter;
 
   static AdminDevicesPage withQueryFilter(String? raw) {
     switch (raw) {
       case 'online':
-        return const AdminDevicesPage(initialFilter: _DeviceFilter.online);
+        return const AdminDevicesPage._withFilter(
+          initialFilter: _DeviceFilter.online,
+        );
+      case 'pending':
+      case 'pendingApproval':
+      case 'pendingOwner':
+        return const AdminDevicesPage._withFilter(
+          initialFilter: _DeviceFilter.pendingApproval,
+        );
       case 'offline':
-        return const AdminDevicesPage(initialFilter: _DeviceFilter.offline);
+        return const AdminDevicesPage._withFilter(
+          initialFilter: _DeviceFilter.offline,
+        );
       case 'blocked':
-        return const AdminDevicesPage(initialFilter: _DeviceFilter.blocked);
+        return const AdminDevicesPage._withFilter(
+          initialFilter: _DeviceFilter.blocked,
+        );
       case 'expiring':
       case 'expiringSoon':
-        return const AdminDevicesPage(
-            initialFilter: _DeviceFilter.expiringSoon);
+        return const AdminDevicesPage._withFilter(
+          initialFilter: _DeviceFilter.expiringSoon,
+        );
       case 'outdated':
-        return const AdminDevicesPage(initialFilter: _DeviceFilter.outdated);
+        return const AdminDevicesPage._withFilter(
+          initialFilter: _DeviceFilter.outdated,
+        );
       default:
         return const AdminDevicesPage();
     }
@@ -59,7 +79,7 @@ class AdminDevicesPage extends ConsumerStatefulWidget {
 class _AdminDevicesPageState extends ConsumerState<AdminDevicesPage> {
   final _searchController = TextEditingController();
   String _query = '';
-  late _DeviceFilter _filter = widget.initialFilter ?? _DeviceFilter.all;
+  late _DeviceFilter _filter = widget._initialFilter ?? _DeviceFilter.all;
   _DeviceSort _sort = _DeviceSort.lastSeen;
 
   final Set<String> _selectedIds = <String>{};
@@ -131,24 +151,24 @@ class _AdminDevicesPageState extends ConsumerState<AdminDevicesPage> {
                       AdminEmptyState(
                         icon: Icons.devices_other_outlined,
                         title: 'No devices match',
-                        subtitle: _query.isNotEmpty ||
-                                _filter != _DeviceFilter.all
-                            ? 'Try clearing your filters.'
-                            : 'Devices appear as they heartbeat in.',
-                        actionLabel: (_query.isNotEmpty ||
-                                _filter != _DeviceFilter.all)
-                            ? 'Clear filters'
-                            : null,
-                        onAction: (_query.isNotEmpty ||
-                                _filter != _DeviceFilter.all)
-                            ? () {
-                                _searchController.clear();
-                                setState(() {
-                                  _query = '';
-                                  _filter = _DeviceFilter.all;
-                                });
-                              }
-                            : null,
+                        subtitle:
+                            _query.isNotEmpty || _filter != _DeviceFilter.all
+                                ? 'Try clearing your filters.'
+                                : 'Devices appear as they heartbeat in.',
+                        actionLabel:
+                            (_query.isNotEmpty || _filter != _DeviceFilter.all)
+                                ? 'Clear filters'
+                                : null,
+                        onAction:
+                            (_query.isNotEmpty || _filter != _DeviceFilter.all)
+                                ? () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _query = '';
+                                      _filter = _DeviceFilter.all;
+                                    });
+                                  }
+                                : null,
                       ),
                     ],
                   ),
@@ -236,6 +256,9 @@ class _AdminDevicesPageState extends ConsumerState<AdminDevicesPage> {
         return true;
       case _DeviceFilter.online:
         return status == DeviceStatus.online;
+      case _DeviceFilter.pendingApproval:
+        return status == DeviceStatus.pendingOwner ||
+            status == DeviceStatus.pendingSystemAdmin;
       case _DeviceFilter.offline:
         return status == DeviceStatus.offline;
       case _DeviceFilter.blocked:
@@ -297,6 +320,7 @@ class _FilterRow extends StatelessWidget {
         children: [
           _chip('All', _DeviceFilter.all),
           _chip('Online', _DeviceFilter.online),
+          _chip('Pending', _DeviceFilter.pendingApproval),
           _chip('Offline 3d+', _DeviceFilter.offline),
           _chip('Blocked', _DeviceFilter.blocked),
           _chip('Expiring', _DeviceFilter.expiringSoon),
@@ -328,9 +352,7 @@ class _FilterRow extends StatelessWidget {
             ),
             label: Text(
               selecting
-                  ? (selectedCount == 0
-                      ? 'Cancel'
-                      : 'Selected $selectedCount')
+                  ? (selectedCount == 0 ? 'Cancel' : 'Selected $selectedCount')
                   : 'Select',
             ),
             onPressed: onToggleSelecting,
@@ -386,13 +408,13 @@ class _DeviceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final extras = context.appExtras;
     final name = (data['deviceName'] as String?)?.trim();
-    final displayName = (name != null && name.isNotEmpty)
-        ? name
-        : installId.substring(0, 8);
+    final displayName =
+        (name != null && name.isNotEmpty) ? name : installId.substring(0, 8);
     final shopName = data['shopName'] as String?;
     final platform = data['platform'] as String?;
     final lastSeenIso = data['lastSeenAtIso'] as String?;
-    final lastSeen = lastSeenIso != null ? DateTime.tryParse(lastSeenIso) : null;
+    final lastSeen =
+        lastSeenIso != null ? DateTime.tryParse(lastSeenIso) : null;
     final version = data['appVersion'] as String?;
     final isOutdated = maxVersion != null &&
         version != null &&
@@ -561,9 +583,8 @@ class _BulkActionsBarState extends ConsumerState<_BulkActionsBar> {
       final actor = _actorFields();
 
       for (final id in widget.selectedIds) {
-        final deviceRef = db
-            .collection(FirestorePaths.devicesCollection)
-            .doc(id);
+        final deviceRef =
+            db.collection(FirestorePaths.devicesCollection).doc(id);
 
         Map<String, dynamic> payload;
         String actionLabel;
@@ -586,8 +607,7 @@ class _BulkActionsBarState extends ConsumerState<_BulkActionsBar> {
             59,
           );
           payload = {'expiresAt': end.toIso8601String()};
-          actionLabel =
-              'Bulk extended device expiry by $extendDays days';
+          actionLabel = 'Bulk extended device expiry by $extendDays days';
         } else {
           continue;
         }
@@ -681,4 +701,3 @@ class _BulkActionsBarState extends ConsumerState<_BulkActionsBar> {
     return ok ?? false;
   }
 }
-

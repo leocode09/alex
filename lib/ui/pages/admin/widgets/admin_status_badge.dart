@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../design_system/widgets/app_badge.dart';
 import '../admin_heuristics.dart';
 
-
 /// Compact pill that shows the derived status for a shop or device.
 ///
 /// For a shop, pass the raw doc data. For a device, set [isDevice]=true.
@@ -98,12 +97,21 @@ class AdminStatusBadge extends StatelessWidget {
         return const _BadgeData('Online', AppBadgeTone.success);
       case DeviceStatus.offline:
         final d = AdminHeuristics.daysSinceLastSeen(data);
-        if (d == null) return const _BadgeData('Never seen', AppBadgeTone.neutral);
+        if (d == null) {
+          return const _BadgeData('Never seen', AppBadgeTone.neutral);
+        }
         return _BadgeData('Offline ${d}d', AppBadgeTone.neutral);
       case DeviceStatus.blocked:
         return const _BadgeData('Blocked', AppBadgeTone.danger);
+      case DeviceStatus.pendingSystemAdmin:
+        return const _BadgeData('Pending review', AppBadgeTone.warning);
+      case DeviceStatus.pendingOwner:
+        return const _BadgeData('Pending owner', AppBadgeTone.warning);
+      case DeviceStatus.rejected:
+        return const _BadgeData('Rejected', AppBadgeTone.danger);
       case DeviceStatus.expiringSoon:
-        final d = AdminHeuristics.daysUntilExpiry(data, deviceScoped: true) ?? 0;
+        final d =
+            AdminHeuristics.daysUntilExpiry(data, deviceScoped: true) ?? 0;
         return _BadgeData(
           d <= 0 ? 'Expires today' : 'Expires in ${d}d',
           AppBadgeTone.warning,

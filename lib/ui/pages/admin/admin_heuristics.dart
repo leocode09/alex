@@ -67,6 +67,22 @@ class AdminHeuristics {
   /// legacy docs without the field stay [ApprovalStatus.approved].
   static ApprovalStatus approvalStatus(Map<String, dynamic> data) {
     final raw = data['approvalStatus'];
+    final parsed = _parseApprovalStatus(raw);
+    if (parsed != null) {
+      return parsed;
+    }
+    if (needsSystemAdminApproval(data)) {
+      return ApprovalStatus.pendingSystemAdmin;
+    }
+    return ApprovalStatus.approved;
+  }
+
+  /// Maps the approval state last reported by a device heartbeat.
+  static ApprovalStatus? memberApprovalStatus(Map<String, dynamic> data) {
+    return _parseApprovalStatus(data['memberApprovalStatus']);
+  }
+
+  static ApprovalStatus? _parseApprovalStatus(dynamic raw) {
     if (raw is String) {
       switch (raw) {
         case 'pendingSystemAdmin':
@@ -79,16 +95,24 @@ class AdminHeuristics {
           return ApprovalStatus.approved;
       }
     }
-    if (needsSystemAdminApproval(data)) {
-      return ApprovalStatus.pendingSystemAdmin;
-    }
-    return ApprovalStatus.approved;
+    return null;
   }
 
   /// Derived status for a device, driven by `blocked` + expiry +
   /// last-seen timestamp.
   static DeviceStatus deviceStatus(Map<String, dynamic> data) {
     if (data['blocked'] == true) return DeviceStatus.blocked;
+    switch (memberApprovalStatus(data)) {
+      case ApprovalStatus.pendingSystemAdmin:
+        return DeviceStatus.pendingSystemAdmin;
+      case ApprovalStatus.pendingOwner:
+        return DeviceStatus.pendingOwner;
+      case ApprovalStatus.rejected:
+        return DeviceStatus.rejected;
+      case ApprovalStatus.approved:
+      case null:
+        break;
+    }
     final expiry = parseTs(data['expiresAt']);
     final now = DateTime.now();
     if (expiry != null) {
@@ -97,10 +121,9 @@ class AdminHeuristics {
         return DeviceStatus.expiringSoon;
       }
     }
-    final lastSeen = parseTs(data['lastSeenAtIso']) ??
-        parseTs(data['lastSeenAt']);
-    if (lastSeen == null ||
-        now.difference(lastSeen) > offlineWindow) {
+    final lastSeen =
+        parseTs(data['lastSeenAtIso']) ?? parseTs(data['lastSeenAt']);
+    if (lastSeen == null || now.difference(lastSeen) > offlineWindow) {
       return DeviceStatus.offline;
     }
     return DeviceStatus.online;
@@ -118,8 +141,8 @@ class AdminHeuristics {
 
   /// `null` if no lastSeen field exists, else how many days ago it was.
   static int? daysSinceLastSeen(Map<String, dynamic> data) {
-    final lastSeen = parseTs(data['lastSeenAtIso']) ??
-        parseTs(data['lastSeenAt']);
+    final lastSeen =
+        parseTs(data['lastSeenAtIso']) ?? parseTs(data['lastSeenAt']);
     if (lastSeen == null) return null;
     return DateTime.now().difference(lastSeen).inDays;
   }
@@ -202,6 +225,9 @@ enum DeviceStatus {
   online,
   offline,
   blocked,
+  pendingSystemAdmin,
+  pendingOwner,
+  rejected,
   expiringSoon,
   expired,
 }
