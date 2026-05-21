@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "alex-pos",
     "public": "build/web",
     "ignore": [
       "firebase.json",
