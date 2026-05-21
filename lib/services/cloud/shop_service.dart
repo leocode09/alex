@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/account_state.dart';
 import '../admin/device_heartbeat_service.dart';
 import '../admin/license_service.dart';
+import '../pin_service.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
 
@@ -357,6 +358,7 @@ class ShopService {
     _cachedShopId = null;
     _cachedShopName = null;
     _cachedShopCode = null;
+    unawaited(PinService().clearShopOwnerPinMode());
     unawaited(DeviceHeartbeatService().refreshShopMembership());
     unawaited(LicenseService().refresh());
   }

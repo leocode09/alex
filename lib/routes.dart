@@ -354,18 +354,22 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: policyRefresh,
     redirect: (context, state) async {
       final pinService = PinService();
+      final account = ref.read(currentAccountStateProvider);
+      await pinService.ensurePinReady(account: account);
       final isPinSet = await pinService.isPinSet();
       final isOnPinSetup = state.uri.path == '/pin-setup';
       final isChangingPinFlow =
           isOnPinSetup && state.uri.queryParameters['mode'] == 'change';
       final isOnPinEntry = state.uri.path == '/pin-entry';
       final isOnLogin = state.uri.path == '/';
+      final isOnPinPreferences = state.uri.path == '/pin-preferences';
       final isOnTimeLock = state.uri.path == '/time-lock';
       final isOnLicenseLocked = state.uri.path == '/license-locked';
       final isOnAdminRoute = state.uri.path.startsWith('/admin');
       final isOnOnboarding = state.uri.path.startsWith('/onboarding');
       final isOnPendingApproval = state.uri.path == '/pending-approval';
       final isOnAccountGate = isOnOnboarding || isOnPendingApproval;
+      final canManagePin = await pinService.canManagePinSettings();
       final requireLoginPin = await pinService.isPinRequiredForLogin();
       final isSessionVerified = pinService.isSessionVerified();
       final isUnlocked = pinUnlocked || isSessionVerified;
@@ -373,6 +377,16 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final policy = ref.read(currentLicensePolicyProvider);
       final isBlocked = policy.blockReason() != null;
+
+      // Staff inherit the shop owner's PIN — never show create/change flows.
+      if (account.isStaff && (isOnPinSetup || isOnPinPreferences)) {
+        return isPinSet ? '/money' : '/';
+      }
+      if (account.isStaff &&
+          isChangingPinFlow &&
+          !canManagePin) {
+        return isPinSet ? '/money' : '/';
+      }
 
       // Admin routes are always reachable (they are the escape hatch
       // when the install is locked) and the license-locked screen is
@@ -387,7 +401,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Business-approval gate. Owners must register and be approved
       // by the system admin; staff must be approved by their owner.
       // Admin routes bypass this so support can fix accounts remotely.
-      final account = ref.read(currentAccountStateProvider);
       if (!account.allowsAppAccess && !isOnAdminRoute) {
         switch (account.stage) {
           case AccountStage.noAccount:
@@ -434,7 +447,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // First time — show the login/welcome screen before PIN setup.
       // PIN setup is reached from [LoginPage] when the user continues.
+      // Staff never create a PIN; they wait for the owner's shop PIN.
       if (!isPinSet && !isOnPinSetup && !isOnLogin) {
+        return '/';
+      }
+      if (!isPinSet && !canManagePin && isOnPinSetup) {
         return '/';
       }
 

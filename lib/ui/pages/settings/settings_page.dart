@@ -8,6 +8,7 @@ import '../../../providers/theme_mode_provider.dart';
 import '../../../services/apk_updater_service.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../providers/account_provider.dart';
 import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
@@ -21,6 +22,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final language = ref.watch(languageProvider);
+    final account = ref.watch(currentAccountStateProvider);
     return FutureBuilder<Map<String, bool>>(
       future: PinService().getPinPreferences(),
       builder: (context, snapshot) {
@@ -207,13 +209,22 @@ class SettingsPage extends ConsumerWidget {
                     }
                   },
                 ),
-              if (isVisible('settings') || isVisible('changePin'))
+              if ((isVisible('settings') || isVisible('changePin')) &&
+                  !account.isStaff)
                 _buildSettingTile(
                   context,
                   'Security',
                   'PIN, passwords, and access logs',
                   Icons.lock_outline,
                   onTap: () => _showSecurityOptions(context),
+                ),
+              if (account.isStaff)
+                _buildSettingTile(
+                  context,
+                  'Security',
+                  'PIN and access rules are managed by your shop owner',
+                  Icons.lock_outline,
+                  enabled: false,
                 ),
               const SizedBox(height: 24),
               _buildSectionHeader(context, 'App Preferences'),

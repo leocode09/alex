@@ -2,12 +2,16 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/license_policy.dart';
+import '../models/account_state.dart';
 import 'admin/license_service.dart';
+import 'cloud/account_service.dart';
+import 'shop_pin_service.dart';
 
 class PinService {
   static const String _pinKey = 'user_pin';
   static const String _pinSetKey = 'pin_is_set';
   static const String _pinPreferencesKey = 'pin_preferences';
+  static const String _usesShopPinKey = 'pin_uses_shop_owner';
   static const String _visibilityPrefix = 'visible_';
   static bool _sessionVerified = false;
 
@@ -60,6 +64,83 @@ class PinService {
   Future<bool> isPinSet() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_pinSetKey) ?? false;
+  }
+
+  Future<String?> getStoredPin() async {
+    if (!await isPinSet()) {
+      return null;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final pin = prefs.getString(_pinKey);
+    if (pin == null || pin.length != 4) {
+      return null;
+    }
+    return pin;
+  }
+
+  Future<bool> usesShopOwnerPin() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_usesShopPinKey) ?? false;
+  }
+
+  /// True when this device may create or edit the shop PIN locally.
+  Future<bool> canManagePinSettings() async {
+    if (await usesShopOwnerPin()) {
+      return false;
+    }
+    final account = AccountService().current;
+    if (account.firebaseUnavailable) {
+      return true;
+    }
+    return account.isOwner || account.role == null;
+  }
+
+  /// Staff inherit the owner's PIN from Firestore; owners publish on save.
+  Future<bool> ensurePinReady({AccountState? account}) async {
+    final state = account ?? AccountService().current;
+    if (await isPinSet()) {
+      return true;
+    }
+    if (!state.isStaff || state.shopId == null) {
+      return false;
+    }
+    return ShopPinService().applyForStaff(state.shopId!);
+  }
+
+  Future<void> importShopOwnerPin({
+    required String pin,
+    required Map<String, bool> preferences,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pinKey, pin);
+    await prefs.setBool(_pinSetKey, true);
+    await prefs.setBool(_usesShopPinKey, true);
+    final merged = _withDefaultPreferences(preferences);
+    await prefs.setString(_pinPreferencesKey, jsonEncode(merged));
+    _sessionVerified = false;
+  }
+
+  Future<void> clearShopOwnerPinMode() async {
+    _sessionVerified = false;
+    final prefs = await SharedPreferences.getInstance();
+    final usedShopPin = prefs.getBool(_usesShopPinKey) ?? false;
+    await prefs.remove(_usesShopPinKey);
+    if (usedShopPin) {
+      await prefs.remove(_pinKey);
+      await prefs.setBool(_pinSetKey, false);
+      await prefs.remove(_pinPreferencesKey);
+    }
+  }
+
+  Future<void> _publishShopPinIfOwner() async {
+    if (await usesShopOwnerPin()) {
+      return;
+    }
+    final account = AccountService().current;
+    if (!account.isOwner || account.shopId == null) {
+      return;
+    }
+    await ShopPinService().publishFromLocal(account.shopId!);
   }
 
   Future<void> setPin(
@@ -136,6 +217,9 @@ class PinService {
     bool requireOnReceiptSettings = false,
     bool requireOnChangePin = true,
   }) async {
+    if (!await canManagePinSettings()) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pinKey, pin);
     await prefs.setBool(_pinSetKey, true);
@@ -195,12 +279,17 @@ class PinService {
     });
 
     await prefs.setString(_pinPreferencesKey, jsonEncode(preferences));
+    await _publishShopPinIfOwner();
   }
 
   Future<void> updatePin(String pin) async {
+    if (!await canManagePinSettings()) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pinKey, pin);
     await prefs.setBool(_pinSetKey, true);
+    await _publishShopPinIfOwner();
   }
 
   Future<bool> verifyPin(String pin) async {
@@ -600,16 +689,24 @@ class PinService {
   }
 
   Future<void> updatePinPreferences(Map<String, bool> preferences) async {
+    if (!await canManagePinSettings()) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final mergedPreferences = _withDefaultPreferences(preferences);
     await prefs.setString(_pinPreferencesKey, jsonEncode(mergedPreferences));
+    await _publishShopPinIfOwner();
   }
 
   Future<void> clearPin() async {
+    if (!await canManagePinSettings()) {
+      return;
+    }
     _sessionVerified = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_pinKey);
     await prefs.setBool(_pinSetKey, false);
     await prefs.remove(_pinPreferencesKey);
+    await prefs.remove(_usesShopPinKey);
   }
 }

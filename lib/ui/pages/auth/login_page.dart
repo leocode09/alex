@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../helpers/pin_protection.dart';
+import '../../../models/account_state.dart';
+import '../../../providers/account_provider.dart';
 import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/app_tokens.dart';
@@ -50,15 +52,32 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   Future<void> _continueToApp() async {
     final pinService = PinService();
+    final account = ref.read(currentAccountStateProvider);
+    await pinService.ensurePinReady(account: account);
     final isPinSet = await pinService.isPinSet();
+    final canManagePin = await pinService.canManagePinSettings();
 
     if (!mounted) {
       return;
     }
 
     if (!isPinSet) {
+      if (account.isStaff) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Waiting for your shop owner to set up the business PIN.',
+            ),
+          ),
+        );
+        return;
+      }
       context.go('/pin-setup');
       return;
+    }
+
+    if (!canManagePin && mounted) {
+      // Staff always enter the shared shop PIN at login when required.
     }
 
     final requireLoginPin = await pinService.isPinRequiredForLogin();
