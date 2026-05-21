@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'data_sync_triggers.dart';
+import 'shop_app_settings_service.dart';
 
 class BonusRule {
   final bool enabled;
@@ -76,6 +78,8 @@ class BonusRuleNotifier extends StateNotifier<BonusRule> {
   Future<void> update(BonusRule rule) async {
     await _service.save(rule);
     state = rule;
+    await ShopAppSettingsService().touchLocal();
+    await DataSyncTriggers.trigger(reason: 'bonus_rule_updated');
   }
 
   Future<void> refresh() => _load();

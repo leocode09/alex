@@ -491,12 +491,16 @@ class SyncService {
   }
 
   Future<int> _mergeSales(List<Sale> incomingSales) async {
+    final deletedIds = (await _saleRepo.getDeletedSaleIds()).toSet();
     final existingSales = await _saleRepo.getAllSales();
     final Map<String, Sale> saleMap = {for (var s in existingSales) s.id: s};
 
     int imported = 0;
     for (var incoming in incomingSales) {
-      if (!saleMap.containsKey(incoming.id)) {
+      if (deletedIds.contains(incoming.id)) continue;
+      final existing = saleMap[incoming.id];
+      if (existing == null ||
+          incoming.updatedAt.isAfter(existing.updatedAt)) {
         saleMap[incoming.id] = incoming;
         imported++;
       }

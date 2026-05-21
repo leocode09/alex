@@ -18,7 +18,10 @@ import '../../models/product.dart';
 import '../../models/sale.dart';
 import '../../models/store.dart';
 import '../../models/sync_data.dart';
+import '../../models/shop_app_settings.dart';
 import '../sync_service.dart';
+import '../shop_app_settings_service.dart';
+import '../sync_event_bus.dart';
 import 'cloud_entity_mapper.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
@@ -90,6 +93,7 @@ class CloudSyncService extends ChangeNotifier {
 
   final Map<String, StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
       _listeners = {};
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _appSettingsListener;
 
   CloudSyncStatus get status => _status;
   String? get lastError => _lastError;
@@ -137,6 +141,7 @@ class CloudSyncService extends ChangeNotifier {
 
     _running = true;
     await _attachListeners();
+    unawaited(ShopAppSettingsService().pullFromCloud(_shopId!));
     _setStatus(CloudSyncStatus.online);
     _addLog('Cloud sync online (shop $_shopId).');
     notifyListeners();
@@ -153,6 +158,8 @@ class CloudSyncService extends ChangeNotifier {
       await sub.cancel();
     }
     _listeners.clear();
+    await _appSettingsListener?.cancel();
+    _appSettingsListener = null;
     _setStatus(CloudSyncStatus.disabled);
     _addLog('Cloud sync stopped.');
     notifyListeners();
@@ -320,6 +327,13 @@ class CloudSyncService extends ChangeNotifier {
         CloudEntityMapper.saleToDoc(s, deviceId: deviceId),
       ));
     }
+    for (final id in data.deletedSaleIds) {
+      writes.add(_PendingWrite(
+        FirestorePaths.salesSubcollection,
+        id,
+        _tombstoneDoc(id: id, deviceId: deviceId),
+      ));
+    }
     for (final s in data.stores) {
       writes.add(_PendingWrite(
         FirestorePaths.storesSubcollection,
@@ -377,7 +391,7 @@ class CloudSyncService extends ChangeNotifier {
       ));
     }
 
-    if (writes.isEmpty) {
+    if (writes.isEmpty && (data.shopAppSettings == null || data.shopAppSettings!.isEmpty)) {
       return;
     }
 
@@ -392,6 +406,16 @@ class CloudSyncService extends ChangeNotifier {
         batch.set(ref, w.payload, SetOptions(merge: true));
       }
       await batch.commit();
+    }
+
+    if (data.shopAppSettings != null && !data.shopAppSettings!.isEmpty) {
+      await shopRef
+          .collection(FirestorePaths.settingsSubcollection)
+          .doc(ShopAppSettingsService.settingsDocId)
+          .set({
+        ...data.shopAppSettings!.toJson(),
+        CloudFieldKeys.cloudUpdatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     }
 
     _addLog('Pushed ${writes.length} docs.');
@@ -441,6 +465,43 @@ class CloudSyncService extends ChangeNotifier {
         },
       );
     }
+
+    await _appSettingsListener?.cancel();
+    _appSettingsListener = FirebaseFirestore.instance
+        .collection(FirestorePaths.shopsCollection)
+        .doc(id)
+        .collection(FirestorePaths.settingsSubcollection)
+        .doc(ShopAppSettingsService.settingsDocId)
+        .snapshots()
+        .listen(
+      (snap) => unawaited(_handleAppSettingsSnapshot(snap)),
+      onError: (Object e) {
+        _addLog('Listener error (settings/app): $e');
+        _lastError = e.toString();
+      },
+    );
+  }
+
+  Future<void> _handleAppSettingsSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    if (!snapshot.exists || snapshot.data() == null) {
+      return;
+    }
+    try {
+      final incoming = ShopAppSettings.fromJson(snapshot.data()!);
+      final merged = await ShopAppSettingsService().mergeIncoming(incoming);
+      if (merged) {
+        SyncEventBus.instance.emit(reason: 'cloud_app_settings');
+        _addAction(
+          reason: 'pull_settings_app',
+          message: 'Merged shop app settings.',
+          success: true,
+        );
+      }
+    } catch (e) {
+      _addLog('Error handling settings/app snapshot: $e');
+    }
   }
 
   Timestamp _readCursor(SharedPreferences prefs, String collection) {
@@ -480,6 +541,7 @@ class CloudSyncService extends ChangeNotifier {
       final deletedStoreIds = <String>[];
       final deletedMoneyAccountIds = <String>[];
       final deletedCreditEntryIds = <String>[];
+      final deletedSaleIds = <String>[];
 
       Timestamp cursor = Timestamp.fromMillisecondsSinceEpoch(0);
 
@@ -537,8 +599,12 @@ class CloudSyncService extends ChangeNotifier {
             }
             break;
           case FirestorePaths.salesSubcollection:
-            final v = CloudEntityMapper.saleFromDoc(data);
-            if (v != null) sales.add(v);
+            if (deleted) {
+              deletedSaleIds.add(id);
+            } else {
+              final v = CloudEntityMapper.saleFromDoc(data);
+              if (v != null) sales.add(v);
+            }
             break;
           case FirestorePaths.storesSubcollection:
             if (deleted) {
@@ -593,7 +659,8 @@ class CloudSyncService extends ChangeNotifier {
           deletedExpenseIds.isNotEmpty ||
           deletedStoreIds.isNotEmpty ||
           deletedMoneyAccountIds.isNotEmpty ||
-          deletedCreditEntryIds.isNotEmpty;
+          deletedCreditEntryIds.isNotEmpty ||
+          deletedSaleIds.isNotEmpty;
 
       if (!hasPayload) return;
 
@@ -618,6 +685,7 @@ class CloudSyncService extends ChangeNotifier {
         deletedStoreIds: deletedStoreIds,
         deletedMoneyAccountIds: deletedMoneyAccountIds,
         deletedCustomerCreditEntryIds: deletedCreditEntryIds,
+        deletedSaleIds: deletedSaleIds,
         deviceId: deviceId,
       );
 

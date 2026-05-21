@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/category.dart';
 import '../repositories/category_repository.dart';
+import '../services/data_sync_triggers.dart';
 import 'product_provider.dart';
 import 'sync_events_provider.dart';
 
@@ -55,6 +56,7 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<List<Category>>> {
       final success = await repository.insertCategory(category);
       if (success) {
         await loadCategories();
+        await DataSyncTriggers.trigger(reason: 'category_added');
       }
       return success;
     } catch (e) {
@@ -69,6 +71,7 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<List<Category>>> {
       final success = await repository.updateCategory(category);
       if (success) {
         await loadCategories();
+        await DataSyncTriggers.trigger(reason: 'category_updated');
       }
       return success;
     } catch (e) {
@@ -83,6 +86,7 @@ class CategoriesNotifier extends StateNotifier<AsyncValue<List<Category>>> {
       final success = await repository.deleteCategory(id);
       if (success) {
         await loadCategories();
+        await DataSyncTriggers.trigger(reason: 'category_deleted');
       }
       return success;
     } catch (e) {

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/data_sync_triggers.dart';
+import '../services/shop_app_settings_service.dart';
 
 class ReceiptSettings {
   final String shopName;
@@ -71,6 +73,8 @@ class ReceiptSettingsNotifier extends StateNotifier<ReceiptSettings> {
     state = settings;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('receipt_settings', jsonEncode(settings.toMap()));
+    await ShopAppSettingsService().touchLocal();
+    await DataSyncTriggers.trigger(reason: 'receipt_settings_updated');
   }
 }
 
