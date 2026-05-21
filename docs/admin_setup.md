@@ -21,8 +21,12 @@ uses **Email/Password** on a separate Firebase app instance.
 providers. Deploy with a recent Firebase CLI (v15.15+):
 
 ```bash
-npx -y firebase-tools@latest deploy --only auth
+npx -y firebase-tools@latest deploy --only auth,firestore:rules
 ```
+
+Business registration and cloud sync need **both** anonymous auth and the
+rules in [`firestore.rules`](../firestore.rules). If either is missing,
+owners see sign-in or permission-denied errors on **Register business**.
 
 **Manual (Console):** Firebase Console → **Build → Authentication →
 Sign-in method** → enable **Anonymous** and **Email/Password**. Magic

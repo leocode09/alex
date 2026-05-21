@@ -191,16 +191,20 @@ class ShopService {
       final auth = FirebaseAuth.instance;
       final current = auth.currentUser;
       if (current != null) {
+        // Refresh the ID token so Firestore requests carry auth immediately.
+        await current.getIdToken();
         return AuthResult.ok(current.uid);
       }
       final cred = await auth.signInAnonymously();
-      final uid = cred.user?.uid;
+      final user = cred.user;
+      final uid = user?.uid;
       if (uid == null) {
         return const AuthResult.fail(
           code: 'no-uid',
           message: 'Firebase returned no user id.',
         );
       }
+      await user.getIdToken();
       return AuthResult.ok(uid);
     } on FirebaseAuthException catch (e) {
       if (kDebugMode) {

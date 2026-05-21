@@ -308,31 +308,52 @@ class AccountService {
           db.collection(FirestorePaths.shopsCollection).doc();
       final nowIso = DateTime.now().toIso8601String();
 
-      await shopRef.set({
-        'code': code,
-        'name': name,
-        'ownerUid': uid,
-        'ownerName': owner,
-        'ownerPhone': phone,
-        'businessPhone': phone,
-        'createdAt': nowIso,
-        'memberCount': 1,
-        AccountApproval.fieldStatus:
-            AccountApproval.statusPendingSystemAdmin,
-        AccountApproval.fieldRequestedAt: nowIso,
-      });
-      await shopRef
-          .collection(FirestorePaths.membersSubcollection)
-          .doc(uid)
-          .set({
-        'uid': uid,
-        'role': AccountApproval.roleOwner,
-        'displayName': owner,
-        'phone': phone,
-        'joinedAt': nowIso,
-        AccountApproval.fieldStatus: AccountApproval.statusApproved,
-        AccountApproval.fieldApprovedAt: nowIso,
-      });
+      try {
+        await shopRef.set({
+          'code': code,
+          'name': name,
+          'ownerUid': uid,
+          'ownerName': owner,
+          'ownerPhone': phone,
+          'businessPhone': phone,
+          'createdAt': nowIso,
+          'memberCount': 1,
+          AccountApproval.fieldStatus:
+              AccountApproval.statusPendingSystemAdmin,
+          AccountApproval.fieldRequestedAt: nowIso,
+        });
+      } on FirebaseException catch (e) {
+        if (e.code == 'permission-denied') {
+          return AccountActionResult.fail(
+            'Could not save the business request. Deploy Firestore rules '
+            'from this repo (`npx -y firebase-tools@latest deploy '
+            '--only firestore:rules`) and try again.',
+          );
+        }
+        rethrow;
+      }
+      try {
+        await shopRef
+            .collection(FirestorePaths.membersSubcollection)
+            .doc(uid)
+            .set({
+          'uid': uid,
+          'role': AccountApproval.roleOwner,
+          'displayName': owner,
+          'phone': phone,
+          'joinedAt': nowIso,
+          AccountApproval.fieldStatus: AccountApproval.statusApproved,
+          AccountApproval.fieldApprovedAt: nowIso,
+        });
+      } on FirebaseException catch (e) {
+        if (e.code == 'permission-denied') {
+          return AccountActionResult.fail(
+            'Could not save owner profile for this business. Deploy '
+            'Firestore rules from this repo and try again.',
+          );
+        }
+        rethrow;
+      }
 
       await _shopService.persistShopCache(
         id: shopRef.id,
