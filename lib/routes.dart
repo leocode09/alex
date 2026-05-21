@@ -432,9 +432,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/money';
       }
 
-      // First time - need to setup PIN
-      if (!isPinSet && !isOnPinSetup) {
-        return '/pin-setup';
+      // First time — show the login/welcome screen before PIN setup.
+      // PIN setup is reached from [LoginPage] when the user continues.
+      if (!isPinSet && !isOnPinSetup && !isOnLogin) {
+        return '/';
       }
 
       // PIN is set and required for login but not unlocked (need PIN entry).

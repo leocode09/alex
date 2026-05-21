@@ -50,6 +50,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   Future<void> _continueToApp() async {
     final pinService = PinService();
+    final isPinSet = await pinService.isPinSet();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!isPinSet) {
+      context.go('/pin-setup');
+      return;
+    }
+
     final requireLoginPin = await pinService.isPinRequiredForLogin();
 
     if (!mounted) {
