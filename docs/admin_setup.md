@@ -11,11 +11,22 @@ signed out.
 
 ## One-time Firebase Console setup
 
-### 1. Enable email/password auth
+### 1. Enable authentication providers
 
-1. Firebase Console → **Build → Authentication → Sign-in method**
-2. Enable **Email/Password**. Magic links and social providers are not
-   required.
+Every POS device signs in with **Anonymous** auth (shop create/join,
+business registration, cloud sync, heartbeats). The super-admin panel
+uses **Email/Password** on a separate Firebase app instance.
+
+**Preferred (from repo root):** `firebase.json` already lists both
+providers. Deploy with a recent Firebase CLI (v15.15+):
+
+```bash
+npx -y firebase-tools@latest deploy --only auth
+```
+
+**Manual (Console):** Firebase Console → **Build → Authentication →
+Sign-in method** → enable **Anonymous** and **Email/Password**. Magic
+links and social providers are not required.
 
 ### 2. Create the first admin user
 
@@ -45,7 +56,7 @@ enforces all admin-only access. Deploy it once, then again whenever it
 changes:
 
 ```bash
-firebase deploy --only firestore:rules
+npx -y firebase-tools@latest deploy --only firestore:rules
 ```
 
 If you are using the Firebase Console UI, paste the contents of
