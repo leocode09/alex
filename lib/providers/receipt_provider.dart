@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/data_sync_triggers.dart';
 import '../services/shop_app_settings_service.dart';
+import 'sync_events_provider.dart';
 
 class ReceiptSettings {
   final String shopName;
@@ -57,9 +58,16 @@ class ReceiptSettings {
 }
 
 class ReceiptSettingsNotifier extends StateNotifier<ReceiptSettings> {
-  ReceiptSettingsNotifier() : super(ReceiptSettings()) {
+  ReceiptSettingsNotifier(this._ref) : super(ReceiptSettings()) {
+    _ref.listen(syncEventsProvider, (previous, next) {
+      if (next.hasValue) {
+        reloadFromDisk();
+      }
+    });
     _loadSettings();
   }
+
+  final Ref _ref;
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -69,7 +77,12 @@ class ReceiptSettingsNotifier extends StateNotifier<ReceiptSettings> {
     }
   }
 
+  Future<void> reloadFromDisk() => _loadSettings();
+
   Future<void> updateSettings(ReceiptSettings settings) async {
+    if (!await ShopAppSettingsService().canEditShopSettings()) {
+      return;
+    }
     state = settings;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('receipt_settings', jsonEncode(settings.toMap()));
@@ -80,5 +93,5 @@ class ReceiptSettingsNotifier extends StateNotifier<ReceiptSettings> {
 
 final receiptSettingsProvider =
     StateNotifierProvider<ReceiptSettingsNotifier, ReceiptSettings>((ref) {
-  return ReceiptSettingsNotifier();
+  return ReceiptSettingsNotifier(ref);
 });

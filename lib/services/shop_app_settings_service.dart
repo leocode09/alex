@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/shop_app_settings.dart';
 import 'bonus_rule_service.dart';
+import 'cloud/account_service.dart';
 import 'cloud/firebase_init.dart';
 import 'cloud/firestore_paths.dart';
 
@@ -25,6 +26,16 @@ class ShopAppSettingsService {
         .doc(shopId)
         .collection(FirestorePaths.settingsSubcollection)
         .doc(settingsDocId);
+  }
+
+  /// Only the shop owner may publish shop-wide settings. Staff inherit
+  /// the owner's values from cloud/LAN sync.
+  Future<bool> canEditShopSettings() async {
+    final account = AccountService().current;
+    if (account.firebaseUnavailable) {
+      return true;
+    }
+    return account.isOwner;
   }
 
   Future<ShopAppSettings> loadLocal() async {
@@ -132,6 +143,9 @@ class ShopAppSettingsService {
   }
 
   Future<void> touchLocal({DateTime? updatedAt}) async {
+    if (!await canEditShopSettings()) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _updatedAtKey,
@@ -140,7 +154,7 @@ class ShopAppSettingsService {
   }
 
   Future<void> publishToCloud(String shopId) async {
-    if (!FirebaseInit.available) {
+    if (!FirebaseInit.available || !await canEditShopSettings()) {
       return;
     }
     final settings = await snapshotForSync();

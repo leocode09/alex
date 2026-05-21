@@ -19,9 +19,12 @@ import '../../models/sale.dart';
 import '../../models/store.dart';
 import '../../models/sync_data.dart';
 import '../../models/shop_app_settings.dart';
-import '../sync_service.dart';
+import '../pin_service.dart';
 import '../shop_app_settings_service.dart';
+import '../shop_pin_service.dart';
 import '../sync_event_bus.dart';
+import '../sync_service.dart';
+import 'account_service.dart';
 import 'cloud_entity_mapper.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
@@ -30,6 +33,7 @@ import 'shop_service.dart';
 enum CloudSyncStatus {
   disabled,
   notJoined,
+  pendingApproval,
   connecting,
   online,
   offline,
@@ -94,6 +98,8 @@ class CloudSyncService extends ChangeNotifier {
   final Map<String, StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
       _listeners = {};
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _appSettingsListener;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pinSettingsListener;
+  bool _initialPullDone = false;
 
   CloudSyncStatus get status => _status;
   String? get lastError => _lastError;
@@ -139,7 +145,19 @@ class CloudSyncService extends ChangeNotifier {
       return;
     }
 
+    if (!_isApprovedForShopSync()) {
+      _running = true;
+      _setStatus(CloudSyncStatus.pendingApproval);
+      _addLog(
+        'Cloud sync waiting: your team membership must be approved before '
+        'shop data can sync.',
+      );
+      notifyListeners();
+      return;
+    }
+
     _running = true;
+    await _pullFullShopSnapshot(_shopId!);
     await _attachListeners();
     unawaited(ShopAppSettingsService().pullFromCloud(_shopId!));
     _setStatus(CloudSyncStatus.online);
@@ -160,6 +178,9 @@ class CloudSyncService extends ChangeNotifier {
     _listeners.clear();
     await _appSettingsListener?.cancel();
     _appSettingsListener = null;
+    await _pinSettingsListener?.cancel();
+    _pinSettingsListener = null;
+    _initialPullDone = false;
     _setStatus(CloudSyncStatus.disabled);
     _addLog('Cloud sync stopped.');
     notifyListeners();
@@ -176,6 +197,7 @@ class CloudSyncService extends ChangeNotifier {
   Future<void> triggerSync({required String reason}) async {
     if (!_running || !FirebaseInit.available) return;
     if (_shopId == null || _shopId!.isEmpty) return;
+    if (!_isApprovedForShopSync()) return;
 
     _pendingPush = true;
     _syncDebounceTimer?.cancel();
@@ -433,6 +455,184 @@ class CloudSyncService extends ChangeNotifier {
     };
   }
 
+  bool _isApprovedForShopSync() {
+    final account = AccountService().current;
+    if (account.firebaseUnavailable) {
+      return true;
+    }
+    if (!account.allowsAppAccess) {
+      return false;
+    }
+    final shopId = _shopService.cachedShopId;
+    if (shopId == null || shopId.isEmpty) {
+      return false;
+    }
+    if (account.shopId != null && account.shopId != shopId) {
+      return false;
+    }
+    return true;
+  }
+
+  /// One-shot download of the shop's shared data so new team devices
+  /// inherit the owner's catalog/settings before uploading local state.
+  Future<void> _pullFullShopSnapshot(String shopId) async {
+    if (_initialPullDone) {
+      return;
+    }
+    try {
+      final db = FirebaseFirestore.instance;
+      final shopRef =
+          db.collection(FirestorePaths.shopsCollection).doc(shopId);
+      final deviceId = await _syncService.getDeviceId();
+      final prefs = await SharedPreferences.getInstance();
+
+      Future<List<T>> readLiveTracked<T>(
+        String collection,
+        T? Function(Map<String, dynamic> doc) decode,
+      ) async {
+        final snap = await shopRef.collection(collection).get();
+        final out = <T>[];
+        for (final doc in snap.docs) {
+          final data = doc.data();
+          trackCursor(data);
+          if (CloudEntityMapper.isDeleted(data)) {
+            continue;
+          }
+          final value = decode(data);
+          if (value != null) {
+            out.add(value);
+          }
+        }
+        return out;
+      }
+
+      Future<List<String>> readTombstonesTracked(String collection) async {
+        final snap = await shopRef.collection(collection).get();
+        final out = <String>[];
+        for (final doc in snap.docs) {
+          trackCursor(doc.data());
+          if (CloudEntityMapper.isDeleted(doc.data())) {
+            out.add(doc.id);
+          }
+        }
+        return out;
+      }
+
+      final products = await readLiveTracked(
+        FirestorePaths.productsSubcollection,
+        CloudEntityMapper.productFromDoc,
+      );
+      final categories = await readLiveTracked(
+        FirestorePaths.categoriesSubcollection,
+        CloudEntityMapper.categoryFromDoc,
+      );
+      final customers = await readLiveTracked(
+        FirestorePaths.customersSubcollection,
+        CloudEntityMapper.customerFromDoc,
+      );
+      final employees = await readLiveTracked(
+        FirestorePaths.employeesSubcollection,
+        CloudEntityMapper.employeeFromDoc,
+      );
+      final expenses = await readLiveTracked(
+        FirestorePaths.expensesSubcollection,
+        CloudEntityMapper.expenseFromDoc,
+      );
+      final sales = await readLiveTracked(
+        FirestorePaths.salesSubcollection,
+        CloudEntityMapper.saleFromDoc,
+      );
+      final stores = await readLiveTracked(
+        FirestorePaths.storesSubcollection,
+        CloudEntityMapper.storeFromDoc,
+      );
+      final moneyAccounts = await readLiveTracked(
+        FirestorePaths.moneyAccountsSubcollection,
+        CloudEntityMapper.moneyAccountFromDoc,
+      );
+      final moneyHistory = await readLiveTracked(
+        FirestorePaths.moneyHistorySubcollection,
+        CloudEntityMapper.moneyHistoryFromDoc,
+      );
+      final inventoryMovements = await readLiveTracked(
+        FirestorePaths.inventoryMovementsSubcollection,
+        CloudEntityMapper.inventoryMovementFromDoc,
+      );
+      final customerCreditEntries = await readLiveTracked(
+        FirestorePaths.customerCreditEntriesSubcollection,
+        CloudEntityMapper.customerCreditEntryFromDoc,
+      );
+
+      final deletedProductIds =
+          await readTombstonesTracked(FirestorePaths.productsSubcollection);
+      final deletedCategoryIds =
+          await readTombstonesTracked(FirestorePaths.categoriesSubcollection);
+      final deletedCustomerIds =
+          await readTombstonesTracked(FirestorePaths.customersSubcollection);
+      final deletedEmployeeIds =
+          await readTombstonesTracked(FirestorePaths.employeesSubcollection);
+      final deletedExpenseIds =
+          await readTombstonesTracked(FirestorePaths.expensesSubcollection);
+      final deletedStoreIds =
+          await readTombstonesTracked(FirestorePaths.storesSubcollection);
+      final deletedMoneyAccountIds = await readTombstonesTracked(
+        FirestorePaths.moneyAccountsSubcollection,
+      );
+      final deletedCustomerCreditEntryIds = await readTombstonesTracked(
+        FirestorePaths.customerCreditEntriesSubcollection,
+      );
+      final deletedSaleIds =
+          await readTombstonesTracked(FirestorePaths.salesSubcollection);
+
+      final incoming = SyncData(
+        products: products,
+        categories: categories,
+        customers: customers,
+        employees: employees,
+        expenses: expenses,
+        sales: sales,
+        stores: stores,
+        moneyAccounts: moneyAccounts,
+        moneyHistory: moneyHistory,
+        inventoryMovements: inventoryMovements,
+        customerCreditEntries: customerCreditEntries,
+        deletedProductIds: deletedProductIds,
+        deletedCategoryIds: deletedCategoryIds,
+        deletedCustomerIds: deletedCustomerIds,
+        deletedEmployeeIds: deletedEmployeeIds,
+        deletedExpenseIds: deletedExpenseIds,
+        deletedStoreIds: deletedStoreIds,
+        deletedMoneyAccountIds: deletedMoneyAccountIds,
+        deletedCustomerCreditEntryIds: deletedCustomerCreditEntryIds,
+        deletedSaleIds: deletedSaleIds,
+        deviceId: deviceId,
+      );
+
+      final result = await _syncService.importData(
+        incoming,
+        strategy: SyncStrategy.merge,
+      );
+
+      final cursorMs = maxCursor.toDate().millisecondsSinceEpoch;
+      if (cursorMs > 0) {
+        for (final collection in FirestorePaths.syncedEntityCollections) {
+          await prefs.setInt(_cursorKey(collection), cursorMs);
+        }
+      }
+
+      _initialPullDone = true;
+      SyncEventBus.instance.emit(reason: 'cloud_full_pull');
+      _addAction(
+        reason: 'pull_full_shop',
+        message: 'Loaded ${result.totalImported} shared shop records.',
+        success: result.success,
+      );
+      _addLog('Initial shop snapshot merged (${result.totalImported} updates).');
+    } catch (e) {
+      _addLog('Initial shop pull failed: $e');
+    }
+  }
+
   // ======================= PULL / LISTEN =======================
 
   Future<void> _attachListeners() async {
@@ -480,6 +680,51 @@ class CloudSyncService extends ChangeNotifier {
         _lastError = e.toString();
       },
     );
+
+    await _pinSettingsListener?.cancel();
+    _pinSettingsListener = FirebaseFirestore.instance
+        .collection(FirestorePaths.shopsCollection)
+        .doc(id)
+        .collection(FirestorePaths.settingsSubcollection)
+        .doc(ShopPinService.settingsDocId)
+        .snapshots()
+        .listen(
+      (snap) => unawaited(_handlePinSettingsSnapshot(snap)),
+      onError: (Object e) {
+        _addLog('Listener error (settings/pin): $e');
+        _lastError = e.toString();
+      },
+    );
+  }
+
+  Future<void> _handlePinSettingsSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    if (!snapshot.exists || snapshot.data() == null) {
+      return;
+    }
+    final account = AccountService().current;
+    if (!account.isStaff || account.shopId == null) {
+      return;
+    }
+    try {
+      final loaded = await ShopPinService().loadForStaff(account.shopId!);
+      if (loaded == null) {
+        return;
+      }
+      await PinService().importShopOwnerPin(
+        pin: loaded.pin,
+        preferences: loaded.preferences,
+      );
+      SyncEventBus.instance.emit(reason: 'shop_pin_updated');
+      _addAction(
+        reason: 'pull_settings_pin',
+        message: 'Updated shop PIN from owner.',
+        success: true,
+      );
+    } catch (e) {
+      _addLog('Error handling settings/pin snapshot: $e');
+    }
   }
 
   Future<void> _handleAppSettingsSnapshot(

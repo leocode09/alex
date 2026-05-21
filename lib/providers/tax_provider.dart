@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/data_sync_triggers.dart';
 import '../services/shop_app_settings_service.dart';
+import 'sync_events_provider.dart';
 
 class TaxSettings {
   final double taxRate;
@@ -39,9 +40,16 @@ class TaxSettings {
 }
 
 class TaxSettingsNotifier extends StateNotifier<TaxSettings> {
-  TaxSettingsNotifier() : super(TaxSettings()) {
+  TaxSettingsNotifier(this._ref) : super(TaxSettings()) {
+    _ref.listen(syncEventsProvider, (previous, next) {
+      if (next.hasValue) {
+        reloadFromDisk();
+      }
+    });
     _loadSettings();
   }
+
+  final Ref _ref;
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -52,7 +60,12 @@ class TaxSettingsNotifier extends StateNotifier<TaxSettings> {
     }
   }
 
+  Future<void> reloadFromDisk() => _loadSettings();
+
   Future<void> updateSettings(TaxSettings settings) async {
+    if (!await ShopAppSettingsService().canEditShopSettings()) {
+      return;
+    }
     state = settings;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('tax_settings', jsonEncode(settings.toMap()));
@@ -71,5 +84,5 @@ class TaxSettingsNotifier extends StateNotifier<TaxSettings> {
 
 final taxSettingsProvider =
     StateNotifierProvider<TaxSettingsNotifier, TaxSettings>((ref) {
-  return TaxSettingsNotifier();
+  return TaxSettingsNotifier(ref);
 });

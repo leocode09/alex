@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'cloud/account_service.dart';
 import 'data_sync_triggers.dart';
 import 'shop_app_settings_service.dart';
+import '../providers/sync_events_provider.dart';
 
 class BonusRule {
   final bool enabled;
@@ -65,10 +67,16 @@ class BonusRuleService {
 }
 
 class BonusRuleNotifier extends StateNotifier<BonusRule> {
-  BonusRuleNotifier(this._service) : super(BonusRule.defaults) {
+  BonusRuleNotifier(this._ref, this._service) : super(BonusRule.defaults) {
+    _ref.listen(syncEventsProvider, (previous, next) {
+      if (next.hasValue) {
+        refresh();
+      }
+    });
     _load();
   }
 
+  final Ref _ref;
   final BonusRuleService _service;
 
   Future<void> _load() async {
@@ -76,6 +84,9 @@ class BonusRuleNotifier extends StateNotifier<BonusRule> {
   }
 
   Future<void> update(BonusRule rule) async {
+    if (!await ShopAppSettingsService().canEditShopSettings()) {
+      return;
+    }
     await _service.save(rule);
     state = rule;
     await ShopAppSettingsService().touchLocal();
@@ -90,5 +101,5 @@ final bonusRuleServiceProvider =
 
 final bonusRuleProvider =
     StateNotifierProvider<BonusRuleNotifier, BonusRule>((ref) {
-  return BonusRuleNotifier(ref.watch(bonusRuleServiceProvider));
+  return BonusRuleNotifier(ref, ref.watch(bonusRuleServiceProvider));
 });
