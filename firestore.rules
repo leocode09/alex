@@ -47,8 +47,9 @@ service cloud.firestore {
     // Returns the shop doc's approval status, defaulting to "approved"
     // for legacy docs that predate the approval workflow.
     function shopApprovalStatus(shopId) {
-      return get(/databases/$(database)/documents/shops/$(shopId))
-          .data.get('approvalStatus', 'approved');
+      let shopData = get(/databases/$(database)/documents/shops/$(shopId)).data;
+      let status = shopData.get('approvalStatus', 'approved');
+      return status == null ? 'approved' : status;
     }
 
     // Returns the member doc's approval status, defaulting to "approved"
