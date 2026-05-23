@@ -77,6 +77,26 @@ service cloud.firestore {
           && memberApprovalStatus(shopId, request.auth.uid) == 'approved';
     }
 
+    // Staff onboarding: submit or re-submit a join request to an
+    // already system-approved shop.
+    function isStaffJoinRequest(shopId, memberUid) {
+      return isSignedIn()
+          && request.auth.uid == memberUid
+          && request.resource.data.role == 'staff'
+          && request.resource.data.approvalStatus == 'pendingOwner'
+          && shopApprovalStatus(shopId) == 'approved';
+    }
+
+    // Staff may re-open a rejected request without owner intervention.
+    function isStaffResubmitAfterRejection(shopId, memberUid) {
+      return isSignedIn()
+          && request.auth.uid == memberUid
+          && resource.data.get('approvalStatus', '') == 'rejected'
+          && request.resource.data.role == 'staff'
+          && request.resource.data.approvalStatus == 'pendingOwner'
+          && shopApprovalStatus(shopId) == 'approved';
+    }
+
     // Fields on /shops/{shopId} that only admins may change.
     function shopReservedFields() {
       return [
@@ -210,10 +230,7 @@ service cloud.firestore {
                 && request.resource.data.approvalStatus == 'approved'
                 && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUid
                     == request.auth.uid)
-            || (isSignedIn()
-                && request.auth.uid == memberUid
-                && request.resource.data.role == 'staff'
-                && request.resource.data.approvalStatus == 'pendingOwner');
+            || isStaffJoinRequest(shopId, memberUid);
 
         // Update:
         //   * admin can change anything;
@@ -224,6 +241,7 @@ service cloud.firestore {
         //     approval state.
         allow update: if isAdmin()
             || isApprovedShopOwner(shopId)
+            || isStaffResubmitAfterRejection(shopId, memberUid)
             || (isSignedIn()
                 && request.auth.uid == memberUid
                 && !(

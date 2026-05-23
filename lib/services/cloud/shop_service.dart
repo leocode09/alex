@@ -12,6 +12,7 @@ import '../admin/license_service.dart';
 import '../pin_service.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
+import 'staff_join_request_writer.dart';
 
 class ShopInfo {
   final String id;
@@ -358,20 +359,40 @@ class ShopService {
       // Staff join must go through the owner-approval gate. Mark the
       // new member doc as pending so the rules accept it and the
       // business owner can approve / reject from the team page.
-      await shopDoc.reference
+      final memberRef = shopDoc.reference
           .collection(FirestorePaths.membersSubcollection)
-          .doc(uid)
-          .set({
-        'role': AccountApproval.roleStaff,
-        'joinedAt': now.toIso8601String(),
-        AccountApproval.fieldStatus: AccountApproval.statusPendingOwner,
-        AccountApproval.fieldRequestedAt: now.toIso8601String(),
-      }, SetOptions(merge: true));
+          .doc(uid);
+      final writeResult = await StaffJoinRequestWriter.upsert(
+        memberRef: memberRef,
+        uid: uid,
+      );
+      if (!writeResult.success) {
+        return ShopResult.fail(
+          writeResult.errorMessage ?? 'Failed to join shop.',
+        );
+      }
+      if (writeResult.outcome == StaffJoinWriteOutcome.alreadyMember) {
+        await _persistCache(shop);
+        unawaited(DeviceHeartbeatService().refreshShopMembership());
+        unawaited(LicenseService().refresh());
+        return ShopResult.ok('You are already a member of "${shop.name}".', shop);
+      }
 
       await _persistCache(shop);
       unawaited(DeviceHeartbeatService().refreshShopMembership());
       unawaited(LicenseService().refresh());
       return ShopResult.ok('Joined shop "${shop.name}".', shop);
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        return ShopResult.fail(
+          'Could not send join request. Ask the shop owner to update '
+          'Firestore rules, or contact support.',
+        );
+      }
+      if (kDebugMode) {
+        debugPrint('ShopService.joinShop FirebaseException: $e');
+      }
+      return ShopResult.fail('Failed to join shop: $e');
     } catch (e) {
       if (kDebugMode) {
         debugPrint('ShopService.joinShop error: $e');

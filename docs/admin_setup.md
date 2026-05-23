@@ -26,7 +26,9 @@ npx -y firebase-tools@latest deploy --only auth,firestore:rules
 
 Business registration and cloud sync need **both** anonymous auth and the
 rules in [`firestore.rules`](../firestore.rules). If either is missing,
-owners see sign-in or permission-denied errors on **Register business**.
+owners see sign-in or permission-denied errors on **Register business**,
+and staff see permission-denied when submitting a **Join a business**
+request.
 
 **Manual (Console):** Firebase Console → **Build → Authentication →
 Sign-in method** → enable **Anonymous** and **Email/Password**. Magic

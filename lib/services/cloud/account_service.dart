@@ -11,6 +11,7 @@ import '../admin/license_service.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
 import 'shop_service.dart';
+import 'staff_join_request_writer.dart';
 
 /// Drives the new business-approval workflow.
 ///
@@ -671,7 +672,6 @@ class AccountService {
         );
       }
 
-      final nowIso = DateTime.now().toIso8601String();
       final shopName = (shopData['name'] as String?) ?? 'Business';
       final shopCode = (shopData['code'] as String?) ?? '';
 
@@ -699,19 +699,38 @@ class AccountService {
         return AccountActionResult.ok('Welcome back to $shopName.');
       }
 
-      await shopRef
+      final memberRef = shopRef
           .collection(FirestorePaths.membersSubcollection)
-          .doc(uid)
-          .set({
-        'uid': uid,
-        'role': AccountApproval.roleStaff,
-        'displayName': name,
-        if (phoneNumber != null && phoneNumber.trim().isNotEmpty)
-          'phone': phoneNumber.trim(),
-        'joinedAt': nowIso,
-        AccountApproval.fieldStatus: AccountApproval.statusPendingOwner,
-        AccountApproval.fieldRequestedAt: nowIso,
-      }, SetOptions(merge: true));
+          .doc(uid);
+      final writeResult = await StaffJoinRequestWriter.upsert(
+        memberRef: memberRef,
+        uid: uid,
+        displayName: name,
+        phoneNumber: phoneNumber,
+      );
+      if (!writeResult.success) {
+        return AccountActionResult.fail(
+          writeResult.errorMessage ?? 'Failed to submit request.',
+        );
+      }
+      switch (writeResult.outcome) {
+        case StaffJoinWriteOutcome.alreadyMember:
+          await _shopService.persistShopCache(
+            id: shopId,
+            code: shopCode,
+            name: shopName,
+          );
+          await _setAccountLoggedOut(false);
+          unawaited(refresh());
+          unawaited(DeviceHeartbeatService().refreshShopMembership());
+          unawaited(LicenseService().refresh());
+          return AccountActionResult.ok('You are already a member of $shopName.');
+        case StaffJoinWriteOutcome.created:
+        case StaffJoinWriteOutcome.updatedPending:
+        case StaffJoinWriteOutcome.resubmitted:
+        case null:
+          break;
+      }
 
       await _shopService.persistShopCache(
         id: shopId,
@@ -725,6 +744,17 @@ class AccountService {
       return AccountActionResult.ok(
         'Request sent. Waiting for the business owner to approve.',
       );
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        return AccountActionResult.fail(
+          'Could not send join request. Ask the shop owner to update '
+          'Firestore rules, or contact support.',
+        );
+      }
+      if (kDebugMode) {
+        debugPrint('submitStaffJoinRequest FirebaseException: $e');
+      }
+      return AccountActionResult.fail('Failed to submit request: $e');
     } catch (e) {
       if (kDebugMode) {
         debugPrint('submitStaffJoinRequest error: $e');
