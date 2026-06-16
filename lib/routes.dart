@@ -22,6 +22,8 @@ import 'ui/pages/security/time_tamper_page.dart';
 import 'ui/pages/security/license_locked_page.dart';
 
 // Onboarding (business approval)
+import 'ui/pages/onboarding/account_login_page.dart';
+import 'ui/pages/onboarding/account_register_page.dart';
 import 'ui/pages/onboarding/onboarding_page.dart';
 import 'ui/pages/onboarding/create_business_page.dart';
 import 'ui/pages/onboarding/join_business_page.dart';
@@ -368,7 +370,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnAdminRoute = state.uri.path.startsWith('/admin');
       final isOnOnboarding = state.uri.path.startsWith('/onboarding');
       final isOnPendingApproval = state.uri.path == '/pending-approval';
-      final isOnAccountGate = isOnOnboarding || isOnPendingApproval;
+      final isOnAccountLogin = state.uri.path == '/account-login' ||
+          state.uri.path == '/account-register';
+      final isOnAccountGate =
+          isOnOnboarding || isOnPendingApproval || isOnAccountLogin;
       final canManagePin = await pinService.canManagePinSettings();
       final requireLoginPin = await pinService.isPinRequiredForLogin();
       final isSessionVerified = pinService.isSessionVerified();
@@ -403,6 +408,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Admin routes bypass this so support can fix accounts remotely.
       if (!account.allowsAppAccess && !isOnAdminRoute) {
         switch (account.stage) {
+          case AccountStage.signedOut:
+            // No user logged in: force the phone + password login.
+            if (!isOnAccountLogin) {
+              return '/account-login';
+            }
+            return null;
           case AccountStage.noAccount:
             if (!isOnOnboarding) {
               return '/onboarding';
@@ -418,12 +429,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             return null;
           case AccountStage.unknown:
           case AccountStage.approved:
-            // While Firebase/account state is still loading, keep the
-            // user on the account gate instead of letting first-run PIN
-            // setup win. If Firebase is unavailable, allowsAppAccess is
-            // true and this block is skipped for local-only fallback.
+            // While account state is still loading, keep the user on the
+            // account gate (login is the safe entry) instead of letting
+            // first-run PIN setup win. If Firebase is unavailable,
+            // allowsAppAccess is true and this block is skipped for the
+            // local-only fallback.
             if (!isOnAccountGate) {
-              return '/onboarding';
+              return '/account-login';
             }
             return null;
         }
@@ -497,6 +509,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/license-locked',
         name: 'license-locked',
         builder: (context, state) => const LicenseLockedPage(),
+      ),
+
+      // Account login / register (phone + password identity).
+      _animatedRoute(
+        path: '/account-login',
+        name: 'account-login',
+        builder: (context, state) => const AccountLoginPage(),
+      ),
+      _animatedRoute(
+        path: '/account-register',
+        name: 'account-register',
+        builder: (context, state) => const AccountRegisterPage(),
       ),
 
       // Business approval workflow (account onboarding).

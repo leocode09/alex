@@ -384,8 +384,9 @@ class SettingsPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Log out?'),
         content: const Text(
-          'This will log this device out of the current account and '
-          'clear the PIN session. Shop data in the cloud is kept.',
+          'This will sign this device out of your account and clear the '
+          'PIN session. Log back in any time with your phone number and '
+          'password — your shop and data are kept.',
         ),
         actions: [
           TextButton(
@@ -408,7 +409,7 @@ class SettingsPage extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(result.message)),
     );
-    context.go('/onboarding');
+    context.go('/account-login');
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {

@@ -23,14 +23,12 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
   final _formKey = GlobalKey<FormState>();
   final _businessNameController = TextEditingController();
   final _ownerNameController = TextEditingController();
-  final _phoneController = TextEditingController();
   bool _busy = false;
 
   @override
   void dispose() {
     _businessNameController.dispose();
     _ownerNameController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -42,7 +40,6 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
       final result = await service.submitBusinessRegistration(
         businessName: _businessNameController.text,
         ownerName: _ownerNameController.text,
-        phoneNumber: _phoneController.text,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,29 +117,10 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
                   labelText: 'Your name',
                   hintText: 'Full name of the business owner',
                 ),
-                textInputAction: TextInputAction.next,
-                validator: (v) {
-                  final t = v?.trim() ?? '';
-                  if (t.isEmpty) return 'Your name is required';
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppTokens.space2),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone number',
-                  hintText: '+1 555 0100',
-                ),
                 textInputAction: TextInputAction.done,
                 validator: (v) {
                   final t = v?.trim() ?? '';
-                  if (t.isEmpty) return 'Phone number is required';
-                  final hasDigits = RegExp(r'\d').hasMatch(t);
-                  if (!hasDigits) {
-                    return 'Please enter a valid phone number';
-                  }
+                  if (t.isEmpty) return 'Your name is required';
                   return null;
                 },
                 onFieldSubmitted: (_) => _busy ? null : _submit(),
