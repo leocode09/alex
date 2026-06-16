@@ -13,26 +13,50 @@ signed out.
 
 ### 1. Enable authentication providers
 
-Every POS device signs in with **Anonymous** auth (shop create/join,
-business registration, cloud sync, heartbeats). The super-admin panel
-uses **Email/Password** on a separate Firebase app instance.
+Every POS user signs in with a **phone number + password** (see
+[`lib/services/cloud/user_auth_service.dart`](../lib/services/cloud/user_auth_service.dart)).
+Under the hood this uses the native **Email/Password** provider keyed by a
+synthetic email derived from the normalized phone
+(`<phoneKey>@phone.alex-pos.app`) — no SMS, no backend. The resulting
+Firebase uid is **stable**, so a returning owner is always recognized as
+the owner of their shop even after a reinstall or new device. The
+super-admin panel also uses **Email/Password** (on a separate named
+Firebase app instance).
 
-**Preferred (from repo root):** `firebase.json` already lists both
+> Anonymous auth is **no longer used** for identity. You can leave the
+> Anonymous provider disabled.
+
+**Preferred (from repo root):** `firebase.json` already lists the
 providers. Deploy with a recent Firebase CLI (v15.15+):
 
 ```bash
 npx -y firebase-tools@latest deploy --only auth,firestore:rules
 ```
 
-Business registration and cloud sync need **both** anonymous auth and the
-rules in [`firestore.rules`](../firestore.rules). If either is missing,
-owners see sign-in or permission-denied errors on **Register business**,
-and staff see permission-denied when submitting a **Join a business**
-request.
+Business registration and cloud sync need **both** the Email/Password
+provider and the rules in [`firestore.rules`](../firestore.rules). If
+either is missing, owners see sign-in or permission-denied errors on
+**Register business**, and staff see permission-denied when submitting a
+**Join a business** request.
 
 **Manual (Console):** Firebase Console → **Build → Authentication →
-Sign-in method** → enable **Anonymous** and **Email/Password**. Magic
-links and social providers are not required.
+Sign-in method** → enable **Email/Password**. Magic links and social
+providers are not required.
+
+### Identity model & data layout
+
+- `/users/{uid}` — per-user profile: `phone`, `phoneKey` (normalized),
+  `displayName`, and a best-effort pointer to the current `shopId` / `role`
+  so a fresh device restores membership after login. A user owns only
+  their own doc.
+- `/shops/{shopId}` — carries `ownerUid`, `ownerPhone`, and
+  `ownerPhoneKey` (normalized). System admins approve shops
+  (`approvalStatus`), owners approve staff.
+- **Ownership claim / migration:** when a user logs in, the app re-binds
+  any shop whose `ownerPhoneKey` matches their phone to their current uid
+  (changing only `ownerUid` / `ownerName`, enforced by the
+  `isOwnershipClaim` rule). This is how legacy anonymous-uid owners
+  recover their shop and how owners move to a new device.
 
 ### 2. Create the first admin user
 
@@ -111,10 +135,44 @@ Global kill-switches (shop-level `enabled=false`, `licenseExpiresAt` in
 the past, or device `blocked=true`) override every feature flag and
 route the device to `/license-locked`.
 
+## Resetting a user's password
+
+Passwords are reset out of band — there is no in-app self-service reset
+(the synthetic phone email cannot receive a reset link). When a user
+forgets their password, the app's **Forgot password?** link tells them to
+contact support. To reset it:
+
+1. Firebase Console → **Build → Authentication → Users**.
+2. Find the user by their synthetic email
+   `<phoneKey>@phone.alex-pos.app` (e.g. a `0784712870` login normalizes
+   to `250784712870@phone.alex-pos.app`).
+3. Use the row's **⋮ → Reset password** (or set a temporary password) and
+   share the new password with the user.
+
+The uid never changes, so the user keeps their shop, role, and data.
+
+## One-time data migration
+
+After deploying the rules, run the cleanup script once with the Firebase
+CLI logged in as a project owner/editor:
+
+```bash
+node scripts/migrate_accounts.js          # dry run (report only)
+node scripts/migrate_accounts.js --apply  # backfill ownerPhoneKey
+node scripts/migrate_accounts.js --apply --dedup  # also tombstone duplicate shops
+```
+
+It backfills `ownerPhoneKey` on existing shops (so the in-app claim can
+find them), reports duplicate shops and orphaned member docs, and — with
+`--dedup` — soft-tombstones the non-canonical duplicates. Existing owners
+then just register/log in with their phone number; the app claims their
+shop automatically. Stale staff member docs (old anonymous uids) are
+removed by the owner from the **Team** screen.
+
 ## Operational notes
 
 - Admin sign-in uses a **named Firebase app** (`"admin"`). This keeps
-  the device's anonymous uid intact while the admin is signed in, so
+  the device's user session intact while the admin is signed in, so
   the heartbeat and usage tracking never point at the admin account.
 - The admin session lives in memory only. Admins must re-authenticate
   on every app restart — this is intentional, since losing a device
