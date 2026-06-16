@@ -13,6 +13,7 @@ import '../pin_service.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
 import 'staff_join_request_writer.dart';
+import 'user_auth_service.dart';
 
 class ShopInfo {
   final String id;
@@ -126,6 +127,7 @@ class ShopService {
   static const String _codeAlphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
   final Random _random = Random.secure();
+  final UserAuthService _userAuth = UserAuthService();
 
   String? _cachedShopId;
   String? _cachedShopName;
@@ -179,9 +181,12 @@ class ShopService {
     return result.uid;
   }
 
-  /// Like [ensureAuth] but returns the full error (code + message) when
-  /// sign-in fails, so the caller can distinguish e.g. "anonymous auth
-  /// disabled in Firebase" from a real network outage.
+  /// Returns the currently signed-in user's uid.
+  ///
+  /// Identity is now a stable phone + password account (see
+  /// [UserAuthService]); this no longer falls back to anonymous sign-in.
+  /// When no user is logged in it returns a failure so callers (sync,
+  /// heartbeat, usage) simply no-op until the user authenticates.
   Future<AuthResult> ensureAuthDetailed() async {
     if (!FirebaseInit.available) {
       return const AuthResult.fail(
@@ -190,24 +195,16 @@ class ShopService {
       );
     }
     try {
-      final auth = FirebaseAuth.instance;
-      final current = auth.currentUser;
-      if (current != null) {
-        // Refresh the ID token so Firestore requests carry auth immediately.
-        await current.getIdToken();
-        return AuthResult.ok(current.uid);
-      }
-      final cred = await auth.signInAnonymously();
-      final user = cred.user;
-      final uid = user?.uid;
-      if (user == null || uid == null) {
+      final current = FirebaseAuth.instance.currentUser;
+      if (current == null) {
         return const AuthResult.fail(
-          code: 'no-uid',
-          message: 'Firebase returned no user id.',
+          code: 'not-signed-in',
+          message: 'No user is signed in.',
         );
       }
-      await user.getIdToken();
-      return AuthResult.ok(uid);
+      // Refresh the ID token so Firestore requests carry auth immediately.
+      await current.getIdToken();
+      return AuthResult.ok(current.uid);
     } on FirebaseAuthException catch (e) {
       if (kDebugMode) {
         debugPrint(
@@ -246,6 +243,10 @@ class ShopService {
 
     try {
       final db = FirebaseFirestore.instance;
+      final ownerPhone = await _userAuth.currentPhone();
+      final ownerPhoneKey = ownerPhone != null
+          ? _userAuth.normalizePhone(ownerPhone)
+          : null;
       final code = await _generateUniqueCode();
       final shopRef =
           db.collection(FirestorePaths.shopsCollection).doc();
@@ -255,6 +256,10 @@ class ShopService {
         'code': code,
         'name': trimmed,
         'ownerUid': uid,
+        if (ownerPhone != null && ownerPhone.isNotEmpty)
+          'ownerPhone': ownerPhone,
+        if (ownerPhoneKey != null && ownerPhoneKey.isNotEmpty)
+          'ownerPhoneKey': ownerPhoneKey,
         'createdAt': now.toIso8601String(),
         'memberCount': 1,
         // New shops start pending system-admin approval. The /shops
@@ -268,7 +273,9 @@ class ShopService {
           .collection(FirestorePaths.membersSubcollection)
           .doc(uid)
           .set({
+        'uid': uid,
         'role': AccountApproval.roleOwner,
+        if (ownerPhone != null && ownerPhone.isNotEmpty) 'phone': ownerPhone,
         'joinedAt': now.toIso8601String(),
         AccountApproval.fieldStatus: AccountApproval.statusApproved,
         AccountApproval.fieldApprovedAt: now.toIso8601String(),
@@ -282,6 +289,10 @@ class ShopService {
         createdAt: now,
       );
       await _persistCache(shop);
+      unawaited(_userAuth.setShopMembership(
+        shopId: shop.id,
+        role: AccountApproval.roleOwner,
+      ));
       unawaited(DeviceHeartbeatService().refreshShopMembership());
       unawaited(LicenseService().refresh());
       return ShopResult.ok('Shop created. Code: $code', shop);
@@ -351,6 +362,10 @@ class ShopService {
         }
 
         await _persistCache(shop);
+        unawaited(_userAuth.setShopMembership(
+          shopId: shop.id,
+          role: AccountApproval.roleOwner,
+        ));
         unawaited(DeviceHeartbeatService().refreshShopMembership());
         unawaited(LicenseService().refresh());
         return ShopResult.ok('Welcome back to "${shop.name}".', shop);
@@ -373,12 +388,20 @@ class ShopService {
       }
       if (writeResult.outcome == StaffJoinWriteOutcome.alreadyMember) {
         await _persistCache(shop);
+        unawaited(_userAuth.setShopMembership(
+          shopId: shop.id,
+          role: AccountApproval.roleStaff,
+        ));
         unawaited(DeviceHeartbeatService().refreshShopMembership());
         unawaited(LicenseService().refresh());
         return ShopResult.ok('You are already a member of "${shop.name}".', shop);
       }
 
       await _persistCache(shop);
+      unawaited(_userAuth.setShopMembership(
+        shopId: shop.id,
+        role: AccountApproval.roleStaff,
+      ));
       unawaited(DeviceHeartbeatService().refreshShopMembership());
       unawaited(LicenseService().refresh());
       return ShopResult.ok('Joined shop "${shop.name}".', shop);

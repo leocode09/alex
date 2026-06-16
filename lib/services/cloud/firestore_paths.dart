@@ -15,6 +15,12 @@ class FirestorePaths {
   /// super-admin privileges on read/write rules.
   static const String adminsCollection = 'admins';
 
+  /// Top-level per-user profile keyed by the stable Firebase Auth uid
+  /// (phone + password login). Stores `phone`, `phoneKey`, `displayName`
+  /// and a best-effort pointer to the user's current `shopId` / `role`
+  /// so a fresh device can restore membership after logging in.
+  static const String usersCollection = 'users';
+
   /// Per-device / per-shop daily usage counters.
   static const String usageDailySubcollection = 'usageDaily';
 

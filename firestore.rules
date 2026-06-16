@@ -66,6 +66,28 @@ service cloud.firestore {
           ).data.get('role', 'staff');
     }
 
+    // The normalized phone key recorded on the caller's /users doc, used
+    // to let a returning owner re-bind a shop they own to a new uid.
+    function userPhoneKey(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+          ? get(/databases/$(database)/documents/users/$(uid)).data.get('phoneKey', '')
+          : '';
+    }
+
+    // Ownership claim / migration: a signed-in user whose phone matches
+    // the shop's ownerPhoneKey may re-point ownerUid to themselves
+    // (changing only ownerUid / ownerName). This recovers ownership when
+    // the previous anonymous uid was lost, without exposing any of the
+    // admin-controlled approval fields.
+    function isOwnershipClaim(shopId) {
+      return isSignedIn()
+          && request.resource.data.ownerUid == request.auth.uid
+          && userPhoneKey(request.auth.uid) != ''
+          && resource.data.get('ownerPhoneKey', '') == userPhoneKey(request.auth.uid)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['ownerUid', 'ownerName']);
+    }
+
     function isApprovedShopMember(shopId) {
       return isShopMember(shopId)
           && memberApprovalStatus(shopId, request.auth.uid) == 'approved'
@@ -115,6 +137,9 @@ service cloud.firestore {
         'rejectedBy',
         'rejectionReason',
         'ownerUid',
+        'ownerPhone',
+        'ownerPhoneKey',
+        'businessPhone',
         'code',
       ];
     }
@@ -138,6 +163,16 @@ service cloud.firestore {
     // discover whether an admin allowlist exists.
     match /admins/{uid} {
       allow read, write: if isAdmin();
+    }
+
+    // ---------- /users ----------
+    // Stable per-user profile (phone + password identity). A user owns
+    // exactly their own doc; admins can read/write any for support.
+    match /users/{uid} {
+      allow read: if isAdmin()
+          || (isSignedIn() && request.auth.uid == uid);
+      allow write: if isAdmin()
+          || (isSignedIn() && request.auth.uid == uid);
     }
 
     // ---------- /devices ----------
@@ -193,9 +228,11 @@ service cloud.firestore {
           && request.resource.data.ownerUid == request.auth.uid
           && request.resource.data.approvalStatus == 'pendingSystemAdmin';
 
-      // Admins may change anything. Members may only update
-      // non-reserved fields (display name, settings, etc.).
+      // Admins may change anything. A returning owner may claim/re-bind
+      // ownership by phone. Members may only update non-reserved fields
+      // (display name, settings, etc.).
       allow update: if isAdmin()
+          || isOwnershipClaim(shopId)
           || (isShopMember(shopId)
               && !(
                   request.resource.data.diff(resource.data).affectedKeys()

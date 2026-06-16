@@ -210,6 +210,7 @@ class PendingApprovalPage extends ConsumerWidget {
               'The business owner rejected your join request. Start '
               'over to pick a different business or try again.',
         );
+      case AccountStage.signedOut:
       case AccountStage.unknown:
       case AccountStage.noAccount:
       case AccountStage.approved:

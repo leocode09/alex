@@ -2,7 +2,10 @@
 ///
 /// The app uses these stages to gate access to the POS:
 ///   - `unknown`: still loading state from Firestore.
-///   - `noAccount`: this device has not yet created or joined a business.
+///   - `signedOut`: Firebase is available but no user is logged in. The
+///     app shows the phone + password login / register screen.
+///   - `noAccount`: the user is logged in but has not yet created or
+///     joined a business.
 ///   - `businessPending`: the business owner registered a new shop and is
 ///     waiting for the system administrator to approve it.
 ///   - `businessRejected`: the system administrator rejected the
@@ -14,6 +17,7 @@
 ///     approved; the POS is fully usable.
 enum AccountStage {
   unknown,
+  signedOut,
   noAccount,
   businessPending,
   businessRejected,
@@ -35,6 +39,9 @@ class AccountState {
   final String? phone;
   final String? rejectionReason;
 
+  /// The stable Firebase Auth uid of the logged-in user, when signed in.
+  final String? uid;
+
   /// True when Firebase is not initialized on this build. Used to let
   /// the app fall back to the existing offline-friendly behaviour
   /// instead of locking the user out.
@@ -49,11 +56,15 @@ class AccountState {
     this.displayName,
     this.phone,
     this.rejectionReason,
+    this.uid,
     this.firebaseUnavailable = false,
   });
 
   static const AccountState unknown =
       AccountState(stage: AccountStage.unknown);
+
+  static const AccountState signedOut =
+      AccountState(stage: AccountStage.signedOut);
 
   static const AccountState noAccount =
       AccountState(stage: AccountStage.noAccount);
@@ -62,6 +73,22 @@ class AccountState {
     stage: AccountStage.unknown,
     firebaseUnavailable: true,
   );
+
+  /// Returns a copy of this state with the [uid] set. Used by the
+  /// account service to tag lightweight states (e.g. `noAccount`) with
+  /// the logged-in user's id.
+  AccountState copyWithUid(String? uid) => AccountState(
+        stage: stage,
+        shopId: shopId,
+        shopName: shopName,
+        shopCode: shopCode,
+        role: role,
+        displayName: displayName,
+        phone: phone,
+        rejectionReason: rejectionReason,
+        uid: uid,
+        firebaseUnavailable: firebaseUnavailable,
+      );
 
   /// Whether the POS is reachable. When Firebase is missing on this
   /// build the app degrades to local-only and the gate stays open

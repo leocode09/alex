@@ -145,6 +145,7 @@ class DeviceHeartbeatService {
       case AccountStage.businessRejected:
       case AccountStage.staffRejected:
         return AccountApproval.statusRejected;
+      case AccountStage.signedOut:
       case AccountStage.noAccount:
       case AccountStage.unknown:
         return 'none';

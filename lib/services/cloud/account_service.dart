@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/account_state.dart';
 import '../admin/device_heartbeat_service.dart';
@@ -12,23 +12,22 @@ import 'firebase_init.dart';
 import 'firestore_paths.dart';
 import 'shop_service.dart';
 import 'staff_join_request_writer.dart';
+import 'user_auth_service.dart';
 
-/// Drives the new business-approval workflow.
+/// Drives the phone + password account / business-approval workflow.
 ///
-/// The service:
+/// Identity is a stable Firebase uid keyed by phone (see
+/// [UserAuthService]), so this service is a straightforward reducer:
 ///
-///   - watches `/shops/{cachedShopId}` and
-///     `/shops/{cachedShopId}/members/{currentUid}` and reduces them
-///     into an [AccountState] the rest of the app consumes via
-///     `accountStateProvider`,
-///   - lets a business owner submit a new business registration
-///     (`/shops/{id}` with `approvalStatus: pendingSystemAdmin`),
-///   - lets a staff member search for approved businesses and submit a
-///     join request (`/shops/{id}/members/{uid}` with
-///     `approvalStatus: pendingOwner`),
-///   - lets an approved owner approve / reject pending staff,
-///   - lets a rejected or pending request be cleared so the user can
-///     start over.
+///   - watches `/shops/{shopId}` and `/shops/{shopId}/members/{uid}` and
+///     reduces them into an [AccountState];
+///   - on (re)attach, claims any shop whose `ownerPhoneKey` matches the
+///     logged-in user (migration / new-device recovery) by re-binding
+///     `ownerUid`;
+///   - lets a business owner register a new business
+///     (`approvalStatus: pendingSystemAdmin`);
+///   - lets a staff member submit a join request (`pendingOwner`);
+///   - lets an approved owner approve / reject / remove staff.
 ///
 /// All writes degrade gracefully when Firebase is unavailable.
 class AccountService {
@@ -36,15 +35,15 @@ class AccountService {
   static final AccountService _instance = AccountService._internal();
   factory AccountService() => _instance;
 
-  static const String _accountLoggedOutPrefsKey = 'account_logged_out';
-
   final ShopService _shopService = ShopService();
+  final UserAuthService _userAuth = UserAuthService();
 
   StreamController<AccountState>? _controller;
   AccountState _current = AccountState.unknown;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _shopSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _memberSub;
+  StreamSubscription<User?>? _authSub;
 
   String? _attachedShopId;
   String? _attachedUid;
@@ -70,6 +69,12 @@ class AccountService {
   }
 
   void _kickstart() {
+    // React to login / logout so the gate updates immediately.
+    if (FirebaseInit.available) {
+      _authSub ??= _userAuth.authStateChanges().listen((_) {
+        unawaited(_reattach());
+      });
+    }
     unawaited(_reattach());
   }
 
@@ -86,51 +91,39 @@ class AccountService {
         return;
       }
 
-      await _shopService.loadCache();
-      final shopId = _shopService.cachedShopId;
-      final uid = await _shopService.ensureAuth();
-
+      final uid = _userAuth.currentUid;
       if (uid == null) {
-        _emit(AccountState.firebaseDown);
+        await _detach();
+        _emit(AccountState.signedOut);
         return;
       }
 
+      // Migration / new-device recovery: re-bind any shop this phone
+      // owns to the current uid before resolving membership.
+      await _claimOwnedShops(uid);
+
+      await _shopService.loadCache();
+      var shopId = _shopService.cachedShopId;
       if (shopId == null || shopId.isEmpty) {
-        if (await _isAccountLoggedOut()) {
-          await _detach();
-          _emit(AccountState.noAccount);
-          return;
+        shopId = await _resolveShopIdForUser(uid);
+        if (shopId != null && shopId.isNotEmpty) {
+          await _cacheShopFromDoc(shopId);
         }
-        final recoveredShopId = await _findOwnedShopId(uid);
-        if (recoveredShopId == null || recoveredShopId.isEmpty) {
-          await _detach();
-          _emit(AccountState.noAccount);
-          return;
-        }
-        final recoveredSnap = await FirebaseFirestore.instance
-            .collection(FirestorePaths.shopsCollection)
-            .doc(recoveredShopId)
-            .get();
-        final recoveredData = recoveredSnap.data() ?? <String, dynamic>{};
-        await _shopService.persistShopCache(
-          id: recoveredShopId,
-          code: (recoveredData['code'] as String?) ?? '',
-          name: (recoveredData['name'] as String?) ?? 'Business',
-        );
       }
 
-      final activeShopId = await _resolveShopId(
-        _shopService.cachedShopId ?? shopId ?? '',
-        uid,
-      );
-
-      if (_attachedShopId != activeShopId || _attachedUid != uid) {
+      if (shopId == null || shopId.isEmpty) {
         await _detach();
-        _attachedShopId = activeShopId;
+        _emit(AccountState.noAccount.copyWithUid(uid));
+        return;
+      }
+
+      if (_attachedShopId != shopId || _attachedUid != uid) {
+        await _detach();
+        _attachedShopId = shopId;
         _attachedUid = uid;
         _shopSub = FirebaseFirestore.instance
             .collection(FirestorePaths.shopsCollection)
-            .doc(activeShopId)
+            .doc(shopId)
             .snapshots()
             .listen(
           (doc) {
@@ -145,7 +138,7 @@ class AccountService {
         );
         _memberSub = FirebaseFirestore.instance
             .collection(FirestorePaths.shopsCollection)
-            .doc(activeShopId)
+            .doc(shopId)
             .collection(FirestorePaths.membersSubcollection)
             .doc(uid)
             .snapshots()
@@ -162,18 +155,7 @@ class AccountService {
         );
       }
 
-      await _fetchLatestDocs(activeShopId, uid);
-      final shop = _lastShop;
-      if (shop != null && shop['ownerUid'] == uid) {
-        final repaired = await _ensureOwnerMemberDoc(
-          shopId: activeShopId,
-          shopData: shop,
-          uid: uid,
-        );
-        if (repaired) {
-          await _fetchLatestDocs(activeShopId, uid);
-        }
-      }
+      await _fetchLatestDocs(shopId, uid);
       _emitMerged();
     } finally {
       _attaching = false;
@@ -191,9 +173,6 @@ class AccountService {
     _lastMember = null;
   }
 
-  /// Force-read the latest shop + member docs. The pending-approval
-  /// screen's Refresh button relies on this because re-attaching
-  /// listeners alone does not re-fetch when ids are unchanged.
   Future<void> _fetchLatestDocs(String shopId, String uid) async {
     try {
       final db = FirebaseFirestore.instance;
@@ -214,103 +193,95 @@ class AccountService {
     }
   }
 
-  /// If this device cached a shop id/code that never landed in Firestore
-  /// (or a duplicate registration was started), re-bind to the owner's
-  /// real approved business when one exists.
-  Future<String> _resolveShopId(String cachedShopId, String uid) async {
+  /// Finds the shop this user belongs to without relying on local cache:
+  /// first a shop they own, then the pointer stored on `/users/{uid}`.
+  Future<String?> _resolveShopIdForUser(String uid) async {
     try {
-      final db = FirebaseFirestore.instance;
-      final cachedSnap = await db
-          .collection(FirestorePaths.shopsCollection)
-          .doc(cachedShopId)
-          .get();
-      final cachedStatus = cachedSnap.exists
-          ? ((cachedSnap.data()?[AccountApproval.fieldStatus] as String?) ??
-              AccountApproval.statusApproved)
-          : null;
-
-      if (cachedSnap.exists &&
-          cachedStatus == AccountApproval.statusApproved) {
-        return cachedShopId;
-      }
-
-      final owned = await db
+      final owned = await FirebaseFirestore.instance
           .collection(FirestorePaths.shopsCollection)
           .where('ownerUid', isEqualTo: uid)
-          .limit(5)
+          .limit(1)
           .get();
-      if (owned.docs.isEmpty) {
-        return cachedShopId;
+      if (owned.docs.isNotEmpty) {
+        return owned.docs.first.id;
       }
-
-      DocumentSnapshot<Map<String, dynamic>>? approved;
-      DocumentSnapshot<Map<String, dynamic>>? pending;
-      for (final doc in owned.docs) {
-        final status =
-            (doc.data()[AccountApproval.fieldStatus] as String?) ??
-                AccountApproval.statusApproved;
-        if (status == AccountApproval.statusApproved) {
-          approved = doc;
-          break;
-        }
-        pending ??= doc;
-      }
-
-      final target = approved ?? pending;
-      if (target == null) {
-        return cachedShopId;
-      }
-
-      if (target.id == cachedShopId && cachedSnap.exists) {
-        return cachedShopId;
-      }
-
-      final data = target.data()!;
-      await _shopService.persistShopCache(
-        id: target.id,
-        code: (data['code'] as String?) ?? '',
-        name: (data['name'] as String?) ?? 'Business',
-      );
-      return target.id;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('AccountService._resolveShopId error: $e');
+        debugPrint('AccountService._resolveShopIdForUser owned error: $e');
       }
-      return cachedShopId;
     }
+    return _userAuth.storedShopId();
   }
 
-  Future<String?> _findOwnedShopId(String uid) async {
+  Future<void> _cacheShopFromDoc(String shopId) async {
     try {
       final snap = await FirebaseFirestore.instance
           .collection(FirestorePaths.shopsCollection)
-          .where('ownerUid', isEqualTo: uid)
-          .limit(5)
+          .doc(shopId)
           .get();
-      if (snap.docs.isEmpty) return null;
-
-      DocumentSnapshot<Map<String, dynamic>>? approved;
-      DocumentSnapshot<Map<String, dynamic>>? pending;
-      for (final doc in snap.docs) {
-        final status =
-            (doc.data()[AccountApproval.fieldStatus] as String?) ??
-                AccountApproval.statusApproved;
-        if (status == AccountApproval.statusApproved) {
-          approved = doc;
-          break;
-        }
-        pending ??= doc;
-      }
-      return (approved ?? pending)?.id;
+      final data = snap.data() ?? <String, dynamic>{};
+      await _shopService.persistShopCache(
+        id: shopId,
+        code: (data['code'] as String?) ?? '',
+        name: (data['name'] as String?) ?? 'Business',
+      );
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('AccountService._findOwnedShopId error: $e');
+        debugPrint('AccountService._cacheShopFromDoc error: $e');
       }
-      return null;
     }
   }
 
-  Future<bool> _ensureOwnerMemberDoc({
+  /// Re-binds any shop whose `ownerPhoneKey` matches this user's phone to
+  /// the current uid, and ensures an approved owner member doc exists.
+  /// This is the migration path (old anonymous-uid owners) and the
+  /// new-device recovery path. Best-effort and never throws.
+  Future<void> _claimOwnedShops(String uid) async {
+    try {
+      final phone = await _userAuth.currentPhone();
+      if (phone == null || phone.trim().isEmpty) return;
+      final phoneKey = _userAuth.normalizePhone(phone);
+      if (phoneKey.length < 9) return;
+
+      final matches = await FirebaseFirestore.instance
+          .collection(FirestorePaths.shopsCollection)
+          .where('ownerPhoneKey', isEqualTo: phoneKey)
+          .limit(5)
+          .get();
+      if (matches.docs.isEmpty) return;
+
+      for (final doc in matches.docs) {
+        final data = doc.data();
+        final currentOwner = data['ownerUid'] as String?;
+        if (currentOwner == uid) {
+          await _ensureOwnerMemberDoc(shopId: doc.id, shopData: data, uid: uid);
+          continue;
+        }
+        try {
+          await doc.reference.update({
+            'ownerUid': uid,
+            if ((data['ownerName'] as String?)?.trim().isNotEmpty != true)
+              'ownerName': 'Owner',
+          });
+          await _ensureOwnerMemberDoc(
+            shopId: doc.id,
+            shopData: {...data, 'ownerUid': uid},
+            uid: uid,
+          );
+        } on FirebaseException catch (e) {
+          if (kDebugMode) {
+            debugPrint('AccountService claim update denied: ${e.code}');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AccountService._claimOwnedShops error: $e');
+      }
+    }
+  }
+
+  Future<void> _ensureOwnerMemberDoc({
     required String shopId,
     required Map<String, dynamic> shopData,
     required String uid,
@@ -323,16 +294,12 @@ class AccountService {
           .doc(uid);
       final memberSnap = await memberRef.get();
       final memberData = memberSnap.data();
-      final isAlreadyOwner = memberSnap.exists &&
+      final isOwnerApproved = memberSnap.exists &&
           memberData?['role'] == AccountApproval.roleOwner &&
           ((memberData?[AccountApproval.fieldStatus] as String?) ??
                   AccountApproval.statusApproved) ==
               AccountApproval.statusApproved;
-      if (isAlreadyOwner) return false;
-
-      if (memberSnap.exists) {
-        await memberRef.delete();
-      }
+      if (isOwnerApproved) return;
 
       final nowIso = DateTime.now().toIso8601String();
       final ownerName =
@@ -340,7 +307,7 @@ class AccountService {
               ? (shopData['ownerName'] as String).trim()
               : 'Owner';
       final ownerPhone = (shopData['ownerPhone'] as String?) ??
-          (shopData['businessPhone'] as String?);
+          await _userAuth.currentPhone();
       await memberRef.set({
         'uid': uid,
         'role': AccountApproval.roleOwner,
@@ -350,58 +317,64 @@ class AccountService {
         'joinedAt': nowIso,
         AccountApproval.fieldStatus: AccountApproval.statusApproved,
         AccountApproval.fieldApprovedAt: nowIso,
-      });
-      return true;
+      }, SetOptions(merge: true));
+      await _userAuth.setShopMembership(
+        shopId: shopId,
+        role: AccountApproval.roleOwner,
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('AccountService._ensureOwnerMemberDoc error: $e');
       }
-      return false;
     }
   }
 
   void _emitMerged() {
+    final uid = _attachedUid;
     final shopId = _attachedShopId;
-    if (shopId == null || shopId.isEmpty) {
-      _emit(AccountState.noAccount);
+    if (uid == null || shopId == null || shopId.isEmpty) {
+      _emit(AccountState.noAccount.copyWithUid(uid));
       return;
     }
+
     final shop = _lastShop;
     if (shop == null) {
-      // Still loading or temporarily unreadable — keep the user on the
-      // pending gate using cached shop identity instead of bouncing
-      // them back to onboarding.
+      // Shop doc still loading / temporarily unreadable. Stay on the
+      // current gate using the cached identity instead of bouncing back
+      // to onboarding.
       final cachedName = _shopService.cachedShopName;
       final cachedCode = _shopService.cachedShopCode;
       if (cachedName != null || cachedCode != null) {
         _emit(AccountState(
-          stage: AccountStage.businessPending,
+          stage: AccountStage.unknown,
+          uid: uid,
           shopId: shopId,
           shopName: cachedName,
           shopCode: cachedCode,
-          role: AccountRole.owner,
         ));
       } else {
-        _emit(AccountState.noAccount);
+        _emit(AccountState.noAccount.copyWithUid(uid));
       }
       return;
     }
 
-    final shopStatus =
-        (shop[AccountApproval.fieldStatus] as String?) ??
-            AccountApproval.statusApproved;
+    final shopStatus = (shop[AccountApproval.fieldStatus] as String?) ??
+        AccountApproval.statusApproved;
     final shopName = shop['name'] as String?;
     final shopCode = shop['code'] as String?;
+    final ownerUid = shop['ownerUid'] as String?;
+    final isOwnerOfShop = ownerUid == uid;
 
     if (shopStatus == AccountApproval.statusRejected) {
       _emit(AccountState(
         stage: AccountStage.businessRejected,
+        uid: uid,
         shopId: shopId,
         shopName: shopName,
         shopCode: shopCode,
         role: AccountRole.owner,
         displayName: shop['ownerName'] as String?,
-        phone: shop['ownerPhone'] as String? ?? shop['businessPhone'] as String?,
+        phone: shop['ownerPhone'] as String?,
         rejectionReason: shop[AccountApproval.fieldRejectionReason] as String?,
       ));
       return;
@@ -410,35 +383,36 @@ class AccountService {
     if (shopStatus == AccountApproval.statusPendingSystemAdmin) {
       _emit(AccountState(
         stage: AccountStage.businessPending,
+        uid: uid,
         shopId: shopId,
         shopName: shopName,
         shopCode: shopCode,
         role: AccountRole.owner,
         displayName: shop['ownerName'] as String?,
-        phone: shop['ownerPhone'] as String? ?? shop['businessPhone'] as String?,
+        phone: shop['ownerPhone'] as String?,
       ));
       return;
     }
 
-    // Shop is approved (or legacy doc with no status). Now look at the
-    // current device's member status.
+    // Shop approved (or legacy doc). Resolve this device's member status.
     final member = _lastMember;
     if (member == null) {
+      // The shop owner whose member doc is missing is repaired by the
+      // claim path; surface a staff-pending gate for everyone else.
       _emit(AccountState(
         stage: AccountStage.staffPending,
+        uid: uid,
         shopId: shopId,
         shopName: shopName,
         shopCode: shopCode,
-        role: AccountRole.staff,
+        role: isOwnerOfShop ? AccountRole.owner : AccountRole.staff,
       ));
       return;
     }
 
-    final memberStatus =
-        (member[AccountApproval.fieldStatus] as String?) ??
-            AccountApproval.statusApproved;
-    final roleStr =
-        (member['role'] as String?) ?? AccountApproval.roleStaff;
+    final memberStatus = (member[AccountApproval.fieldStatus] as String?) ??
+        AccountApproval.statusApproved;
+    final roleStr = (member['role'] as String?) ?? AccountApproval.roleStaff;
     final role = roleStr == AccountApproval.roleOwner
         ? AccountRole.owner
         : AccountRole.staff;
@@ -448,14 +422,14 @@ class AccountService {
     if (memberStatus == AccountApproval.statusRejected) {
       _emit(AccountState(
         stage: AccountStage.staffRejected,
+        uid: uid,
         shopId: shopId,
         shopName: shopName,
         shopCode: shopCode,
         role: role,
         displayName: displayName,
         phone: phone,
-        rejectionReason:
-            member[AccountApproval.fieldRejectionReason] as String?,
+        rejectionReason: member[AccountApproval.fieldRejectionReason] as String?,
       ));
       return;
     }
@@ -463,6 +437,7 @@ class AccountService {
     if (memberStatus == AccountApproval.statusPendingOwner) {
       _emit(AccountState(
         stage: AccountStage.staffPending,
+        uid: uid,
         shopId: shopId,
         shopName: shopName,
         shopCode: shopCode,
@@ -475,6 +450,7 @@ class AccountService {
 
     _emit(AccountState(
       stage: AccountStage.approved,
+      uid: uid,
       shopId: shopId,
       shopName: shopName,
       shopCode: shopCode,
@@ -492,27 +468,58 @@ class AccountService {
     }
   }
 
-  // ---------- public API ----------
+  // ---------- auth API ----------
 
-  /// Owner submits a new business registration. Creates
-  /// `/shops/{newId}` with `approvalStatus: pendingSystemAdmin` and
-  /// adds the current device's user as the approved owner member.
+  /// Registers a new phone + password account, then refreshes state.
+  Future<UserAuthResult> registerAccount({
+    required String phone,
+    required String password,
+    required String displayName,
+  }) async {
+    final result = await _userAuth.register(
+      phone: phone,
+      password: password,
+      displayName: displayName,
+    );
+    if (result.success) {
+      unawaited(DeviceHeartbeatService().refreshShopMembership());
+      unawaited(LicenseService().refresh());
+      await refresh();
+    }
+    return result;
+  }
+
+  /// Logs in with phone + password, then refreshes state.
+  Future<UserAuthResult> loginAccount({
+    required String phone,
+    required String password,
+  }) async {
+    final result = await _userAuth.login(phone: phone, password: password);
+    if (result.success) {
+      unawaited(DeviceHeartbeatService().refreshShopMembership());
+      unawaited(LicenseService().refresh());
+      await refresh();
+    }
+    return result;
+  }
+
+  // ---------- business / staff onboarding ----------
+
+  /// Owner submits a new business registration using the logged-in
+  /// identity. Creates `/shops/{newId}` (pendingSystemAdmin) plus the
+  /// owner's approved member doc.
   Future<AccountActionResult> submitBusinessRegistration({
     required String businessName,
     required String ownerName,
-    required String phoneNumber,
+    String? phoneNumber,
   }) async {
     final name = businessName.trim();
     final owner = ownerName.trim();
-    final phone = phoneNumber.trim();
     if (name.isEmpty) {
       return AccountActionResult.fail('Business name is required.');
     }
     if (owner.isEmpty) {
       return AccountActionResult.fail('Your name is required.');
-    }
-    if (phone.isEmpty) {
-      return AccountActionResult.fail('Phone number is required.');
     }
     if (!FirebaseInit.available) {
       return AccountActionResult.fail(
@@ -520,11 +527,19 @@ class AccountService {
         'requires Firebase.',
       );
     }
-    final auth = await _shopService.ensureAuthDetailed();
-    final uid = auth.uid;
+    final uid = _userAuth.currentUid;
     if (uid == null) {
-      return AccountActionResult.fail('Sign-in failed: ${auth.describe()}');
+      return AccountActionResult.fail('Please log in first.');
     }
+
+    final accountPhone = await _userAuth.currentPhone();
+    final phone = ((phoneNumber ?? '').trim().isNotEmpty)
+        ? phoneNumber!.trim()
+        : (accountPhone ?? '');
+    if (phone.isEmpty) {
+      return AccountActionResult.fail('Phone number is required.');
+    }
+    final phoneKey = _userAuth.normalizePhone(phone);
 
     try {
       final db = FirebaseFirestore.instance;
@@ -535,9 +550,8 @@ class AccountService {
           .get();
       for (final doc in existingOwned.docs) {
         final data = doc.data();
-        final status =
-            (data[AccountApproval.fieldStatus] as String?) ??
-                AccountApproval.statusApproved;
+        final status = (data[AccountApproval.fieldStatus] as String?) ??
+            AccountApproval.statusApproved;
         if (status == AccountApproval.statusRejected) {
           continue;
         }
@@ -551,16 +565,14 @@ class AccountService {
         await refresh();
         return AccountActionResult.ok(
           status == AccountApproval.statusApproved
-              ? 'This device is already linked to $existingName '
-                  '(code $existingCode).'
+              ? 'You already own $existingName (code $existingCode).'
               : 'You already submitted $existingName '
                   '(code $existingCode). Waiting for approval.',
         );
       }
 
       final code = await _generateShopCode(db);
-      final shopRef =
-          db.collection(FirestorePaths.shopsCollection).doc();
+      final shopRef = db.collection(FirestorePaths.shopsCollection).doc();
       final nowIso = DateTime.now().toIso8601String();
 
       try {
@@ -571,6 +583,7 @@ class AccountService {
           'ownerName': owner,
           'ownerPhone': phone,
           'businessPhone': phone,
+          'ownerPhoneKey': phoneKey,
           'createdAt': nowIso,
           'memberCount': 1,
           AccountApproval.fieldStatus:
@@ -587,6 +600,7 @@ class AccountService {
         }
         rethrow;
       }
+
       try {
         await shopRef
             .collection(FirestorePaths.membersSubcollection)
@@ -615,7 +629,10 @@ class AccountService {
         code: code,
         name: name,
       );
-      await _setAccountLoggedOut(false);
+      await _userAuth.setShopMembership(
+        shopId: shopRef.id,
+        role: AccountApproval.roleOwner,
+      );
       unawaited(refresh());
       unawaited(DeviceHeartbeatService().refreshShopMembership());
       unawaited(LicenseService().refresh());
@@ -644,28 +661,28 @@ class AccountService {
       return AccountActionResult.fail('Your name is required.');
     }
     if (!FirebaseInit.available) {
-      return AccountActionResult.fail(
-        'Cloud is not configured on this device.',
-      );
+      return AccountActionResult.fail('Cloud is not configured on this device.');
     }
-    final auth = await _shopService.ensureAuthDetailed();
-    final uid = auth.uid;
+    final uid = _userAuth.currentUid;
     if (uid == null) {
-      return AccountActionResult.fail('Sign-in failed: ${auth.describe()}');
+      return AccountActionResult.fail('Please log in first.');
     }
+
+    final accountPhone = await _userAuth.currentPhone();
+    final phone = ((phoneNumber ?? '').trim().isNotEmpty)
+        ? phoneNumber!.trim()
+        : accountPhone;
 
     try {
       final db = FirebaseFirestore.instance;
-      final shopRef =
-          db.collection(FirestorePaths.shopsCollection).doc(shopId);
+      final shopRef = db.collection(FirestorePaths.shopsCollection).doc(shopId);
       final shopSnap = await shopRef.get();
       if (!shopSnap.exists) {
         return AccountActionResult.fail('Business not found.');
       }
       final shopData = shopSnap.data() as Map<String, dynamic>;
-      final shopStatus =
-          (shopData[AccountApproval.fieldStatus] as String?) ??
-              AccountApproval.statusApproved;
+      final shopStatus = (shopData[AccountApproval.fieldStatus] as String?) ??
+          AccountApproval.statusApproved;
       if (shopStatus != AccountApproval.statusApproved) {
         return AccountActionResult.fail(
           'This business is not yet approved by the system admin.',
@@ -681,55 +698,33 @@ class AccountService {
           shopData: {
             ...shopData,
             'ownerName': name,
-            if (phoneNumber != null && phoneNumber.trim().isNotEmpty)
-              'ownerPhone': phoneNumber.trim(),
+            if (phone != null && phone.trim().isNotEmpty) 'ownerPhone': phone,
           },
           uid: uid,
         );
-
         await _shopService.persistShopCache(
           id: shopId,
           code: shopCode,
           name: shopName,
         );
-        await _setAccountLoggedOut(false);
         unawaited(refresh());
         unawaited(DeviceHeartbeatService().refreshShopMembership());
         unawaited(LicenseService().refresh());
         return AccountActionResult.ok('Welcome back to $shopName.');
       }
 
-      final memberRef = shopRef
-          .collection(FirestorePaths.membersSubcollection)
-          .doc(uid);
+      final memberRef =
+          shopRef.collection(FirestorePaths.membersSubcollection).doc(uid);
       final writeResult = await StaffJoinRequestWriter.upsert(
         memberRef: memberRef,
         uid: uid,
         displayName: name,
-        phoneNumber: phoneNumber,
+        phoneNumber: phone,
       );
       if (!writeResult.success) {
         return AccountActionResult.fail(
           writeResult.errorMessage ?? 'Failed to submit request.',
         );
-      }
-      switch (writeResult.outcome) {
-        case StaffJoinWriteOutcome.alreadyMember:
-          await _shopService.persistShopCache(
-            id: shopId,
-            code: shopCode,
-            name: shopName,
-          );
-          await _setAccountLoggedOut(false);
-          unawaited(refresh());
-          unawaited(DeviceHeartbeatService().refreshShopMembership());
-          unawaited(LicenseService().refresh());
-          return AccountActionResult.ok('You are already a member of $shopName.');
-        case StaffJoinWriteOutcome.created:
-        case StaffJoinWriteOutcome.updatedPending:
-        case StaffJoinWriteOutcome.resubmitted:
-        case null:
-          break;
       }
 
       await _shopService.persistShopCache(
@@ -737,10 +732,17 @@ class AccountService {
         code: shopCode,
         name: shopName,
       );
-      await _setAccountLoggedOut(false);
+      await _userAuth.setShopMembership(
+        shopId: shopId,
+        role: AccountApproval.roleStaff,
+      );
       unawaited(refresh());
       unawaited(DeviceHeartbeatService().refreshShopMembership());
       unawaited(LicenseService().refresh());
+
+      if (writeResult.outcome == StaffJoinWriteOutcome.alreadyMember) {
+        return AccountActionResult.ok('You are already a member of $shopName.');
+      }
       return AccountActionResult.ok(
         'Request sent. Waiting for the business owner to approve.',
       );
@@ -764,15 +766,11 @@ class AccountService {
   }
 
   /// Searches the directory of approved businesses by name/code.
-  /// Returns up to 25 best-matching results. Empty query → empty.
-  Future<List<BusinessSummary>> searchApprovedBusinesses(
-    String query,
-  ) async {
+  Future<List<BusinessSummary>> searchApprovedBusinesses(String query) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return const [];
     if (!FirebaseInit.available) return const [];
-    final uid = await _shopService.ensureAuth();
-    if (uid == null) return const [];
+    if (_userAuth.currentUid == null) return const [];
 
     try {
       final db = FirebaseFirestore.instance;
@@ -820,8 +818,8 @@ class AccountService {
     }
   }
 
-  /// Approves a pending staff member. Caller must already be the
-  /// approved owner of the shop (enforced by security rules).
+  // ---------- owner staff management ----------
+
   Future<AccountActionResult> ownerApproveMember({
     required String shopId,
     required String memberUid,
@@ -839,7 +837,6 @@ class AccountService {
     );
   }
 
-  /// Rejects a pending staff member with an optional reason.
   Future<AccountActionResult> ownerRejectMember({
     required String shopId,
     required String memberUid,
@@ -852,14 +849,12 @@ class AccountService {
       payload: {
         AccountApproval.fieldStatus: AccountApproval.statusRejected,
         AccountApproval.fieldRejectedAt: DateTime.now().toIso8601String(),
-        if (trimmed.isNotEmpty)
-          AccountApproval.fieldRejectionReason: trimmed,
+        if (trimmed.isNotEmpty) AccountApproval.fieldRejectionReason: trimmed,
       },
       okMessage: 'Staff request rejected.',
     );
   }
 
-  /// Removes a staff member entirely.
   Future<AccountActionResult> ownerRemoveMember({
     required String shopId,
     required String memberUid,
@@ -867,13 +862,13 @@ class AccountService {
     if (!FirebaseInit.available) {
       return AccountActionResult.fail('Cloud is not configured.');
     }
-    final uid = await _shopService.ensureAuth();
+    final uid = _userAuth.currentUid;
     if (uid == null) {
-      return AccountActionResult.fail('Sign-in failed.');
+      return AccountActionResult.fail('Please log in first.');
     }
     if (uid == memberUid) {
       return AccountActionResult.fail(
-        'Owners cannot remove themselves. Use Start over instead.',
+        'Owners cannot remove themselves. Use Log out instead.',
       );
     }
     try {
@@ -901,9 +896,9 @@ class AccountService {
     if (!FirebaseInit.available) {
       return AccountActionResult.fail('Cloud is not configured.');
     }
-    final uid = await _shopService.ensureAuth();
+    final uid = _userAuth.currentUid;
     if (uid == null) {
-      return AccountActionResult.fail('Sign-in failed.');
+      return AccountActionResult.fail('Please log in first.');
     }
     try {
       final merged = {
@@ -925,15 +920,16 @@ class AccountService {
     }
   }
 
-  /// Logs this device out of the current business account without
-  /// removing the server-side shop membership.
+  // ---------- session ----------
+
+  /// Logs the user out completely (Firebase sign-out + local shop cache).
   Future<AccountActionResult> logoutAccount() async {
     try {
-      await _setAccountLoggedOut(true);
-      await _shopService.leaveShop();
       await _detach();
-      _emit(AccountState.noAccount);
-      return AccountActionResult.ok('Logged out of account.');
+      await _shopService.leaveShop();
+      await _userAuth.signOut();
+      _emit(AccountState.signedOut);
+      return AccountActionResult.ok('Logged out.');
     } catch (e) {
       if (kDebugMode) {
         debugPrint('logoutAccount error: $e');
@@ -942,25 +938,14 @@ class AccountService {
     }
   }
 
-  Future<bool> _isAccountLoggedOut() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_accountLoggedOutPrefsKey) ?? false;
-  }
-
-  Future<void> _setAccountLoggedOut(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_accountLoggedOutPrefsKey, value);
-  }
-
-  /// Clears the device's current shop binding so the user can submit a
-  /// fresh request after a rejection. Best-effort: also removes the
-  /// owner's pending/rejected shop doc (rules permit owners to delete
-  /// their own non-approved shop).
+  /// Clears this device's shop binding so a rejected user can submit a
+  /// fresh request. The owner of a still-pending / rejected shop also
+  /// deletes that shop doc. Keeps the user logged in.
   Future<AccountActionResult> startOver() async {
     try {
       if (FirebaseInit.available) {
-        final uid = await _shopService.ensureAuth();
-        final shopId = _shopService.cachedShopId;
+        final uid = _userAuth.currentUid;
+        final shopId = _shopService.cachedShopId ?? _attachedShopId;
         if (uid != null && shopId != null && shopId.isNotEmpty) {
           final db = FirebaseFirestore.instance;
           final shopRef =
@@ -968,16 +953,10 @@ class AccountService {
           final snap = await shopRef.get();
           final data = snap.data() ?? <String, dynamic>{};
           final ownerUid = data['ownerUid'] as String?;
-          final status =
-              (data[AccountApproval.fieldStatus] as String?) ??
-                  AccountApproval.statusApproved;
+          final status = (data[AccountApproval.fieldStatus] as String?) ??
+              AccountApproval.statusApproved;
 
-          // Owner of a non-approved shop: delete shop + own member doc.
-          if (ownerUid == uid && status == AccountApproval.statusApproved) {
-            // Owner logout is local-only. Deleting the approved owner
-            // member doc would make the owner re-enter as pending staff.
-          } else if (ownerUid == uid &&
-              status != AccountApproval.statusApproved) {
+          if (ownerUid == uid && status != AccountApproval.statusApproved) {
             try {
               await shopRef
                   .collection(FirestorePaths.membersSubcollection)
@@ -987,9 +966,7 @@ class AccountService {
             try {
               await shopRef.delete();
             } catch (_) {/* best-effort */}
-          } else {
-            // Staff or owner of an approved shop: just remove our own
-            // member doc so we can re-request later.
+          } else if (ownerUid != uid) {
             try {
               await shopRef
                   .collection(FirestorePaths.membersSubcollection)
@@ -1004,8 +981,8 @@ class AccountService {
         debugPrint('startOver error: $e');
       }
     }
+    await _userAuth.setShopMembership(shopId: '', role: '');
     await _shopService.leaveShop();
-    await _setAccountLoggedOut(true);
     await refresh();
     return AccountActionResult.ok('You can submit a new request now.');
   }
