@@ -107,6 +107,103 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     }
   }
 
+  Future<void> _checkCloudHistory() async {
+    final available = await CloudHistoryService.instance.isAvailable();
+    if (mounted && available != _cloudHistoryAvailable) {
+      setState(() => _cloudHistoryAvailable = available);
+    }
+  }
+
+  String _rangeKey(DateTimeRange r) =>
+      '${r.start.millisecondsSinceEpoch}_${r.end.millisecondsSinceEpoch}';
+
+  /// Local sales merged with any fetched cloud history, de-duplicated by id
+  /// (local wins). Cloud rows outside the active range are filtered out
+  /// downstream by [_filterSalesByRange], so merging eagerly is safe.
+  List<Sale> _mergeCloud(List<Sale> local) {
+    if (_cloudHistorySales.isEmpty) return local;
+    final byId = <String, Sale>{for (final s in local) s.id: s};
+    for (final s in _cloudHistorySales) {
+      byId.putIfAbsent(s.id, () => s);
+    }
+    return byId.values.toList();
+  }
+
+  /// Kick off a cloud fetch when the selected period reaches earlier than the
+  /// locally retained window. Runs at most once per distinct range.
+  void _maybeLoadCloudHistory(DateTimeRange range, List<Sale> local) {
+    if (!_cloudHistoryAvailable || _cloudHistoryLoading) return;
+    DateTime? oldestLocal;
+    for (final s in local) {
+      if (oldestLocal == null || s.createdAt.isBefore(oldestLocal)) {
+        oldestLocal = s.createdAt;
+      }
+    }
+    final localBoundary = oldestLocal ??
+        DateTime.now()
+            .subtract(const Duration(days: LocalRetentionService.retentionDays));
+    if (!range.start.isBefore(localBoundary)) return;
+
+    final key = _rangeKey(range);
+    if (key == _cloudHistoryRangeKey) return;
+    _cloudHistoryRangeKey = key;
+    _cloudHistoryLoading = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final results = await CloudHistoryService.instance
+          .fetchSalesByDateRange(range.start, range.end);
+      if (!mounted) return;
+      setState(() {
+        _cloudHistorySales = results;
+        _cloudHistoryLoading = false;
+      });
+    });
+  }
+
+  Widget _buildCloudHistoryBanner() {
+    final onSalesOrEmployees =
+        _tabController.index == 0 || _tabController.index == 2;
+    if (!onSalesOrEmployees) return const SizedBox.shrink();
+    if (_cloudHistoryLoading) {
+      return Container(
+        width: double.infinity,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: const [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Loading archived sales from the cloud…'),
+          ],
+        ),
+      );
+    }
+    if (_cloudHistorySales.isNotEmpty) {
+      return Container(
+        width: double.infinity,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_done_outlined, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Including ${_cloudHistorySales.length} archived sale(s) from '
+                'the cloud for this period.',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -170,6 +267,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
       body: Column(
         children: [
           _buildFilterStrip(),
+          _buildCloudHistoryBanner(),
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -228,7 +326,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           orElse: () => const <Expense>[],
         );
         final range = _getPeriodRange(_selectedPeriod);
-        final periodSales = _filterSalesByRange(allSales, range);
+        _maybeLoadCloudHistory(range, allSales);
+        final periodSales = _filterSalesByRange(_mergeCloud(allSales), range);
         final filteredSales =
             _filterSalesByQueryAndChips(periodSales, products);
         final periodExpenses = _filterExpensesByRange(allExpenses, range);
@@ -799,7 +898,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     return salesAsync.when(
       data: (allSales) {
         final range = _getPeriodRange(_selectedPeriod);
-        final periodSales = _filterSalesByRange(allSales, range);
+        _maybeLoadCloudHistory(range, allSales);
+        final periodSales = _filterSalesByRange(_mergeCloud(allSales), range);
         final filteredSales = _normalizedQuery.isEmpty
             ? periodSales
             : periodSales.where((sale) {
