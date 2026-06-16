@@ -19,7 +19,9 @@ import '../../models/sale.dart';
 import '../../models/store.dart';
 import '../../models/sync_data.dart';
 import '../../models/shop_app_settings.dart';
+import '../../repositories/sale_repository.dart';
 import '../pin_service.dart';
+import '../retention/local_retention_service.dart';
 import '../shop_app_settings_service.dart';
 import '../shop_pin_service.dart';
 import '../sync_event_bus.dart';
@@ -74,6 +76,7 @@ class CloudSyncService extends ChangeNotifier {
   // so we don't need to hold individual repository instances here.
   final SyncService _syncService = SyncService();
   final ShopService _shopService = ShopService();
+  final SaleRepository _saleRepo = SaleRepository();
 
   // Debounce / throttle (mirrors LanSyncService).
   static const Duration _syncDebounce = Duration(seconds: 2);
@@ -243,6 +246,12 @@ class CloudSyncService extends ChangeNotifier {
       if (_status != CloudSyncStatus.online) {
         _setStatus(CloudSyncStatus.online);
       }
+      // The push uploaded the full local snapshot, so every local sale is now
+      // safely backed up. Mark them and let retention evict old paid rows.
+      unawaited(() async {
+        await _saleRepo.markAllLocalSalesBackedUp();
+        await LocalRetentionService.instance.run();
+      }());
     } catch (e) {
       _lastError = e.toString();
       _addLog('Push failed: $e');

@@ -318,8 +318,22 @@ class SyncService {
   }
 
   Future<int> _replaceSales(List<Sale> sales) async {
-    await _saleRepo.replaceAllSales(sales);
-    return sales.length;
+    final watermark = await _saleRepo.getRetentionWatermark();
+    final kept =
+        sales.where((s) => !_isEvictedSale(s, watermark)).toList();
+    await _saleRepo.replaceAllSales(kept);
+    return kept.length;
+  }
+
+  /// A fully-paid sale older than the local retention watermark has been
+  /// intentionally evicted from this device (the full history is kept in the
+  /// cloud). Skipping it on import prevents sync from re-hydrating evicted
+  /// rows. Unpaid sales are never treated as evicted so outstanding balances
+  /// always come back.
+  bool _isEvictedSale(Sale sale, DateTime? watermark) {
+    if (watermark == null) return false;
+    if (!sale.isPaidInFull) return false;
+    return sale.createdAt.isBefore(watermark);
   }
 
   Future<int> _replaceStores(List<Store> stores) async {
@@ -492,12 +506,14 @@ class SyncService {
 
   Future<int> _mergeSales(List<Sale> incomingSales) async {
     final deletedIds = (await _saleRepo.getDeletedSaleIds()).toSet();
+    final watermark = await _saleRepo.getRetentionWatermark();
     final existingSales = await _saleRepo.getAllSales();
     final Map<String, Sale> saleMap = {for (var s in existingSales) s.id: s};
 
     int imported = 0;
     for (var incoming in incomingSales) {
       if (deletedIds.contains(incoming.id)) continue;
+      if (_isEvictedSale(incoming, watermark)) continue;
       final existing = saleMap[incoming.id];
       if (existing == null ||
           incoming.updatedAt.isAfter(existing.updatedAt)) {
@@ -656,10 +672,13 @@ class SyncService {
   }
 
   Future<int> _appendSales(List<Sale> incomingSales) async {
+    final watermark = await _saleRepo.getRetentionWatermark();
     final existing = await _saleRepo.getAllSales();
     final existingIds = existing.map((s) => s.id).toSet();
-    final newItems =
-        incomingSales.where((s) => !existingIds.contains(s.id)).toList();
+    final newItems = incomingSales
+        .where((s) =>
+            !existingIds.contains(s.id) && !_isEvictedSale(s, watermark))
+        .toList();
     if (newItems.isNotEmpty) {
       existing.addAll(newItems);
       await _saleRepo.replaceAllSales(existing);

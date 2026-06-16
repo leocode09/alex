@@ -7,6 +7,7 @@ import '../../../providers/customer_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../providers/printer_provider.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../services/cloud/cloud_history_service.dart';
 import '../../../services/pin_service.dart';
 import '../customers/customer_management_page.dart';
 import 'receipt_preview_page.dart';
@@ -21,12 +22,104 @@ class ReceiptsTab extends ConsumerStatefulWidget {
 
 class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
+
+  // Incremental reveal so the list never builds thousands of rows at once.
+  static const int _pageSize = 30;
+  int _visibleLimit = _pageSize;
+
+  // On-demand cloud history for receipts older than the local window.
+  bool _cloudAvailable = false;
+  DateTimeRange? _cloudRange;
+  List<Sale> _cloudResults = const [];
+  bool _cloudLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _checkCloudAvailability();
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkCloudAvailability() async {
+    final available = await CloudHistoryService.instance.isAvailable();
+    if (mounted && available != _cloudAvailable) {
+      setState(() => _cloudAvailable = available);
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 400) {
+      setState(() => _visibleLimit += _pageSize);
+    }
+  }
+
+  /// Merge local + cloud results, de-duplicated by id (local wins).
+  List<Sale> _combined(List<Sale> local) {
+    if (_cloudResults.isEmpty) return local;
+    final byId = <String, Sale>{for (final s in local) s.id: s};
+    for (final s in _cloudResults) {
+      byId.putIfAbsent(s.id, () => s);
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged;
+  }
+
+  Future<void> _pickCloudRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: now,
+      initialDateRange: _cloudRange ??
+          DateTimeRange(
+            start: now.subtract(const Duration(days: 90)),
+            end: now,
+          ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _cloudLoading = true;
+      _cloudRange = picked;
+    });
+    final start =
+        DateTime(picked.start.year, picked.start.month, picked.start.day);
+    final end = DateTime(
+        picked.end.year, picked.end.month, picked.end.day, 23, 59, 59, 999);
+    final results =
+        await CloudHistoryService.instance.fetchSalesByDateRange(start, end);
+    if (!mounted) return;
+    setState(() {
+      _cloudResults = results;
+      _cloudLoading = false;
+      _visibleLimit = _pageSize;
+    });
+    if (results.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No cloud receipts found for that date range.'),
+        ),
+      );
+    }
+  }
+
+  void _clearCloudRange() {
+    setState(() {
+      _cloudRange = null;
+      _cloudResults = const [];
+    });
   }
 
   @override
@@ -40,6 +133,18 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              if (_cloudAvailable)
+                TextButton.icon(
+                  onPressed: _cloudLoading ? null : _pickCloudRange,
+                  icon: _cloudLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_outlined),
+                  label: const Text('Older (cloud)'),
+                ),
               TextButton.icon(
                 onPressed: _collectCustomerPayment,
                 icon: const Icon(Icons.payments_outlined),
@@ -54,12 +159,31 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
             ],
           ),
         ),
+        if (_cloudRange != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                avatar: const Icon(Icons.cloud_done_outlined, size: 18),
+                label: Text(
+                  'Cloud ${DateFormat('MMM d').format(_cloudRange!.start)} – '
+                  '${DateFormat('MMM d').format(_cloudRange!.end)} '
+                  '(${_cloudResults.length})',
+                ),
+                onDeleted: _clearCloudRange,
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: TextField(
             controller: _searchController,
             onChanged: (value) {
-              setState(() => _searchQuery = value);
+              setState(() {
+                _searchQuery = value;
+                _visibleLimit = _pageSize;
+              });
             },
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
@@ -71,7 +195,10 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                       icon: const Icon(Icons.close),
                       onPressed: () {
                         _searchController.clear();
-                        setState(() => _searchQuery = '');
+                        setState(() {
+                          _searchQuery = '';
+                          _visibleLimit = _pageSize;
+                        });
                       },
                     ),
             ),
@@ -79,7 +206,8 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
         ),
         Expanded(
           child: salesAsync.when(
-            data: (sales) {
+            data: (localSales) {
+              final sales = _combined(localSales);
               if (sales.isEmpty) {
                 return const Center(child: Text('No receipts found'));
               }
@@ -91,10 +219,14 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                   ),
                 );
               }
+              final visible = filteredSales.length > _visibleLimit
+                  ? filteredSales.sublist(0, _visibleLimit)
+                  : filteredSales;
               return ListView.builder(
-                itemCount: filteredSales.length,
+                controller: _scrollController,
+                itemCount: visible.length,
                 itemBuilder: (context, index) {
-                  final sale = filteredSales[index];
+                  final sale = visible[index];
                   return Card(
                     margin:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

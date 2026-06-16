@@ -1,6 +1,9 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import '../app_motion.dart';
 import '../app_tokens.dart';
+import '../glass/glass_background.dart';
 
 class AppPageScaffold extends StatelessWidget {
   final String? title;
@@ -57,13 +60,18 @@ class AppPageScaffold extends StatelessWidget {
       );
     }
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: appBar ?? _buildAppBar(),
-      drawer: drawer,
-      floatingActionButton: floatingActionButton,
-      bottomNavigationBar: bottomNavigationBar,
-      body: content,
+    return Stack(
+      children: [
+        const Positioned.fill(child: GlassBackground()),
+        Scaffold(
+          backgroundColor: backgroundColor ?? Colors.transparent,
+          appBar: appBar ?? _buildAppBar(),
+          drawer: drawer,
+          floatingActionButton: floatingActionButton,
+          bottomNavigationBar: bottomNavigationBar,
+          body: content,
+        ),
+      ],
     );
   }
 
@@ -73,11 +81,20 @@ class AppPageScaffold extends StatelessWidget {
     }
     return AppBar(
       centerTitle: centerTitle,
+      flexibleSpace: ClipRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(
+            sigmaX: AppTokens.blurBar,
+            sigmaY: AppTokens.blurBar,
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ),
       title: Text(
         title!,
         style: const TextStyle(
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.1,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
         ),
       ),
       actions: actions,

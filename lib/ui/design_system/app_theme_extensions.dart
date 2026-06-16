@@ -13,6 +13,20 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
   final Color danger;
   final Color accentSoft;
 
+  // Glassmorphism semantics.
+  final Color glassFill;
+  final Color glassFillStrong;
+  final Color glassBorder;
+  final Color glassHighlight;
+  final Color noiseColor;
+  final double noiseOpacity;
+
+  // Backdrop gradient blob colors.
+  final Color backdropBase;
+  final Color backdropWarm;
+  final Color backdropAmber;
+  final Color backdropCool;
+
   const AppThemeExtras({
     required this.panel,
     required this.panelAlt,
@@ -23,6 +37,16 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
     required this.warning,
     required this.danger,
     required this.accentSoft,
+    required this.glassFill,
+    required this.glassFillStrong,
+    required this.glassBorder,
+    required this.glassHighlight,
+    required this.noiseColor,
+    required this.noiseOpacity,
+    required this.backdropBase,
+    required this.backdropWarm,
+    required this.backdropAmber,
+    required this.backdropCool,
   });
 
   static const AppThemeExtras light = AppThemeExtras(
@@ -35,6 +59,16 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
     warning: AppTokens.warning,
     danger: AppTokens.danger,
     accentSoft: AppTokens.accentSoft,
+    glassFill: Color(0xC2FFFFFF),
+    glassFillStrong: Color(0xDEFFFFFF),
+    glassBorder: Color(0x80FFFFFF),
+    glassHighlight: Color(0x4DFFFFFF),
+    noiseColor: Color(0xFF0D0D0D),
+    noiseOpacity: AppTokens.noiseOpacityLight,
+    backdropBase: AppTokens.backdropBaseLight,
+    backdropWarm: AppTokens.backdropWarmLight,
+    backdropAmber: AppTokens.backdropAmberLight,
+    backdropCool: AppTokens.backdropCoolLight,
   );
 
   static const AppThemeExtras dark = AppThemeExtras(
@@ -47,6 +81,16 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
     warning: Color(0xFFFFAE4C),
     danger: Color(0xFFFF7878),
     accentSoft: Color(0xFF4A2A10),
+    glassFill: Color(0x6E2C2C30),
+    glassFillStrong: Color(0xE0242428),
+    glassBorder: Color(0x33FFFFFF),
+    glassHighlight: Color(0x22FFFFFF),
+    noiseColor: Color(0xFFFFFFFF),
+    noiseOpacity: AppTokens.noiseOpacityDark,
+    backdropBase: AppTokens.backdropBaseDark,
+    backdropWarm: AppTokens.backdropWarmDark,
+    backdropAmber: AppTokens.backdropAmberDark,
+    backdropCool: AppTokens.backdropCoolDark,
   );
 
   @override
@@ -60,6 +104,16 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
     Color? warning,
     Color? danger,
     Color? accentSoft,
+    Color? glassFill,
+    Color? glassFillStrong,
+    Color? glassBorder,
+    Color? glassHighlight,
+    Color? noiseColor,
+    double? noiseOpacity,
+    Color? backdropBase,
+    Color? backdropWarm,
+    Color? backdropAmber,
+    Color? backdropCool,
   }) {
     return AppThemeExtras(
       panel: panel ?? this.panel,
@@ -71,6 +125,16 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
       warning: warning ?? this.warning,
       danger: danger ?? this.danger,
       accentSoft: accentSoft ?? this.accentSoft,
+      glassFill: glassFill ?? this.glassFill,
+      glassFillStrong: glassFillStrong ?? this.glassFillStrong,
+      glassBorder: glassBorder ?? this.glassBorder,
+      glassHighlight: glassHighlight ?? this.glassHighlight,
+      noiseColor: noiseColor ?? this.noiseColor,
+      noiseOpacity: noiseOpacity ?? this.noiseOpacity,
+      backdropBase: backdropBase ?? this.backdropBase,
+      backdropWarm: backdropWarm ?? this.backdropWarm,
+      backdropAmber: backdropAmber ?? this.backdropAmber,
+      backdropCool: backdropCool ?? this.backdropCool,
     );
   }
 
@@ -93,8 +157,27 @@ class AppThemeExtras extends ThemeExtension<AppThemeExtras> {
       warning: Color.lerp(warning, other.warning, t) ?? warning,
       danger: Color.lerp(danger, other.danger, t) ?? danger,
       accentSoft: Color.lerp(accentSoft, other.accentSoft, t) ?? accentSoft,
+      glassFill: Color.lerp(glassFill, other.glassFill, t) ?? glassFill,
+      glassFillStrong:
+          Color.lerp(glassFillStrong, other.glassFillStrong, t) ??
+              glassFillStrong,
+      glassBorder: Color.lerp(glassBorder, other.glassBorder, t) ?? glassBorder,
+      glassHighlight:
+          Color.lerp(glassHighlight, other.glassHighlight, t) ?? glassHighlight,
+      noiseColor: Color.lerp(noiseColor, other.noiseColor, t) ?? noiseColor,
+      noiseOpacity: _lerpDouble(noiseOpacity, other.noiseOpacity, t),
+      backdropBase: Color.lerp(backdropBase, other.backdropBase, t) ??
+          backdropBase,
+      backdropWarm: Color.lerp(backdropWarm, other.backdropWarm, t) ??
+          backdropWarm,
+      backdropAmber: Color.lerp(backdropAmber, other.backdropAmber, t) ??
+          backdropAmber,
+      backdropCool: Color.lerp(backdropCool, other.backdropCool, t) ??
+          backdropCool,
     );
   }
+
+  static double _lerpDouble(double a, double b, double t) => a + (b - a) * t;
 }
 
 extension AppThemeExtrasX on BuildContext {

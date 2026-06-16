@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../helpers/pin_protection.dart';
@@ -182,31 +184,44 @@ class MainScaffold extends StatelessWidget {
     required List<_NavItem> navItems,
     required int selectedIndex,
   }) {
-    final scheme = Theme.of(context).colorScheme;
     final extras = context.appExtras;
 
     if (navItems.isEmpty) {
-      return Scaffold(body: child);
+      return Scaffold(backgroundColor: Colors.transparent, body: child);
     }
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: child,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: extras.border, width: AppTokens.border),
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(
+            sigmaX: AppTokens.blurBar,
+            sigmaY: AppTokens.blurBar,
           ),
-          color: scheme.surface,
-        ),
-        child: NavigationBar(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: (index) => _onTap(context, navItems[index]),
-          elevation: 0,
-          height: 62,
-          backgroundColor: scheme.surface,
-          indicatorColor: extras.accentSoft,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: _destinations(context, navItems),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: extras.glassBorder,
+                  width: AppTokens.border,
+                ),
+              ),
+              color: extras.glassFill,
+            ),
+            child: NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (index) =>
+                  _onTap(context, navItems[index]),
+              elevation: 0,
+              height: 62,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              indicatorColor: extras.accentSoft,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: _destinations(context, navItems),
+            ),
+          ),
         ),
       ),
     );
@@ -218,29 +233,35 @@ class MainScaffold extends StatelessWidget {
     required List<_NavItem> navItems,
     required int selectedIndex,
   }) {
-    final scheme = Theme.of(context).colorScheme;
     final extras = context.appExtras;
 
     if (navItems.isEmpty) {
-      return Scaffold(body: child);
+      return Scaffold(backgroundColor: Colors.transparent, body: child);
     }
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Row(
           children: [
-            Container(
-              width: extendedRail ? 210 : 82,
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                border: Border(
-                  right: BorderSide(
-                    color: extras.border,
-                    width: AppTokens.border,
-                  ),
+            ClipRect(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(
+                  sigmaX: AppTokens.blurBar,
+                  sigmaY: AppTokens.blurBar,
                 ),
-              ),
-              child: NavigationRail(
+                child: Container(
+                  width: extendedRail ? 210 : 82,
+                  decoration: BoxDecoration(
+                    color: extras.glassFill,
+                    border: Border(
+                      right: BorderSide(
+                        color: extras.glassBorder,
+                        width: AppTokens.border,
+                      ),
+                    ),
+                  ),
+                  child: NavigationRail(
                 selectedIndex: selectedIndex,
                 extended: extendedRail,
                 onDestinationSelected: (index) =>
@@ -252,6 +273,8 @@ class MainScaffold extends StatelessWidget {
                     : NavigationRailLabelType.all,
                 useIndicator: true,
                 destinations: _railDestinations(navItems),
+              ),
+                ),
               ),
             ),
             Expanded(

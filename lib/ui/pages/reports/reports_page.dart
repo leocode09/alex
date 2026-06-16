@@ -15,9 +15,11 @@ import '../../../providers/inventory_movement_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../providers/sale_provider.dart';
 import '../../../helpers/pin_protection.dart';
+import '../../../services/cloud/cloud_history_service.dart';
 import '../../../services/data_sync_triggers.dart';
 import '../../../services/lan_sync_service.dart';
 import '../../../services/pin_service.dart';
+import '../../../services/retention/local_retention_service.dart';
 
 enum SyncActionTimeRange {
   today,
@@ -63,11 +65,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   _StockState _invStockState = _StockState.all;
   String? _invVarianceReasonFilter;
 
+  // On-demand cloud history for periods that reach earlier than the local
+  // retention window (older paid sales live only in the cloud backup).
+  bool _cloudHistoryAvailable = false;
+  bool _cloudHistoryLoading = false;
+  List<Sale> _cloudHistorySales = const [];
+  String? _cloudHistoryRangeKey;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_handleTabChanged);
+    _checkCloudHistory();
     _chartController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),

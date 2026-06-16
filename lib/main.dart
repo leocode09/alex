@@ -11,6 +11,7 @@ import 'services/admin/device_heartbeat_service.dart';
 import 'services/admin/install_id_service.dart';
 import 'services/admin/usage_recorder.dart';
 import 'services/cloud/firebase_init.dart';
+import 'ui/design_system/glass/glass_background.dart';
 import 'ui/themes/app_theme.dart';
 import 'ui/widgets/account_watcher.dart';
 import 'ui/widgets/apk_update_watcher.dart';
@@ -93,10 +94,15 @@ class POSApp extends ConsumerWidget {
                 themeMode: themeMode,
                 routerConfig: router,
                 builder: (context, child) {
-                  return ApkUpdateWatcher(
-                    child: LanSyncWatcher(
-                      child: child ?? const SizedBox.shrink(),
-                    ),
+                  return Stack(
+                    children: [
+                      const Positioned.fill(child: GlassBackground()),
+                      ApkUpdateWatcher(
+                        child: LanSyncWatcher(
+                          child: child ?? const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

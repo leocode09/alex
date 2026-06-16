@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_tokens.dart';
 import '../app_theme_extensions.dart';
+import '../glass/glass_surface.dart';
 
 class AppPanel extends StatelessWidget {
   final Widget child;
@@ -14,7 +15,7 @@ class AppPanel extends StatelessWidget {
   const AppPanel({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(AppTokens.space2),
+    this.padding = const EdgeInsets.all(AppTokens.space3),
     this.margin,
     this.emphasized = false,
     this.outlinedStrong = false,
@@ -25,28 +26,15 @@ class AppPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extras = context.appExtras;
-    final body = Container(
+    return GlassSurface(
       padding: padding,
       margin: margin,
-      decoration: BoxDecoration(
-        color: color ?? (emphasized ? extras.panelAlt : extras.panel),
-        borderRadius: BorderRadius.circular(AppTokens.radiusM),
-        border: Border.all(
-          color: outlinedStrong ? extras.borderStrong : extras.border,
-          width: outlinedStrong ? AppTokens.borderStrong : AppTokens.border,
-        ),
-      ),
-      child: child,
-    );
-
-    if (onTap == null) {
-      return body;
-    }
-
-    return InkWell(
+      borderRadius: BorderRadius.circular(AppTokens.radiusL),
+      fill: color ?? (emphasized ? extras.glassFillStrong : extras.glassFill),
+      borderColor: outlinedStrong ? extras.borderStrong : extras.glassBorder,
+      borderWidth: outlinedStrong ? AppTokens.borderStrong : AppTokens.border,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTokens.radiusM),
-      child: body,
+      child: child,
     );
   }
 }
