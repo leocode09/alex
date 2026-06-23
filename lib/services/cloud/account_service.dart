@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/account_state.dart';
 import '../admin/device_heartbeat_service.dart';
 import '../admin/license_service.dart';
+import 'auth_support.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
 import 'shop_service.dart';
@@ -200,10 +201,34 @@ class AccountService {
       final owned = await FirebaseFirestore.instance
           .collection(FirestorePaths.shopsCollection)
           .where('ownerUid', isEqualTo: uid)
-          .limit(1)
+          .limit(5)
           .get();
       if (owned.docs.isNotEmpty) {
-        return owned.docs.first.id;
+        // A returning owner (cache cleared / reinstall) can own more than
+        // one shop doc — e.g. a rejected attempt plus a live one. Prefer
+        // the most useful: approved first, then one still awaiting review,
+        // and only fall back to a rejected doc when nothing better exists.
+        // A blind `.limit(1)` could otherwise bind them to a stale or
+        // rejected shop and leave the app stuck "pending" against the
+        // wrong document — exactly the state an admin approval can't fix.
+        int rank(Map<String, dynamic> data) {
+          final status = (data[AccountApproval.fieldStatus] as String?) ??
+              AccountApproval.statusApproved;
+          switch (status) {
+            case AccountApproval.statusApproved:
+              return 0;
+            case AccountApproval.statusPendingSystemAdmin:
+              return 1;
+            case AccountApproval.statusRejected:
+              return 3;
+            default:
+              return 2;
+          }
+        }
+
+        final docs = [...owned.docs]
+          ..sort((a, b) => rank(a.data()).compareTo(rank(b.data())));
+        return docs.first.id;
       }
     } catch (e) {
       if (kDebugMode) {
@@ -396,16 +421,50 @@ class AccountService {
 
     // Shop approved (or legacy doc). Resolve this device's member status.
     final member = _lastMember;
+
+    // The shop's owner is approved by definition once the shop itself is
+    // approved. Never strand them on a staff-pending gate just because
+    // their owner member doc is missing or stale (a failed write at
+    // registration, or a legacy shop). That is a dead end the live shop
+    // listener cannot recover from on its own, and a missing/unapproved
+    // owner doc also blocks them from approving their own staff (the
+    // security rules require an approved owner member doc). Repair the
+    // doc in the background and let the owner straight in.
+    if (isOwnerOfShop) {
+      final hasApprovedOwnerDoc = member != null &&
+          (member['role'] as String?) == AccountApproval.roleOwner &&
+          ((member[AccountApproval.fieldStatus] as String?) ??
+                  AccountApproval.statusApproved) ==
+              AccountApproval.statusApproved;
+      if (!hasApprovedOwnerDoc) {
+        unawaited(
+          _ensureOwnerMemberDoc(shopId: shopId, shopData: shop, uid: uid),
+        );
+      }
+      _emit(AccountState(
+        stage: AccountStage.approved,
+        uid: uid,
+        shopId: shopId,
+        shopName: shopName,
+        shopCode: shopCode,
+        role: AccountRole.owner,
+        displayName:
+            (member?['displayName'] as String?) ?? shop['ownerName'] as String?,
+        phone: (member?['phone'] as String?) ?? shop['ownerPhone'] as String?,
+      ));
+      return;
+    }
+
     if (member == null) {
-      // The shop owner whose member doc is missing is repaired by the
-      // claim path; surface a staff-pending gate for everyone else.
+      // A non-owner with no member doc has not been added to this shop
+      // yet — surface the staff-pending gate.
       _emit(AccountState(
         stage: AccountStage.staffPending,
         uid: uid,
         shopId: shopId,
         shopName: shopName,
         shopCode: shopCode,
-        role: isOwnerOfShop ? AccountRole.owner : AccountRole.staff,
+        role: AccountRole.staff,
       ));
       return;
     }
@@ -471,7 +530,7 @@ class AccountService {
   // ---------- auth API ----------
 
   /// Registers a new phone + password account, then refreshes state.
-  Future<UserAuthResult> registerAccount({
+  Future<AuthAttemptResult> registerAccount({
     required String phone,
     required String password,
     required String displayName,
@@ -490,7 +549,7 @@ class AccountService {
   }
 
   /// Logs in with phone + password, then refreshes state.
-  Future<UserAuthResult> loginAccount({
+  Future<AuthAttemptResult> loginAccount({
     required String phone,
     required String password,
   }) async {

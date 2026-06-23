@@ -6,32 +6,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../firebase_options.dart';
+import '../cloud/auth_support.dart';
 import '../cloud/firebase_init.dart';
 import '../cloud/firestore_paths.dart';
-
-/// Result of an admin sign-in attempt.
-class AdminAuthResult {
-  final bool success;
-  final String message;
-  final String? uid;
-
-  const AdminAuthResult._({
-    required this.success,
-    required this.message,
-    this.uid,
-  });
-
-  factory AdminAuthResult.ok(String uid) => AdminAuthResult._(
-        success: true,
-        message: 'Signed in.',
-        uid: uid,
-      );
-
-  factory AdminAuthResult.fail(String message) => AdminAuthResult._(
-        success: false,
-        message: message,
-      );
-}
 
 /// Authenticates a super admin against Firebase, but keeps the session
 /// *separate* from the device's anonymous auth session.
@@ -122,12 +99,12 @@ class AdminAuthService {
     }
   }
 
-  Future<AdminAuthResult> signIn({
+  Future<AuthAttemptResult> signIn({
     required String email,
     required String password,
   }) async {
     if (!available) {
-      return AdminAuthResult.fail(
+      return AuthAttemptResult.fail(
         'Cloud is not configured on this device. '
         'Run `flutterfire configure` to enable the admin panel.',
       );
@@ -136,14 +113,14 @@ class AdminAuthService {
     final auth = _auth;
     final db = _db;
     if (auth == null || db == null) {
-      return AdminAuthResult.fail('Admin auth is unavailable.');
+      return AuthAttemptResult.fail('Admin auth is unavailable.');
     }
     final cleanedEmail = email.trim();
     if (cleanedEmail.isEmpty) {
-      return AdminAuthResult.fail('Email is required.');
+      return AuthAttemptResult.fail('Email is required.');
     }
     if (password.isEmpty) {
-      return AdminAuthResult.fail('Password is required.');
+      return AuthAttemptResult.fail('Password is required.');
     }
 
     try {
@@ -153,7 +130,7 @@ class AdminAuthService {
       );
       final user = cred.user;
       if (user == null) {
-        return AdminAuthResult.fail('Sign-in failed.');
+        return AuthAttemptResult.fail('Sign-in failed.');
       }
       final uid = user.uid;
 
@@ -165,18 +142,20 @@ class AdminAuthService {
           .get();
       if (!doc.exists) {
         await auth.signOut();
-        return AdminAuthResult.fail(
+        return AuthAttemptResult.fail(
           'This account is not authorized for admin access.',
         );
       }
 
       _uid = uid;
       _email = user.email;
-      return AdminAuthResult.ok(uid);
+      return AuthAttemptResult.ok(uid);
     } on FirebaseAuthException catch (e) {
-      return AdminAuthResult.fail(_readableAuthError(e));
+      return AuthAttemptResult.fail(
+        readableFirebaseAuthError(e, credentialNoun: 'email'),
+      );
     } catch (e) {
-      return AdminAuthResult.fail('Unexpected error: $e');
+      return AuthAttemptResult.fail('Unexpected error: $e');
     }
   }
 
@@ -194,22 +173,4 @@ class AdminAuthService {
   /// screens must use this instance (not the default one) so security
   /// rules see the admin uid instead of the device's anonymous uid.
   FirebaseFirestore? get db => _db;
-
-  String _readableAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-      case 'invalid-email':
-      case 'wrong-password':
-      case 'invalid-credential':
-        return 'Incorrect email or password.';
-      case 'user-disabled':
-        return 'This account has been disabled.';
-      case 'too-many-requests':
-        return 'Too many attempts. Try again later.';
-      case 'network-request-failed':
-        return 'Network error. Check your connection and try again.';
-      default:
-        return e.message ?? 'Sign-in failed (${e.code}).';
-    }
-  }
 }

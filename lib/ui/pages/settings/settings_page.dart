@@ -1,7 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../../models/account_state.dart';
 import '../../../providers/language_provider.dart';
 import '../../../providers/pin_unlock_provider.dart';
 import '../../../providers/theme_mode_provider.dart';
@@ -9,6 +11,7 @@ import '../../../services/apk_updater_service.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../providers/account_provider.dart';
+import '../../../services/cloud/firestore_paths.dart';
 import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
@@ -212,6 +215,11 @@ class SettingsPage extends ConsumerWidget {
                 'Approve staff join requests for this business',
                 Icons.groups_outlined,
                 onTap: () => context.push('/team'),
+                badge: (account.isOwner &&
+                        account.shopId != null &&
+                        account.shopId!.isNotEmpty)
+                    ? _PendingStaffBadge(shopId: account.shopId!)
+                    : null,
               ),
               if (isVisible('viewEmployees'))
                 _buildSettingTile(
@@ -435,6 +443,7 @@ class SettingsPage extends ConsumerWidget {
     IconData icon, {
     required VoidCallback onTap,
     VoidCallback? onLongPress,
+    Widget? badge,
   }) {
     final theme = Theme.of(context);
     final extras = context.appExtras;
@@ -455,10 +464,19 @@ class SettingsPage extends ConsumerWidget {
             fontSize: 12,
           ),
         ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 14,
-          color: extras.muted,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (badge != null) ...[
+              badge,
+              const SizedBox(width: 8),
+            ],
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: extras.muted,
+            ),
+          ],
         ),
         onTap: onTap,
         onLongPress: onLongPress,
@@ -889,6 +907,50 @@ class SettingsPage extends ConsumerWidget {
           newUrl.isEmpty ? 'Update server cleared.' : 'Update server saved.',
         ),
       ),
+    );
+  }
+}
+
+/// Small live counter that tells a business owner how many staff join
+/// requests are waiting for them, shown on the Settings → Team tile so
+/// they don't have to open the page to discover there is work to do.
+class _PendingStaffBadge extends StatelessWidget {
+  final String shopId;
+  const _PendingStaffBadge({required this.shopId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection(FirestorePaths.shopsCollection)
+          .doc(shopId)
+          .collection(FirestorePaths.membersSubcollection)
+          .snapshots(),
+      builder: (context, snap) {
+        final pending = (snap.data?.docs ?? const []).where((d) {
+          final status = (d.data()[AccountApproval.fieldStatus] as String?) ??
+              AccountApproval.statusApproved;
+          return status == AccountApproval.statusPendingOwner;
+        }).length;
+        if (pending == 0) return const SizedBox.shrink();
+
+        final scheme = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: scheme.error,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            pending > 99 ? '99+' : '$pending',
+            style: TextStyle(
+              color: scheme.onError,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        );
+      },
     );
   }
 }

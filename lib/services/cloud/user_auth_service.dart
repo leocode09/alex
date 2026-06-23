@@ -4,27 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import 'auth_support.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
-
-/// Result of a phone + password auth attempt.
-class UserAuthResult {
-  final bool success;
-  final String message;
-  final String? uid;
-
-  const UserAuthResult._({
-    required this.success,
-    required this.message,
-    this.uid,
-  });
-
-  factory UserAuthResult.ok(String uid, [String message = 'Signed in.']) =>
-      UserAuthResult._(success: true, message: message, uid: uid);
-
-  factory UserAuthResult.fail(String message) =>
-      UserAuthResult._(success: false, message: message);
-}
 
 /// Stable phone + password identity for device users.
 ///
@@ -54,7 +36,7 @@ class UserAuthService {
   static const String _defaultCountryCode = '250';
 
   /// Firebase enforces a 6-character minimum on email/password accounts.
-  static const int minPasswordLength = 6;
+  static const int minPasswordLength = kMinAuthPasswordLength;
 
   String? get currentUid => FirebaseAuth.instance.currentUser?.uid;
 
@@ -111,13 +93,13 @@ class UserAuthService {
   }
 
   /// Creates a new phone + password account and its `/users/{uid}` doc.
-  Future<UserAuthResult> register({
+  Future<AuthAttemptResult> register({
     required String phone,
     required String password,
     required String displayName,
   }) async {
     if (!FirebaseInit.available) {
-      return UserAuthResult.fail(
+      return AuthAttemptResult.fail(
         'Cloud is not configured on this device. Accounts require '
         'Firebase to be set up.',
       );
@@ -126,13 +108,13 @@ class UserAuthService {
     final phoneKey = normalizePhone(rawPhone);
     final name = displayName.trim();
     if (phoneKey.length < 9) {
-      return UserAuthResult.fail('Enter a valid phone number.');
+      return AuthAttemptResult.fail('Enter a valid phone number.');
     }
     if (name.isEmpty) {
-      return UserAuthResult.fail('Your name is required.');
+      return AuthAttemptResult.fail('Your name is required.');
     }
     if (password.length < minPasswordLength) {
-      return UserAuthResult.fail(
+      return AuthAttemptResult.fail(
         'Password must be at least $minPasswordLength characters.',
       );
     }
@@ -144,7 +126,7 @@ class UserAuthService {
       );
       final uid = cred.user?.uid;
       if (uid == null) {
-        return UserAuthResult.fail('Sign-up failed. Please try again.');
+        return AuthAttemptResult.fail('Sign-up failed. Please try again.');
       }
       await _writeUserDoc(
         uid: uid,
@@ -152,40 +134,40 @@ class UserAuthService {
         phoneKey: phoneKey,
         displayName: name,
       );
-      return UserAuthResult.ok(uid, 'Account created.');
+      return AuthAttemptResult.ok(uid, 'Account created.');
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
-        return UserAuthResult.fail(
+        return AuthAttemptResult.fail(
           'An account already exists for this phone number. Log in '
           'instead.',
         );
       }
-      return UserAuthResult.fail(_readableError(e));
+      return AuthAttemptResult.fail(_readableError(e));
     } catch (e) {
       if (kDebugMode) {
         debugPrint('UserAuthService.register error: $e');
       }
-      return UserAuthResult.fail('Sign-up failed: $e');
+      return AuthAttemptResult.fail('Sign-up failed: $e');
     }
   }
 
   /// Logs in with phone + password.
-  Future<UserAuthResult> login({
+  Future<AuthAttemptResult> login({
     required String phone,
     required String password,
   }) async {
     if (!FirebaseInit.available) {
-      return UserAuthResult.fail(
+      return AuthAttemptResult.fail(
         'Cloud is not configured on this device.',
       );
     }
     final rawPhone = phone.trim();
     final phoneKey = normalizePhone(rawPhone);
     if (phoneKey.length < 9) {
-      return UserAuthResult.fail('Enter a valid phone number.');
+      return AuthAttemptResult.fail('Enter a valid phone number.');
     }
     if (password.isEmpty) {
-      return UserAuthResult.fail('Password is required.');
+      return AuthAttemptResult.fail('Password is required.');
     }
 
     try {
@@ -195,7 +177,7 @@ class UserAuthService {
       );
       final uid = cred.user?.uid;
       if (uid == null) {
-        return UserAuthResult.fail('Login failed. Please try again.');
+        return AuthAttemptResult.fail('Login failed. Please try again.');
       }
       // Keep the profile doc fresh (e.g. phone formatting) without
       // clobbering shopId/role/displayName.
@@ -204,14 +186,14 @@ class UserAuthService {
         phone: rawPhone,
         phoneKey: phoneKey,
       );
-      return UserAuthResult.ok(uid);
+      return AuthAttemptResult.ok(uid);
     } on FirebaseAuthException catch (e) {
-      return UserAuthResult.fail(_readableError(e));
+      return AuthAttemptResult.fail(_readableError(e));
     } catch (e) {
       if (kDebugMode) {
         debugPrint('UserAuthService.login error: $e');
       }
-      return UserAuthResult.fail('Login failed: $e');
+      return AuthAttemptResult.fail('Login failed: $e');
     }
   }
 
@@ -289,28 +271,9 @@ class UserAuthService {
     }
   }
 
-  String _readableError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-      case 'wrong-password':
-      case 'invalid-credential':
-        return 'Incorrect phone number or password.';
-      case 'invalid-email':
-        return 'Enter a valid phone number.';
-      case 'user-disabled':
-        return 'This account has been disabled. Contact support.';
-      case 'too-many-requests':
-        return 'Too many attempts. Try again later.';
-      case 'network-request-failed':
-        return 'No internet connection reached Firebase. Check your '
-            'connection and try again.';
-      case 'operation-not-allowed':
-        return 'Email/password sign-in is disabled in the Firebase '
-            'project. Enable it in Authentication settings.';
-      case 'weak-password':
-        return 'Password must be at least $minPasswordLength characters.';
-      default:
-        return e.message ?? 'Authentication failed (${e.code}).';
-    }
-  }
+  String _readableError(FirebaseAuthException e) => readableFirebaseAuthError(
+        e,
+        credentialNoun: 'phone number',
+        minPasswordLength: minPasswordLength,
+      );
 }

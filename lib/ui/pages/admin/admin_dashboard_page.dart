@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../providers/admin_auth_provider.dart';
+import '../../../services/admin/admin_audit_service.dart';
 import '../../../services/admin/usage_recorder.dart';
 import '../../../services/cloud/firestore_paths.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -112,13 +113,26 @@ class _PendingBusinesses extends StatelessWidget {
   }
 }
 
-class _PendingBusinessTile extends StatelessWidget {
+/// One pending-business row on the dashboard. The whole row still opens
+/// the full shop detail page, but the most common decision \u2014 approve or
+/// reject the registration \u2014 is available inline so the admin never has
+/// to go hunting for where the action lives.
+class _PendingBusinessTile extends ConsumerStatefulWidget {
   final QueryDocumentSnapshot<Map<String, dynamic>> doc;
   const _PendingBusinessTile({required this.doc});
 
   @override
+  ConsumerState<_PendingBusinessTile> createState() =>
+      _PendingBusinessTileState();
+}
+
+class _PendingBusinessTileState extends ConsumerState<_PendingBusinessTile> {
+  bool _busy = false;
+
+  @override
   Widget build(BuildContext context) {
     final extras = context.appExtras;
+    final doc = widget.doc;
     final data = doc.data();
     final name = (data['name'] as String?) ?? 'Business';
     final ownerName = (data['ownerName'] as String?)?.trim();
@@ -136,37 +150,173 @@ class _PendingBusinessTile extends StatelessWidget {
           horizontal: AppTokens.space2,
           vertical: AppTokens.space2,
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.hourglass_top,
-                size: 18, color: extras.warning),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
+            Row(
+              children: [
+                Icon(Icons.hourglass_top, size: 18, color: extras.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        [
+                          if (ownerName != null && ownerName.isNotEmpty)
+                            ownerName,
+                          if (phone != null && phone.isNotEmpty) phone,
+                          if (requestedAt != null)
+                            'requested ${AdminHeuristics.relativeShort(requestedAt)}',
+                        ].join('  \u00B7  '),
+                        style: TextStyle(color: extras.muted, fontSize: 12),
+                      ),
+                    ],
                   ),
-                  Text(
-                    [
-                      if (ownerName != null && ownerName.isNotEmpty)
-                        ownerName,
-                      if (phone != null && phone.isNotEmpty) phone,
-                      if (requestedAt != null)
-                        'requested ${AdminHeuristics.relativeShort(requestedAt)}',
-                    ].join('  \u00B7  '),
-                    style: TextStyle(color: extras.muted, fontSize: 12),
-                  ),
-                ],
-              ),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
             ),
-            const Icon(Icons.chevron_right),
+            const SizedBox(height: AppTokens.space2),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : _approve,
+                    icon: const Icon(Icons.check, size: 16),
+                    label: const Text('Approve'),
+                  ),
+                ),
+                const SizedBox(width: AppTokens.space2),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : _reject,
+                    icon: const Icon(Icons.close, size: 16),
+                    label: const Text('Reject'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Mirrors AdminQuickActions._approveShop / _rejectShop so the dashboard
+  // shortcut and the detail-page action write the exact same fields and
+  // leave the same audit trail.
+  Future<void> _approve() async {
+    final nowIso = DateTime.now().toIso8601String();
+    await _commit(
+      payload: {
+        'approvalStatus': 'approved',
+        'approvedAt': nowIso,
+        'rejectedAt': null,
+        'rejectionReason': null,
+      },
+      action: 'Approved business registration',
+      successMessage: 'Business approved',
+    );
+  }
+
+  Future<void> _reject() async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject this business?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'The owner sees this status and an optional reason on '
+              'their device.',
+            ),
+            const SizedBox(height: AppTokens.space2),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Reason (optional)',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final reason = controller.text.trim();
+    await _commit(
+      payload: {
+        'approvalStatus': 'rejected',
+        'rejectedAt': DateTime.now().toIso8601String(),
+        if (reason.isNotEmpty) 'rejectionReason': reason,
+      },
+      action: reason.isEmpty
+          ? 'Rejected business registration'
+          : 'Rejected business registration: $reason',
+      successMessage: 'Business rejected',
+    );
+  }
+
+  Future<void> _commit({
+    required Map<String, dynamic> payload,
+    required String action,
+    required String successMessage,
+  }) async {
+    final db = ref.read(adminAuthServiceProvider).db;
+    if (db == null) {
+      _toast('Admin is not signed in.');
+      return;
+    }
+    setState(() => _busy = true);
+    final before = widget.doc.data();
+    try {
+      await db
+          .collection(FirestorePaths.shopsCollection)
+          .doc(widget.doc.id)
+          .set(payload, SetOptions(merge: true));
+      await AdminAuditService().recordShopChange(
+        shopId: widget.doc.id,
+        before: before,
+        after: {...before, ...payload},
+        action: action,
+      );
+      if (mounted) _toast(successMessage);
+    } catch (e) {
+      if (mounted) _toast('Failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _toast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
