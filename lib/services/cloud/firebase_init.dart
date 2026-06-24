@@ -45,11 +45,18 @@ class FirebaseInit {
     }
 
     try {
-      // Enable Firestore offline persistence. Mobile has this on by default
-      // but we set an explicit unlimited cache so pending writes never get
+      // Enable Firestore offline persistence on mobile/desktop (offline-
+      // first): an explicit unlimited cache so pending writes are never
       // evicted while the device is offline.
+      //
+      // On WEB, do NOT enable IndexedDB persistence. Combined with the
+      // firebase-js-sdk watch streams it triggers "INTERNAL ASSERTION
+      // FAILED: Unexpected state" crashes — especially here, where the
+      // admin panel runs a *second* Firestore instance with concurrent
+      // listeners against the same project. Web is online-first, so an
+      // in-memory cache is the correct trade and removes the crash.
       FirebaseFirestore.instance.settings = const Settings(
-        persistenceEnabled: true,
+        persistenceEnabled: !kIsWeb,
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
     } catch (e) {
