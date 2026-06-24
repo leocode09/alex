@@ -441,6 +441,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
+      // The admin panel is a standalone, credential-gated escape hatch:
+      // it is guarded by its own email + password Firebase sign-in. Keep
+      // every /admin route reachable even when no local PIN is set or the
+      // install is PIN / time locked, so an admin can always sign in to
+      // fix accounts. (The license and approval gates above already let
+      // admin routes through; this additionally clears the PIN / time-lock
+      // redirects below — otherwise a logged-out admin gets bounced to the
+      // welcome or PIN screen and can never reach the sign-in form.)
+      if (isOnAdminRoute) {
+        return null;
+      }
+
       // Once approved, never strand the user on an onboarding/pending
       // screen.
       if (account.allowsAppAccess &&
