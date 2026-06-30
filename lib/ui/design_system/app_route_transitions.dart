@@ -1,182 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+/// App-wide page transition.
+///
+/// Design goals:
+///   * **No ghosting.** The incoming page is never made translucent, so two
+///     full pages are never cross-dissolved on top of each other. The old
+///     behaviour faded a translucent page in (opacity 0→1) over the previous
+///     page that only faded to 0.94 — mid-transition you saw *both* pages at
+///     once (e.g. the Reports cards bleeding through the Sales grid).
+///   * **Fast & consistent.** A single short slide + slight scale, instead of
+///     the previous per-route random fade/slide/scale/rotate stack.
 class AppRouteTransitions {
   const AppRouteTransitions._();
+
+  /// Kept short on purpose — snappy navigation. (Was 400–496 ms.)
+  static const Duration _forward = Duration(milliseconds: 200);
+  static const Duration _reverse = Duration(milliseconds: 150);
 
   static CustomTransitionPage<void> build({
     required GoRouterState state,
     required Widget child,
   }) {
-    final motion = _motionFor(state);
-
     return CustomTransitionPage<void>(
       key: state.pageKey,
-      transitionDuration: motion.transitionDuration,
-      reverseTransitionDuration: motion.reverseTransitionDuration,
+      // opaque (the default) means the page below is not painted once the
+      // transition settles — combined with the opaque incoming page above,
+      // pages never visually stack.
+      transitionDuration: _forward,
+      reverseTransitionDuration: _reverse,
       child: child,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
           return child;
         }
 
-        final fade = Tween<double>(begin: 0, end: 1).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: const Interval(0, 0.85, curve: Curves.easeOutCubic),
-            reverseCurve: Curves.easeInCubic,
-          ),
+        // Incoming page (driven by `animation`): a small upward settle plus a
+        // barely-there scale. Crucially there is NO opacity tween here, so the
+        // page stays fully opaque and the previous page can't show through it.
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
         );
 
         final slide = Tween<Offset>(
-          begin: motion.beginOffset,
+          begin: const Offset(0, 0.02),
           end: Offset.zero,
-        ).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: motion.curve,
-            reverseCurve: Curves.easeInCubic,
-          ),
-        );
+        ).animate(curved);
 
-        final scale = Tween<double>(
-          begin: motion.beginScale,
-          end: 1,
-        ).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: motion.curve,
-            reverseCurve: Curves.easeInCubic,
-          ),
-        );
+        final scale = Tween<double>(begin: 0.99, end: 1).animate(curved);
 
-        final rotation = Tween<double>(
-          begin: motion.beginRotation,
-          end: 0,
-        ).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutQuart,
-            reverseCurve: Curves.easeInQuart,
-          ),
-        );
-
-        final outgoingFade = Tween<double>(begin: 1, end: 0.94).animate(
-          CurvedAnimation(
-            parent: secondaryAnimation,
-            curve: Curves.easeOutQuad,
-            reverseCurve: Curves.easeOutQuad,
-          ),
-        );
-
-        return FadeTransition(
-          opacity: outgoingFade,
-          child: FadeTransition(
-            opacity: fade,
-            child: SlideTransition(
-              position: slide,
-              child: ScaleTransition(
-                scale: scale,
-                child: AnimatedBuilder(
-                  animation: rotation,
-                  child: child,
-                  builder: (context, child) {
-                    return Transform.rotate(
-                      angle: rotation.value,
-                      child: child,
-                    );
-                  },
-                ),
-              ),
-            ),
+        return SlideTransition(
+          position: slide,
+          child: ScaleTransition(
+            scale: scale,
+            child: child,
           ),
         );
       },
     );
   }
-
-  static _RouteMotion _motionFor(GoRouterState state) {
-    final key = state.name ?? state.fullPath ?? state.uri.path;
-    final seed = key.hashCode & 0x7fffffff;
-    final variant = seed % 6;
-
-    final transitionDuration = Duration(milliseconds: 400 + (seed % 5) * 24);
-    final reverseTransitionDuration =
-        Duration(milliseconds: 260 + (seed % 4) * 18);
-
-    switch (variant) {
-      case 0:
-        return _RouteMotion(
-          beginOffset: Offset(0, 0.045 + ((seed % 3) * 0.004)),
-          beginScale: 0.985,
-          beginRotation: 0,
-          curve: Curves.easeOutCubic,
-          transitionDuration: transitionDuration,
-          reverseTransitionDuration: reverseTransitionDuration,
-        );
-      case 1:
-        return _RouteMotion(
-          beginOffset: Offset(0.032 + ((seed % 4) * 0.002), 0),
-          beginScale: 0.992,
-          beginRotation: 0,
-          curve: Curves.easeOutQuart,
-          transitionDuration: transitionDuration,
-          reverseTransitionDuration: reverseTransitionDuration,
-        );
-      case 2:
-        return _RouteMotion(
-          beginOffset: Offset(-0.03 - ((seed % 4) * 0.002), 0),
-          beginScale: 0.992,
-          beginRotation: 0,
-          curve: Curves.easeOutQuart,
-          transitionDuration: transitionDuration,
-          reverseTransitionDuration: reverseTransitionDuration,
-        );
-      case 3:
-        return _RouteMotion(
-          beginOffset: Offset(0, 0.02 + ((seed % 3) * 0.003)),
-          beginScale: 0.964,
-          beginRotation: 0,
-          curve: Curves.easeOutBack,
-          transitionDuration: transitionDuration,
-          reverseTransitionDuration: reverseTransitionDuration,
-        );
-      case 4:
-        return _RouteMotion(
-          beginOffset: const Offset(0.018, 0.02),
-          beginScale: 0.976,
-          beginRotation: 0.008 + ((seed % 3) * 0.001),
-          curve: Curves.easeOutCubic,
-          transitionDuration: transitionDuration,
-          reverseTransitionDuration: reverseTransitionDuration,
-        );
-      default:
-        return _RouteMotion(
-          beginOffset: const Offset(-0.015, 0.028),
-          beginScale: 0.979,
-          beginRotation: -0.008 - ((seed % 3) * 0.001),
-          curve: Curves.easeOutCubic,
-          transitionDuration: transitionDuration,
-          reverseTransitionDuration: reverseTransitionDuration,
-        );
-    }
-  }
-}
-
-class _RouteMotion {
-  const _RouteMotion({
-    required this.beginOffset,
-    required this.beginScale,
-    required this.beginRotation,
-    required this.curve,
-    required this.transitionDuration,
-    required this.reverseTransitionDuration,
-  });
-
-  final Offset beginOffset;
-  final double beginScale;
-  final double beginRotation;
-  final Curve curve;
-  final Duration transitionDuration;
-  final Duration reverseTransitionDuration;
 }
