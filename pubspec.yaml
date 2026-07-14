@@ -1,8 +1,7 @@
 name: alex
 description: A production-ready Point of Sale system
 publish_to: 'none'
-version: 1.0.4+5
-
+version: 1.0.5+6
 environment:
   sdk: '>=3.0.0 <4.0.0'
 
@@ -47,12 +46,12 @@ dependencies:
   # Bluetooth Sync
   flutter_blue_plus: ^1.32.0
   permission_handler: ^11.3.1
-  shorebird_code_push: ^2.0.5
 
-  # OTA APK updater (non-Play distribution). See lib/services/apk_updater_service.dart.
+  # OTA APK updater (non-Play distribution). See lib/services/update_service.dart.
   package_info_plus: ^8.0.0
   http: ^1.2.1
   open_filex: ^4.4.0
+  crypto: ^3.0.3
 
   # Firebase (cloud backup / live two-way sync)
   # Uses firebase_core 4.x which fixed a Windows CMake issue where the
@@ -80,7 +79,6 @@ flutter:
   uses-material-design: true
   
   assets:
-    - shorebird.yaml
     - assets/logo.jpg
     - assets/fonts/
   
