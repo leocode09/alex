@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 import '../../models/account_state.dart';
 import '../cloud/account_service.dart';
@@ -209,23 +208,9 @@ class DeviceHeartbeatService {
     return 'unknown';
   }
 
-  Future<int?> _resolveShorebirdPatch() async {
-    if (kIsWeb) {
-      return null;
-    }
-    try {
-      final updater = ShorebirdUpdater();
-      if (!updater.isAvailable) {
-        return null;
-      }
-      final patch = await updater.readCurrentPatch();
-      return patch?.number;
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<int?> _resolveShorebirdPatch() async => null;
 
   /// Pinned to the `version:` line in pubspec.yaml. Update here when
   /// bumping releases so admin dashboards show the right build.
-  static const String _appVersion = '1.0.0+1';
+  static const String _appVersion = '1.0.6+7';
 }
