@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../providers/account_provider.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -25,6 +26,28 @@ class _AccountLoginPageState extends ConsumerState<AccountLoginPage> {
   final _passwordController = TextEditingController();
   bool _busy = false;
   bool _obscure = true;
+  String _versionLabel = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      final build = info.buildNumber.trim();
+      setState(() {
+        _versionLabel = build.isEmpty
+            ? 'v${info.version}'
+            : 'v${info.version}+$build';
+      });
+    } catch (_) {
+      // PackageInfo unavailable in some test/desktop harnesses.
+    }
+  }
 
   @override
   void dispose() {
@@ -222,6 +245,16 @@ class _AccountLoginPageState extends ConsumerState<AccountLoginPage> {
                         ),
                       ),
                     ),
+                    if (_versionLabel.isNotEmpty) ...[
+                      const SizedBox(height: AppTokens.space2),
+                      Text(
+                        _versionLabel,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: extras.muted,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

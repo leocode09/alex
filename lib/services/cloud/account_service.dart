@@ -9,6 +9,7 @@ import '../../models/account_state.dart';
 import '../admin/device_heartbeat_service.dart';
 import '../admin/license_service.dart';
 import 'auth_support.dart';
+import 'business_search.dart';
 import 'firebase_init.dart';
 import 'firestore_paths.dart';
 import 'shop_service.dart';
@@ -104,12 +105,17 @@ class AccountService {
       await _claimOwnedShops(uid);
 
       await _shopService.loadCache();
-      var shopId = _shopService.cachedShopId;
+      // Prefer cloud membership (user pointer / owned shops) over a stale
+      // local cache so support reassignment and multi-shop members land on
+      // the correct business after login.
+      var shopId = await _resolveShopIdForUser(uid);
       if (shopId == null || shopId.isEmpty) {
-        shopId = await _resolveShopIdForUser(uid);
-        if (shopId != null && shopId.isNotEmpty) {
-          await _cacheShopFromDoc(shopId);
-        }
+        shopId = _shopService.cachedShopId;
+      }
+      if (shopId != null &&
+          shopId.isNotEmpty &&
+          shopId != _shopService.cachedShopId) {
+        await _cacheShopFromDoc(shopId);
       }
 
       if (shopId == null || shopId.isEmpty) {
@@ -195,8 +201,13 @@ class AccountService {
   }
 
   /// Finds the shop this user belongs to without relying on local cache:
-  /// first a shop they own, then the pointer stored on `/users/{uid}`.
+  /// first the pointer on `/users/{uid}`, then a shop they own.
   Future<String?> _resolveShopIdForUser(String uid) async {
+    final stored = await _userAuth.storedShopId();
+    if (stored != null && stored.isNotEmpty) {
+      return stored;
+    }
+
     try {
       final owned = await FirebaseFirestore.instance
           .collection(FirestorePaths.shopsCollection)
@@ -235,7 +246,7 @@ class AccountService {
         debugPrint('AccountService._resolveShopIdForUser owned error: $e');
       }
     }
-    return _userAuth.storedShopId();
+    return null;
   }
 
   Future<void> _cacheShopFromDoc(String shopId) async {
@@ -825,32 +836,48 @@ class AccountService {
   }
 
   /// Searches the directory of approved businesses by name/code.
-  Future<List<BusinessSummary>> searchApprovedBusinesses(String query) async {
+  ///
+  /// Loads the shop directory from the server (cache fallback when
+  /// offline) and filters in memory. A failed directory read returns
+  /// [BusinessSearchResult.fail] instead of an empty list so the UI can
+  /// show the real reason instead of "no businesses match".
+  Future<BusinessSearchResult> searchApprovedBusinesses(String query) async {
     final q = query.trim().toLowerCase();
-    if (q.isEmpty) return const [];
-    if (!FirebaseInit.available) return const [];
-    if (_userAuth.currentUid == null) return const [];
+    if (q.isEmpty) {
+      return BusinessSearchResult.ok(const []);
+    }
+
+    await FirebaseInit.ensureInitialized();
+    if (!FirebaseInit.available) {
+      return BusinessSearchResult.fail(
+        'Cloud is not available on this device, so businesses cannot be '
+        'searched right now.',
+      );
+    }
+    if (_userAuth.currentUid == null &&
+        FirebaseAuth.instance.currentUser == null) {
+      return BusinessSearchResult.fail(
+        'Please log in again to search businesses.',
+      );
+    }
 
     try {
-      final db = FirebaseFirestore.instance;
-      final snap = await db
-          .collection(FirestorePaths.shopsCollection)
-          .where(
-            AccountApproval.fieldStatus,
-            isEqualTo: AccountApproval.statusApproved,
-          )
-          .limit(200)
-          .get();
-
+      final snap = await _loadShopDirectory();
       final out = <BusinessSummary>[];
       for (final d in snap.docs) {
         final data = d.data();
+        final status = (data[AccountApproval.fieldStatus] as String?) ??
+            AccountApproval.statusApproved;
+        if (status != AccountApproval.statusApproved) continue;
+
         final name = ((data['name'] as String?) ?? '').trim();
         final code = ((data['code'] as String?) ?? '').trim();
         if (name.isEmpty) continue;
-        final hayName = name.toLowerCase();
-        final hayCode = code.toLowerCase();
-        if (!hayName.contains(q) && hayCode != q) {
+        if (!BusinessSearch.matches(
+          name: name.toLowerCase(),
+          code: code.toLowerCase(),
+          query: q,
+        )) {
           continue;
         }
         out.add(BusinessSummary(
@@ -868,12 +895,32 @@ class AccountService {
         }
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
-      return out.take(25).toList();
+      return BusinessSearchResult.ok(out.take(25).toList());
     } catch (e) {
       if (kDebugMode) {
         debugPrint('searchApprovedBusinesses error: $e');
       }
-      return const [];
+      return BusinessSearchResult.fail(
+        'Could not load businesses. Check your internet connection and '
+        'try again.',
+      );
+    }
+  }
+
+  /// Shop directory for staff search. Prefer the server so a stale or
+  /// empty local cache cannot hide approved businesses; fall back to
+  /// cache when offline.
+  Future<QuerySnapshot<Map<String, dynamic>>> _loadShopDirectory() async {
+    final col = FirebaseFirestore.instance
+        .collection(FirestorePaths.shopsCollection)
+        .limit(200);
+    try {
+      return await col.get(const GetOptions(source: Source.server));
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable') {
+        return col.get(const GetOptions(source: Source.cache));
+      }
+      rethrow;
     }
   }
 
