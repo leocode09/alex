@@ -1,25 +1,25 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
-
 import 'providers/theme_mode_provider.dart';
 import 'routes.dart';
 import 'services/admin/device_heartbeat_service.dart';
 import 'services/admin/install_id_service.dart';
+import 'services/admin/license_service.dart';
 import 'services/admin/usage_recorder.dart';
 import 'services/cloud/firebase_init.dart';
+import 'services/identity_label.dart';
+import 'services/update_service.dart';
 import 'ui/design_system/glass/glass_background.dart';
 import 'ui/themes/app_theme.dart';
 import 'ui/widgets/account_watcher.dart';
-import 'ui/widgets/apk_update_watcher.dart';
 import 'ui/widgets/cloud_sync_watcher.dart';
 import 'ui/widgets/shop_team_watcher.dart';
 import 'ui/widgets/license_watcher.dart';
 import 'ui/widgets/time_tamper_watcher.dart';
 import 'ui/widgets/lan_sync_watcher.dart';
+import 'ui/widgets/update_banner.dart';
 import 'ui/widgets/wifi_direct_sync_watcher.dart';
 
 void main() async {
@@ -28,6 +28,26 @@ void main() async {
   // Firebase init is best-effort and never blocks boot. If it fails
   // (misconfigured, offline, unsupported platform) the cloud sync UI
   // shows a "disabled" state and the app continues fully offline.
+  // It runs in the background so the first frame is never gated on the
+  // native Firebase handshake; dependent services await it themselves
+  // (AccountService awaits FirebaseInit.ensureInitialized() before
+  // deciding availability, and heartbeat/usage are chained below).
+  unawaited(_bootstrapBackgroundServices());
+
+  runApp(
+    const ProviderScope(
+      child: POSApp(),
+    ),
+  );
+}
+
+/// Boot-time background work that must not block the first frame.
+///
+/// Ordering inside this function mirrors the previous blocking boot
+/// sequence: Firebase first, then the stable install id, then the
+/// best-effort heartbeat / usage / update tasks that rely on them.
+Future<void> _bootstrapBackgroundServices() async {
+  await IdentityLabel.initialize();
   await FirebaseInit.ensureInitialized();
 
   // Assign a stable install id and begin heartbeating / usage tracking.
@@ -37,38 +57,15 @@ void main() async {
   unawaited(UsageRecorder().start());
   unawaited(UsageRecorder().recordAppOpen());
 
-  unawaited(_maybeDownloadShorebirdPatch());
+  unawaited(UpdateService.instance.start());
 
-  runApp(
-    const ProviderScope(
-      child: POSApp(),
-    ),
-  );
-}
-
-/// Checks for a Shorebird patch and downloads it when outdated.
-/// Patches apply on the next app start (release builds from `shorebird release` only).
-Future<void> _maybeDownloadShorebirdPatch() async {
-  if (kIsWeb) {
-    return;
-  }
-  final updater = ShorebirdUpdater();
-  if (!updater.isAvailable) {
-    return;
-  }
-  try {
-    final current = await updater.readCurrentPatch();
-    if (kDebugMode) {
-      debugPrint(
-        'Shorebird: current patch ${current?.number ?? "none"}',
-      );
-    }
-    final status = await updater.checkForUpdate();
-    if (status == UpdateStatus.outdated) {
-      await updater.update();
-    }
-  } on Object catch (e, st) {
-    debugPrint('Shorebird: update check failed: $e\n$st');
+  // The license stream may have kick-started before Firebase finished
+  // initializing (it reads FirebaseInit.available once and emits
+  // "unrestricted"); nudge it so listeners attach now that the real
+  // availability is known. AccountService handles this itself by
+  // awaiting FirebaseInit.ensureInitialized() in its reattach path.
+  if (FirebaseInit.available) {
+    unawaited(LicenseService().refresh());
   }
 }
 
@@ -97,10 +94,14 @@ class POSApp extends ConsumerWidget {
                   return Stack(
                     children: [
                       const Positioned.fill(child: GlassBackground()),
-                      ApkUpdateWatcher(
-                        child: LanSyncWatcher(
-                          child: child ?? const SizedBox.shrink(),
-                        ),
+                      LanSyncWatcher(
+                        child: child ?? const SizedBox.shrink(),
+                      ),
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: UpdateBanner(),
                       ),
                     ],
                   );
