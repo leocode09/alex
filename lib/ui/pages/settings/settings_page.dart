@@ -7,7 +7,7 @@ import '../../../models/account_state.dart';
 import '../../../providers/language_provider.dart';
 import '../../../providers/pin_unlock_provider.dart';
 import '../../../providers/theme_mode_provider.dart';
-import '../../../services/apk_updater_service.dart';
+import '../../../services/update_service.dart';
 import '../../../services/database_helper.dart';
 import '../../../helpers/pin_protection.dart';
 import '../../../providers/account_provider.dart';
@@ -16,7 +16,6 @@ import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
 import '../../design_system/widgets/app_page_scaffold.dart';
 import '../../design_system/widgets/app_panel.dart';
-import '../../widgets/apk_update_watcher.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -815,14 +814,20 @@ class SettingsPage extends ConsumerWidget {
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
-    final result = await ApkUpdaterService.instance.checkForUpdate(
-      ignoreSkip: true,
-    );
+    final result = await UpdateService.instance.checkForUpdate();
     if (!context.mounted) return;
     Navigator.of(context).pop();
     switch (result.status) {
-      case UpdateCheckStatus.updateAvailable:
-        await showUpdateDialog(context, result);
+      case UpdateCheckStatus.updateReady:
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              result.version == null
+                  ? 'Update ready — tap Install in the banner.'
+                  : 'ALEX ${result.version} is ready — tap Install in the banner.',
+            ),
+          ),
+        );
       case UpdateCheckStatus.upToDate:
         messenger.showSnackBar(
           const SnackBar(content: Text("You're on the latest version.")),
@@ -841,10 +846,6 @@ class SettingsPage extends ConsumerWidget {
             content: Text('OTA updates are only supported on Android.'),
           ),
         );
-      case UpdateCheckStatus.skipped:
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Update available but skipped.')),
-        );
       case UpdateCheckStatus.error:
         messenger.showSnackBar(
           SnackBar(
@@ -857,7 +858,7 @@ class SettingsPage extends ConsumerWidget {
   }
 
   Future<void> _editManifestUrl(BuildContext context) async {
-    final current = await ApkUpdaterService.instance.getManifestUrl() ?? '';
+    final current = await UpdateService.instance.getManifestUrl() ?? '';
     if (!context.mounted) return;
     final controller = TextEditingController(text: current);
     final newUrl = await showDialog<String>(
@@ -870,7 +871,7 @@ class SettingsPage extends ConsumerWidget {
           children: [
             const Text(
               'URL of the JSON manifest describing the latest APK build. '
-              'Typically a GitHub Releases asset named update.json.',
+              'Typically a GitHub Releases asset named manifest.json.',
               style: TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -878,7 +879,7 @@ class SettingsPage extends ConsumerWidget {
               controller: controller,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'https://example.com/update.json',
+                hintText: 'https://example.com/manifest.json',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.url,
@@ -899,7 +900,7 @@ class SettingsPage extends ConsumerWidget {
       ),
     );
     if (newUrl == null || !context.mounted) return;
-    await ApkUpdaterService.instance.setManifestUrl(newUrl);
+    await UpdateService.instance.setManifestUrl(newUrl);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

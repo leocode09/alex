@@ -1,27 +1,19 @@
 # Shipping updates to ALEX (outside the Play Store)
 
-ALEX is distributed as a raw APK, so two OTA layers cooperate to keep users
-current without forcing a reinstall every time:
-
-| Layer                | What it ships               | Speed           | When to use                                                  |
-| -------------------- | --------------------------- | --------------- | ------------------------------------------------------------ |
-| **Shorebird**        | Dart code only              | Instant, silent | Small logic fixes, UI tweaks, copy changes                   |
-| **APK self-updater** | Full APK (native + assets)  | One-tap install | New plugins, Android manifest / permissions, asset changes   |
-
-Both are already wired up. The APK self-updater is the main "push a new build
-to everyone" path — this document focuses on it.
+ALEX is distributed as a raw APK. The in-app updater silently checks a published
+manifest on launch, downloads newer builds in the background, verifies SHA-256
+integrity, and shows a green **Install** banner when ready.
 
 ---
 
-## How the APK self-updater works
+## How it works
 
-1. App launches → 3 seconds later `ApkUpdateWatcher` fetches a small JSON
-   manifest over HTTPS.
-2. If `manifest.versionCode > installedVersionCode`, a dialog appears with
-   release notes and an **Update now** button.
-3. The app downloads the new APK into app-scoped storage and launches the
-   Android package installer. The user taps **Install**.
-4. Users can also trigger a check manually in **Settings → Check for Updates**
+1. App launches → `UpdateService.start()` fetches `manifest.json` over HTTPS.
+2. If `manifest.version` is newer than the installed build, the APK downloads
+   silently to app-scoped storage.
+3. After hash verification, a green banner appears: **ALEX {version} is ready.**
+4. The user taps **Install** → Android package installer opens.
+5. Users can also trigger a check manually in **Settings → Check for Updates**
    (long-press that tile to configure the manifest URL on-device).
 
 No Play Store involvement. No re-signing of the user's device required beyond
@@ -31,34 +23,43 @@ the one-time "Install unknown apps" permission Android shows automatically.
 
 ## Manifest format
 
-Host any JSON file shaped like this over HTTPS:
+Host a JSON file shaped like this over HTTPS (MarkEase / DimeSchool protocol):
 
 ```json
 {
-  "versionCode": 2,
-  "versionName": "1.0.1",
-  "apkUrl": "https://github.com/<you>/<repo>/releases/download/v1.0.1/alex-1.0.1.apk",
-  "releaseNotes": "- Faster startup\n- Printer auto-reconnect\n- New discount rules",
-  "mandatory": false,
-  "sha256": "optional-hex-digest-of-the-apk",
-  "minSupportedVersionCode": 1
+  "id": "abc215d6-d868-e20c-dad3-fad6e3df606a",
+  "createdAt": "2026-07-11T00:00:00.000Z",
+  "version": "1.0.5+6",
+  "runtimeVersion": "1.0.5+6",
+  "platforms": {
+    "android": {
+      "launchAsset": {
+        "hash": "3MTQHsKKBK7RnBb6ATl53eG7v4b29JkoemEnebD4_bI",
+        "key": "209e47c0a53beec43565c37e47082989",
+        "contentType": "application/vnd.android.package-archive",
+        "fileExtension": ".apk",
+        "url": "https://github.com/leocode09/alex/releases/download/apk-v1.0.5-6/alex-pos.apk"
+      }
+    }
+  }
 }
 ```
 
-Required: `versionCode`, `versionName`, `apkUrl`. Everything else is optional.
-
-- `versionCode` is compared against the installed APK's Android build number
-  (the `+N` suffix in `pubspec.yaml` → `version: 1.0.0+N`). **Always bump it
+- `version` / `runtimeVersion` — semver string compared against the installed
+  build (`1.0.4+5` from `pubspec.yaml`). **Always bump the `+N` build number
   for every release, even for hotfixes.**
-- `mandatory: true` hides "Later" / "Skip this version" and forces the user to
-  update before they can dismiss the dialog.
+- `hash` — base64url SHA-256 of the APK bytes (verified before install).
+- `key` — md5 hex content address (used for on-disk filename).
+- `url` — pinned to the release tag (never `latest`) so published assets are
+  immutable.
+
+Generate manifests with `scripts/make_update_manifest.mjs`.
 
 ---
 
 ## Recommended hosting: GitHub Releases
 
-Free, public (or private with a PAT), CDN-backed, and both files get versioned
-commit-style for you.
+Free, public, CDN-backed, and both files get versioned for you.
 
 ### One-time setup
 
@@ -66,122 +67,96 @@ commit-style for you.
 2. In the app (or in code), set the manifest URL to:
 
    ```
-   https://github.com/<user>/<repo>/releases/latest/download/update.json
+   https://github.com/leocode09/alex/releases/latest/download/manifest.json
    ```
 
    Two ways to do it:
 
    - **In code** (for everyone who installs a fresh APK): edit
-     `lib/services/apk_updater_service.dart` →
-     `ApkUpdaterService.defaultManifestUrl`.
+     `lib/services/update_service.dart` → `UpdateService.defaultManifestUrl`.
    - **Per-device**: Settings → long-press **Check for Updates** → paste the
      URL.
 
-### Cutting a release
+### Cutting a release manually
 
 1. Bump `pubspec.yaml`:
 
    ```yaml
-   version: 1.0.1+2   # name+code (code MUST increase every release)
+   version: 1.0.5+6   # name+code (code MUST increase every release)
    ```
 
 2. Build the APK:
 
    ```powershell
-   flutter build apk --release
+   flutter build apk --release --build-name 1.0.5 --build-number 6
    ```
 
-   Output is `build\app\outputs\flutter-apk\app-release.apk`. Rename it to
-   something versioned, e.g. `alex-1.0.1.apk`.
+   Output is `build\app\outputs\flutter-apk\app-release.apk`.
 
-3. Write `update.json` next to the APK:
+3. Generate `manifest.json`:
 
-   ```json
-   {
-     "versionCode": 2,
-     "versionName": "1.0.1",
-     "apkUrl": "https://github.com/<user>/<repo>/releases/download/v1.0.1/alex-1.0.1.apk",
-     "releaseNotes": "- Faster startup\n- Printer auto-reconnect"
-   }
+   ```powershell
+   node scripts/make_update_manifest.mjs `
+     --version 1.0.5+6 `
+     --repo leocode09/alex `
+     --tag apk-v1.0.5-6 `
+     --android build/app/outputs/flutter-apk/app-release.apk `
+     --out dist/manifest.json
    ```
 
 4. Create the GitHub Release:
 
    ```powershell
-   gh release create v1.0.1 alex-1.0.1.apk update.json `
-     --title "ALEX 1.0.1" `
-     --notes "Faster startup and printer auto-reconnect."
+   gh release create apk-v1.0.5-6 `
+     build/app/outputs/flutter-apk/app-release.apk `
+     dist/manifest.json `
+     --latest `
+     --title "ALEX 1.0.5+6"
    ```
 
-   `/releases/latest/download/update.json` now resolves to this file. Existing
+   `/releases/latest/download/manifest.json` now resolves to this file. Existing
    installs will see the update on next launch.
 
 ### GitHub Action shortcut
 
-Use **Actions → Build Latest APK → Run workflow** to build and publish the APK
-without editing `pubspec.yaml` manually. The workflow reads the newest
-published `update.json`, increments `versionCode`, builds with
-`--build-number`, and uploads:
+Use **Actions → Build Latest APK → Run workflow** to build and publish without
+editing `pubspec.yaml` manually. The workflow reads the newest published
+`manifest.json`, increments the build number, builds with `--build-number`, and
+uploads:
 
 - `alex-pos.apk` — stable latest APK asset for QR/download redirects.
 - `alex-<versionName>-<versionCode>.apk` — versioned archive copy.
-- `update.json` — manifest consumed by the in-app updater.
+- `manifest.json` — manifest consumed by the in-app updater.
 
 ### Hotfix shortcut
 
 Same steps, smaller notes. Bump the `+N` build number even if `versionName`
-stays the same — the app compares `versionCode`, not names:
+stays the same:
 
 ```yaml
-version: 1.0.1+3   # same name, bumped code
+version: 1.0.5+7   # same name, bumped code
 ```
 
 ---
 
 ## Alternatives to GitHub Releases
 
-- **Firebase Storage** — you already use Firebase. Upload `alex-1.0.1.apk` and
-  `update.json` to a public bucket and use the download URL as the manifest
-  URL. Remember to make both objects publicly readable (or use signed URLs and
-  regenerate them per release).
-- **Any static host** — S3, Cloudflare R2, your own VPS, Netlify Drop, etc.
-  Anywhere that serves `update.json` + the APK over HTTPS works.
-
----
-
-## Shorebird (already set up for Dart-only patches)
-
-`shorebird.yaml` + `shorebird_code_push` are already wired up in `main.dart`.
-To actually use it you need a Shorebird account and to replace the placeholder
-`app_id`:
-
-```powershell
-shorebird login
-shorebird init --force          # writes a real app_id into shorebird.yaml
-shorebird release android       # ship your first "parent" release
-# later, for Dart-only fixes on top of that parent release:
-shorebird patch android
-```
-
-Shorebird patches are pulled automatically in `_maybeDownloadShorebirdPatch`
-at startup and applied on the next launch — no user interaction. Use it for
-quick iterations between full APK drops.
-
-Anything Shorebird cannot push (new native plugin, `AndroidManifest.xml`
-change, new asset, Flutter version bump) requires a full APK release, which is
-exactly what the self-updater above handles.
+- **Firebase Storage** — upload `alex-pos.apk` and `manifest.json` to a public
+  bucket and point the manifest URL at the JSON file.
+- **Any static host** — S3, Cloudflare R2, your own VPS, etc. Anywhere that
+  serves `manifest.json` + the APK over HTTPS works.
 
 ---
 
 ## Testing locally
 
 1. Build and install APK with `version: 1.0.0+1`.
-2. Bump to `1.0.0+2`, rebuild, upload both `app-release.apk` and an
-   `update.json` pointing to it somewhere reachable from the device (a GitHub
-   pre-release, a quick `python -m http.server` on your laptop, etc.).
-3. Open the app → in 3 seconds you should see the update dialog.
-4. Tap **Update now**. First time only, Android asks you to allow "Install
-   unknown apps" for ALEX. After granting, the installer screen appears.
+2. Bump to `1.0.0+2`, rebuild, generate `manifest.json` and host both files
+   somewhere reachable from the device (a GitHub pre-release, a quick
+   `python -m http.server` on your laptop, etc.).
+3. Open the app → after a moment you should see the green Install banner.
+4. Tap **Install**. First time only, Android asks you to allow "Install unknown
+   apps" for ALEX. After granting, the installer screen appears.
 5. Tap **Install** → ALEX restarts on the new version.
 
 If nothing happens, use **Settings → Check for Updates** to force a check and
@@ -193,8 +168,7 @@ see error messages.
 
 `android/app/src/main/AndroidManifest.xml` declares
 `REQUEST_INSTALL_PACKAGES`. Android shows the "Install unknown apps" prompt
-the first time the installer is launched; the service detects a denied state
-and returns a friendly message instead of crashing.
+the first time the installer is launched.
 
 The `open_filex` plugin provides the required `FileProvider` so the downloaded
 APK can be handed off to the system installer without any extra XML from you.

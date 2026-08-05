@@ -81,6 +81,9 @@ class UpdateService {
   }
 
   /// Manual check from Settings — allowed in debug builds too.
+  ///
+  /// Always re-fetches the manifest when [force] is true, even if an older
+  /// APK is already staged, so a phone stuck on e.g. 1.0.6 can pick up 1.0.7.
   Future<UpdateCheckResult> checkForUpdate({bool force = true}) async {
     if (kIsWeb || !_supported) {
       return const UpdateCheckResult(status: UpdateCheckStatus.unsupported);
@@ -91,7 +94,7 @@ class UpdateService {
     }
 
     try {
-      if (ready.value != null) {
+      if (!force && ready.value != null) {
         await _markChecked();
         return UpdateCheckResult(
           status: UpdateCheckStatus.updateReady,
@@ -100,6 +103,14 @@ class UpdateService {
       }
 
       if (_busy) {
+        // A cold-start check may already be downloading; surface whatever is
+        // staged so Settings isn't a hard error mid-download.
+        if (ready.value != null) {
+          return UpdateCheckResult(
+            status: UpdateCheckStatus.updateReady,
+            version: ready.value!.version,
+          );
+        }
         return const UpdateCheckResult(
           status: UpdateCheckStatus.error,
           errorMessage: 'Update check already in progress',
@@ -215,11 +226,26 @@ class UpdateService {
     final asset = manifest.asset;
     final target = File('${dir.path}/ALEX-${asset.key}.apk');
 
+    // If a newer release is published while an older APK is still staged,
+    // keep showing the older Install banner until the newer download verifies.
+    // Never wipe the old file before the new one is ready — a failed ~70 MB
+    // download used to leave phones stuck with a dead banner path.
+    final staged = ready.value;
+    if (staged != null &&
+        compareVersions(manifest.version, staged.version) > 0) {
+      debugPrint(
+        '[update] newer ${manifest.version} available; keeping staged '
+        '${staged.version} until download finishes',
+      );
+    }
+
     final alreadyStaged = target.existsSync() &&
         await _sha256Base64Url(target.path) == asset.hash;
     if (!alreadyStaged) {
-      await _deleteStagedFiles(dir);
       final part = File('${target.path}.part');
+      if (part.existsSync()) {
+        await part.delete();
+      }
       debugPrint('[update] downloading ${manifest.version} from ${asset.url}');
       await _download(asset.url, part.path);
       if (await _sha256Base64Url(part.path) != asset.hash) {
@@ -227,6 +253,10 @@ class UpdateService {
         await part.delete();
         return;
       }
+      // Swap only after hash OK. Keep the verified .part (and applied.json)
+      // while clearing older staged APKs — wiping .part here would lose the
+      // download we just finished.
+      await _deleteStagedFiles(dir, keepPaths: {part.path});
       await part.rename(target.path);
     }
 
@@ -247,9 +277,11 @@ class UpdateService {
     try {
       final request = http.Request('GET', Uri.parse(url));
       request.headers['user-agent'] = 'ALEX-Updater';
+      // Full APK is ~70 MB; 60s was too short on many mobile networks and left
+      // phones stuck on an older staged build forever.
       final response = await client
           .send(request)
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(minutes: 10));
       if (response.statusCode != 200) {
         throw HttpException(
           'Failed to download APK: HTTP ${response.statusCode}',
@@ -258,7 +290,8 @@ class UpdateService {
       }
       final sink = File(path).openWrite();
       try {
-        await response.stream.pipe(sink);
+        // Bound the whole body transfer, not just the response headers.
+        await response.stream.pipe(sink).timeout(const Duration(minutes: 10));
         await sink.flush();
       } finally {
         await sink.close();
@@ -329,10 +362,15 @@ class UpdateService {
     return result.isGranted;
   }
 
-  Future<void> _deleteStagedFiles(Directory dir, {bool alsoApplied = false}) async {
+  Future<void> _deleteStagedFiles(
+    Directory dir, {
+    bool alsoApplied = false,
+    Set<String> keepPaths = const {},
+  }) async {
     try {
       await for (final entity in dir.list()) {
         if (entity is! File) continue;
+        if (keepPaths.contains(entity.path)) continue;
         if (!alsoApplied && entity.path.endsWith(_appliedMetaName)) {
           continue;
         }
