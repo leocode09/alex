@@ -244,6 +244,7 @@ class ShopService {
     try {
       final db = FirebaseFirestore.instance;
       final ownerPhone = await _userAuth.currentPhone();
+      final ownerName = await _userAuth.currentDisplayName();
       final ownerPhoneKey = ownerPhone != null
           ? _userAuth.normalizePhone(ownerPhone)
           : null;
@@ -256,6 +257,7 @@ class ShopService {
         'code': code,
         'name': trimmed,
         'ownerUid': uid,
+        if (ownerName != null) 'ownerName': ownerName,
         if (ownerPhone != null && ownerPhone.isNotEmpty)
           'ownerPhone': ownerPhone,
         if (ownerPhoneKey != null && ownerPhoneKey.isNotEmpty)
@@ -275,6 +277,7 @@ class ShopService {
           .set({
         'uid': uid,
         'role': AccountApproval.roleOwner,
+        if (ownerName != null) 'displayName': ownerName,
         if (ownerPhone != null && ownerPhone.isNotEmpty) 'phone': ownerPhone,
         'joinedAt': now.toIso8601String(),
         AccountApproval.fieldStatus: AccountApproval.statusApproved,
@@ -335,6 +338,8 @@ class ShopService {
 
       final shopDoc = query.docs.first;
       final shop = _shopFromDoc(shopDoc);
+      final displayName = await _userAuth.currentDisplayName();
+      final phone = await _userAuth.currentPhone();
 
       final now = DateTime.now();
       if (shop.ownerUid == uid) {
@@ -355,6 +360,8 @@ class ShopService {
           await memberRef.set({
             'uid': uid,
             'role': AccountApproval.roleOwner,
+            if (displayName != null) 'displayName': displayName,
+            if (phone != null && phone.isNotEmpty) 'phone': phone,
             'joinedAt': now.toIso8601String(),
             AccountApproval.fieldStatus: AccountApproval.statusApproved,
             AccountApproval.fieldApprovedAt: now.toIso8601String(),
@@ -380,6 +387,8 @@ class ShopService {
       final writeResult = await StaffJoinRequestWriter.upsert(
         memberRef: memberRef,
         uid: uid,
+        displayName: displayName ?? '',
+        phoneNumber: phone,
       );
       if (!writeResult.success) {
         return ShopResult.fail(

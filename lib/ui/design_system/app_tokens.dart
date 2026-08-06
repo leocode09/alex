@@ -34,9 +34,11 @@ class AppTokens {
   static const double borderStrong = 1.5;
 
   // Glassmorphism: frosted-blur strengths (BackdropFilter sigma).
-  static const double blurBar = 14;
-  static const double blurPanel = 18;
-  static const double blurStrong = 28;
+  // Blur cost scales with sigma; under the translucent fills anything past
+  // ~12 is visually indistinguishable, so these stay as low as the look allows.
+  static const double blurBar = 10;
+  static const double blurPanel = 12;
+  static const double blurStrong = 20;
 
   // Subtle film-grain opacity per brightness.
   static const double noiseOpacityLight = 0.03;

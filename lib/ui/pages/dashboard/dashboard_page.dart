@@ -21,7 +21,7 @@ class DashboardPage extends ConsumerWidget {
     final totalProductsCountAsync = ref.watch(totalProductsCountProvider);
     final lowStockProductsAsync = ref.watch(lowStockProductsProvider);
     final topSellingProductsAsync = ref.watch(topSellingProductsProvider);
-    final allSalesAsync = ref.watch(salesProvider);
+    final productRevenuesAsync = ref.watch(productRevenueByNameProvider);
     final todaysProfitAsync = ref.watch(todaysProfitProvider);
 
     return Scaffold(
@@ -52,18 +52,10 @@ class DashboardPage extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          // Invalidate all providers to refresh data
-          ref.invalidate(todaysRevenueProvider);
-          ref.invalidate(yesterdaysRevenueProvider);
-          ref.invalidate(todaysSalesCountProvider);
-          ref.invalidate(yesterdaysSalesCountProvider);
-          ref.invalidate(weeklyRevenueProvider);
-          ref.invalidate(lastWeekRevenueProvider);
-          ref.invalidate(totalProductsCountProvider);
-          ref.invalidate(lowStockProductsProvider);
-          ref.invalidate(topSellingProductsProvider);
+          // Refresh the two source-of-truth lists; every metric provider on
+          // this page derives from them and recomputes automatically.
           ref.invalidate(salesProvider);
-          ref.invalidate(todaysProfitProvider);
+          ref.invalidate(productsProvider);
         },
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -109,6 +101,8 @@ class DashboardPage extends ConsumerWidget {
                         trend: '--',
                         trendPositive: true,
                       ),
+                      skipLoadingOnReload: true,
+                      skipLoadingOnRefresh: true,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -147,6 +141,8 @@ class DashboardPage extends ConsumerWidget {
                         trend: '--',
                         trendPositive: true,
                       ),
+                      skipLoadingOnReload: true,
+                      skipLoadingOnRefresh: true,
                     ),
                   ),
                 ],
@@ -190,6 +186,8 @@ class DashboardPage extends ConsumerWidget {
                         trend: '--',
                         trendPositive: true,
                       ),
+                      skipLoadingOnReload: true,
+                      skipLoadingOnRefresh: true,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -223,6 +221,8 @@ class DashboardPage extends ConsumerWidget {
                         trend: '',
                         trendPositive: true,
                       ),
+                      skipLoadingOnReload: true,
+                      skipLoadingOnRefresh: true,
                     ),
                   ),
                 ],
@@ -258,6 +258,8 @@ class DashboardPage extends ConsumerWidget {
                         trend: '',
                         trendPositive: true,
                       ),
+                      skipLoadingOnReload: true,
+                      skipLoadingOnRefresh: true,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -407,6 +409,8 @@ class DashboardPage extends ConsumerWidget {
                 },
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
+                skipLoadingOnReload: true,
+                skipLoadingOnRefresh: true,
               ),
 
               // Top Products
@@ -428,16 +432,10 @@ class DashboardPage extends ConsumerWidget {
                     );
                   }
 
-                  // Calculate revenue for each product
-                  final allSales = allSalesAsync.value ?? [];
-                  final productRevenues = <String, double>{};
-                  for (var sale in allSales) {
-                    for (var item in sale.items) {
-                      productRevenues[item.productName] =
-                          (productRevenues[item.productName] ?? 0) +
-                              (item.price * item.quantity);
-                    }
-                  }
+                  // Per-product revenue is computed once per sales-list
+                  // change by productRevenueByNameProvider.
+                  final productRevenues =
+                      productRevenuesAsync.value ?? const <String, double>{};
 
                   final topProductsList = topProducts.entries.take(3).toList();
 
@@ -486,6 +484,8 @@ class DashboardPage extends ConsumerWidget {
                     child: Text('Error loading top products'),
                   ),
                 ),
+                skipLoadingOnReload: true,
+                skipLoadingOnRefresh: true,
               ),
             ],
           ),

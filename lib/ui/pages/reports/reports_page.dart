@@ -160,9 +160,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
   }
 
   Widget _buildCloudHistoryBanner() {
-    final onSalesOrEmployees =
+    final onSalesOrStaff =
         _tabController.index == 0 || _tabController.index == 2;
-    if (!onSalesOrEmployees) return const SizedBox.shrink();
+    if (!onSalesOrStaff) return const SizedBox.shrink();
     if (_cloudHistoryLoading) {
       return Container(
         width: double.infinity,
@@ -227,7 +227,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
           tabs: const [
             Tab(text: 'Sales'),
             Tab(text: 'Inventory'),
-            Tab(text: 'Employees'),
+            Tab(text: 'Staff'),
             Tab(text: 'Sync'),
           ],
         ),
@@ -275,7 +275,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
               children: [
                 _buildSalesTab(),
                 _buildInventoryTab(),
-                _buildEmployeesTab(),
+                _buildStaffTab(),
                 _buildSyncTab(),
               ],
             ),
@@ -892,7 +892,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
     );
   }
 
-  Widget _buildEmployeesTab() {
+  Widget _buildStaffTab() {
     final salesAsync = ref.watch(salesProvider);
 
     return salesAsync.when(
@@ -905,7 +905,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
             : periodSales.where((sale) {
                 return _matchesQuery([
                   sale.employeeId,
-                  sale.employeeId.split('@').first,
                 ]);
               }).toList();
         final employeeStats = <String, _EmployeePerformance>{};
@@ -948,15 +947,13 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                     totalSales > 0 ? _formatCurrency(avgOrder) : 'N/A', ''),
                 _SummaryData(
                     'Top Seller',
-                    topSeller != null ? topSeller.key.split('@').first : 'N/A',
+                    topSeller != null ? topSeller.key : 'N/A',
                     topSeller != null
                         ? _formatCurrency(topSeller.value.revenue)
                         : ''),
                 _SummaryData(
                     'Most Orders',
-                    mostOrders != null
-                        ? mostOrders.key.split('@').first
-                        : 'N/A',
+                    mostOrders != null ? mostOrders.key : 'N/A',
                     mostOrders != null
                         ? '${_formatCount(mostOrders.value.orders)} orders'
                         : ''),
@@ -969,7 +966,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage>
                 const Text('No sales data available')
               else
                 ...sortedByRevenue.take(5).map((entry) {
-                  final employeeName = entry.key.split('@').first;
+                  final employeeName = entry.key;
                   final revenue = entry.value.revenue;
                   final count = entry.value.orders;
                   final share = totalRevenue > 0 ? revenue / totalRevenue : 0.0;

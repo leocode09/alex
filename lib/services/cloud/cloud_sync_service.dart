@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' hide Category;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/license_gate.dart';
-import '../../models/account_history_record.dart';
 import '../../models/category.dart';
 import '../../models/customer.dart';
 import '../../models/customer_credit_entry.dart';
@@ -13,7 +12,6 @@ import '../../models/employee.dart';
 import '../../models/expense.dart';
 import '../../models/inventory_movement.dart';
 import '../../models/license_policy.dart';
-import '../../models/money_account.dart';
 import '../../models/product.dart';
 import '../../models/sale.dart';
 import '../../models/store.dart';
@@ -379,27 +377,6 @@ class CloudSyncService extends ChangeNotifier {
         _tombstoneDoc(id: id, deviceId: deviceId),
       ));
     }
-    for (final a in data.moneyAccounts) {
-      writes.add(_PendingWrite(
-        FirestorePaths.moneyAccountsSubcollection,
-        a.id,
-        CloudEntityMapper.moneyAccountToDoc(a, deviceId: deviceId),
-      ));
-    }
-    for (final id in data.deletedMoneyAccountIds) {
-      writes.add(_PendingWrite(
-        FirestorePaths.moneyAccountsSubcollection,
-        id,
-        _tombstoneDoc(id: id, deviceId: deviceId),
-      ));
-    }
-    for (final r in data.moneyHistory) {
-      writes.add(_PendingWrite(
-        FirestorePaths.moneyHistorySubcollection,
-        r.id,
-        CloudEntityMapper.moneyHistoryToDoc(r, deviceId: deviceId),
-      ));
-    }
     for (final m in data.inventoryMovements) {
       writes.add(_PendingWrite(
         FirestorePaths.inventoryMovementsSubcollection,
@@ -563,14 +540,6 @@ class CloudSyncService extends ChangeNotifier {
         FirestorePaths.storesSubcollection,
         CloudEntityMapper.storeFromDoc,
       );
-      final moneyAccounts = await readLiveTracked(
-        FirestorePaths.moneyAccountsSubcollection,
-        CloudEntityMapper.moneyAccountFromDoc,
-      );
-      final moneyHistory = await readLiveTracked(
-        FirestorePaths.moneyHistorySubcollection,
-        CloudEntityMapper.moneyHistoryFromDoc,
-      );
       final inventoryMovements = await readLiveTracked(
         FirestorePaths.inventoryMovementsSubcollection,
         CloudEntityMapper.inventoryMovementFromDoc,
@@ -592,9 +561,6 @@ class CloudSyncService extends ChangeNotifier {
           await readTombstonesTracked(FirestorePaths.expensesSubcollection);
       final deletedStoreIds =
           await readTombstonesTracked(FirestorePaths.storesSubcollection);
-      final deletedMoneyAccountIds = await readTombstonesTracked(
-        FirestorePaths.moneyAccountsSubcollection,
-      );
       final deletedCustomerCreditEntryIds = await readTombstonesTracked(
         FirestorePaths.customerCreditEntriesSubcollection,
       );
@@ -609,8 +575,6 @@ class CloudSyncService extends ChangeNotifier {
         expenses: expenses,
         sales: sales,
         stores: stores,
-        moneyAccounts: moneyAccounts,
-        moneyHistory: moneyHistory,
         inventoryMovements: inventoryMovements,
         customerCreditEntries: customerCreditEntries,
         deletedProductIds: deletedProductIds,
@@ -619,7 +583,6 @@ class CloudSyncService extends ChangeNotifier {
         deletedEmployeeIds: deletedEmployeeIds,
         deletedExpenseIds: deletedExpenseIds,
         deletedStoreIds: deletedStoreIds,
-        deletedMoneyAccountIds: deletedMoneyAccountIds,
         deletedCustomerCreditEntryIds: deletedCustomerCreditEntryIds,
         deletedSaleIds: deletedSaleIds,
         deviceId: deviceId,
@@ -791,8 +754,6 @@ class CloudSyncService extends ChangeNotifier {
       final expenses = <Expense>[];
       final sales = <Sale>[];
       final stores = <Store>[];
-      final moneyAccounts = <MoneyAccount>[];
-      final moneyHistory = <AccountHistoryRecord>[];
       final movements = <InventoryMovement>[];
       final creditEntries = <CustomerCreditEntry>[];
       final deletedProductIds = <String>[];
@@ -801,7 +762,6 @@ class CloudSyncService extends ChangeNotifier {
       final deletedEmployeeIds = <String>[];
       final deletedExpenseIds = <String>[];
       final deletedStoreIds = <String>[];
-      final deletedMoneyAccountIds = <String>[];
       final deletedCreditEntryIds = <String>[];
       final deletedSaleIds = <String>[];
 
@@ -876,18 +836,6 @@ class CloudSyncService extends ChangeNotifier {
               if (v != null) stores.add(v);
             }
             break;
-          case FirestorePaths.moneyAccountsSubcollection:
-            if (deleted) {
-              deletedMoneyAccountIds.add(id);
-            } else {
-              final v = CloudEntityMapper.moneyAccountFromDoc(data);
-              if (v != null) moneyAccounts.add(v);
-            }
-            break;
-          case FirestorePaths.moneyHistorySubcollection:
-            final v = CloudEntityMapper.moneyHistoryFromDoc(data);
-            if (v != null) moneyHistory.add(v);
-            break;
           case FirestorePaths.inventoryMovementsSubcollection:
             final v = CloudEntityMapper.inventoryMovementFromDoc(data);
             if (v != null) movements.add(v);
@@ -910,8 +858,6 @@ class CloudSyncService extends ChangeNotifier {
           expenses.isNotEmpty ||
           sales.isNotEmpty ||
           stores.isNotEmpty ||
-          moneyAccounts.isNotEmpty ||
-          moneyHistory.isNotEmpty ||
           movements.isNotEmpty ||
           creditEntries.isNotEmpty ||
           deletedProductIds.isNotEmpty ||
@@ -920,7 +866,6 @@ class CloudSyncService extends ChangeNotifier {
           deletedEmployeeIds.isNotEmpty ||
           deletedExpenseIds.isNotEmpty ||
           deletedStoreIds.isNotEmpty ||
-          deletedMoneyAccountIds.isNotEmpty ||
           deletedCreditEntryIds.isNotEmpty ||
           deletedSaleIds.isNotEmpty;
 
@@ -935,8 +880,6 @@ class CloudSyncService extends ChangeNotifier {
         expenses: expenses,
         sales: sales,
         stores: stores,
-        moneyAccounts: moneyAccounts,
-        moneyHistory: moneyHistory,
         inventoryMovements: movements,
         customerCreditEntries: creditEntries,
         deletedProductIds: deletedProductIds,
@@ -945,7 +888,6 @@ class CloudSyncService extends ChangeNotifier {
         deletedEmployeeIds: deletedEmployeeIds,
         deletedExpenseIds: deletedExpenseIds,
         deletedStoreIds: deletedStoreIds,
-        deletedMoneyAccountIds: deletedMoneyAccountIds,
         deletedCustomerCreditEntryIds: deletedCreditEntryIds,
         deletedSaleIds: deletedSaleIds,
         deviceId: deviceId,

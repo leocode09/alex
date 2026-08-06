@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../models/inventory_movement.dart';
 import '../services/database_helper.dart';
 
@@ -7,21 +6,29 @@ class InventoryMovementRepository {
   static const String _inventoryMovementsKey = 'inventory_movements';
   static const int _maxEntries = 2000;
 
+  // In-memory cache (static: repositories are instantiated in many places).
+  // Kept sorted newest-first and capped at [_maxEntries].
+  static List<InventoryMovement>? _cache;
+
   Future<List<InventoryMovement>> getAllMovements() async {
+    final cached = _cache;
+    if (cached != null) return List<InventoryMovement>.of(cached);
     try {
       final jsonData = await _storage.getData(_inventoryMovementsKey);
       if (jsonData == null) {
+        _cache = <InventoryMovement>[];
         return [];
       }
 
-      final List<dynamic> decoded = jsonDecode(jsonData);
+      final List<dynamic> decoded = await decodeJson(jsonData);
       final movements = decoded
           .map(
               (json) => InventoryMovement.fromMap(json as Map<String, dynamic>))
           .toList();
 
       movements.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return movements;
+      _cache = movements;
+      return List<InventoryMovement>.of(movements);
     } catch (e, stackTrace) {
       print('Error getting inventory movements: $e');
       print('Stack trace: $stackTrace');
@@ -83,13 +90,23 @@ class InventoryMovementRepository {
       final existing = await getAllMovements();
       existing.insertAll(0, newMovements);
 
-      final trimmed = existing.take(_maxEntries).toList();
+      // Cap first (insertion order), then keep the cache newest-first.
+      final trimmed = existing.take(_maxEntries).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      _cache = trimmed;
       final jsonData =
-          jsonEncode(trimmed.map((movement) => movement.toMap()).toList());
-      return await _storage.saveData(_inventoryMovementsKey, jsonData);
+          await encodeJson(trimmed.map((movement) => movement.toMap()).toList());
+      final success =
+          await _storage.saveData(_inventoryMovementsKey, jsonData);
+      if (!success) {
+        // Persist failed: refresh from storage on next read.
+        _cache = null;
+      }
+      return success;
     } catch (e, stackTrace) {
       print('Error saving inventory movements: $e');
       print('Stack trace: $stackTrace');
+      _cache = null;
       return false;
     }
   }
@@ -99,12 +116,20 @@ class InventoryMovementRepository {
       final sorted = [...movements]
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       final trimmed = sorted.take(_maxEntries).toList();
+      _cache = trimmed;
       final jsonData =
-          jsonEncode(trimmed.map((movement) => movement.toMap()).toList());
-      return await _storage.saveData(_inventoryMovementsKey, jsonData);
+          await encodeJson(trimmed.map((movement) => movement.toMap()).toList());
+      final success =
+          await _storage.saveData(_inventoryMovementsKey, jsonData);
+      if (!success) {
+        // Persist failed: refresh from storage on next read.
+        _cache = null;
+      }
+      return success;
     } catch (e, stackTrace) {
       print('Error replacing inventory movements: $e');
       print('Stack trace: $stackTrace');
+      _cache = null;
       return false;
     }
   }

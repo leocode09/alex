@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +26,22 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
+  Timer? _searchDebounce;
+
+  // DateFormat construction is expensive; reuse shared instances.
+  static final DateFormat _fmtMonthDayTime = DateFormat('MMM d, HH:mm');
+  static final DateFormat _fmtMonthDayYearTime = DateFormat('MMM d, yyyy HH:mm');
+  static final DateFormat _fmtIsoDate = DateFormat('yyyy-MM-dd');
+  static final DateFormat _fmtDayMonthYear = DateFormat('dd/MM/yyyy');
+  static final DateFormat _fmtTime = DateFormat('HH:mm');
+  static final DateFormat _fmtMonthDay = DateFormat('MMM d');
+  static final RegExp _whitespaceRe = RegExp(r'\s+');
+  static final RegExp _nonAlnumRe = RegExp(r'[^a-z0-9]');
+
+  // Cached searchable text per sale, keyed by '<id>:<updatedAt ms>' so an
+  // edited receipt invalidates its stale entry automatically.
+  final Map<String, String> _searchableCache = <String, String>{};
+  static const int _searchableCacheLimit = 3000;
 
   // Incremental reveal so the list never builds thousands of rows at once.
   static const int _pageSize = 30;
@@ -44,6 +62,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
@@ -167,8 +186,8 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
               child: InputChip(
                 avatar: const Icon(Icons.cloud_done_outlined, size: 18),
                 label: Text(
-                  'Cloud ${DateFormat('MMM d').format(_cloudRange!.start)} – '
-                  '${DateFormat('MMM d').format(_cloudRange!.end)} '
+                  'Cloud ${_fmtMonthDay.format(_cloudRange!.start)} – '
+                  '${_fmtMonthDay.format(_cloudRange!.end)} '
                   '(${_cloudResults.length})',
                 ),
                 onDeleted: _clearCloudRange,
@@ -180,9 +199,14 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
           child: TextField(
             controller: _searchController,
             onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-                _visibleLimit = _pageSize;
+              _searchDebounce?.cancel();
+              _searchDebounce =
+                  Timer(const Duration(milliseconds: 220), () {
+                if (!mounted) return;
+                setState(() {
+                  _searchQuery = value;
+                  _visibleLimit = _pageSize;
+                });
               });
             },
             textInputAction: TextInputAction.search,
@@ -194,6 +218,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                   : IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () {
+                        _searchDebounce?.cancel();
                         _searchController.clear();
                         setState(() {
                           _searchQuery = '';
@@ -290,8 +315,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
                                         _collectPaymentForSale(sale),
                                   ),
                                 Text(
-                                  DateFormat('MMM d, HH:mm')
-                                      .format(sale.createdAt),
+                                  _fmtMonthDayTime.format(sale.createdAt),
                                   style: TextStyle(
                                       color: Colors.grey[600], fontSize: 12),
                                 ),
@@ -369,7 +393,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
     }
 
     final tokens = trimmed
-        .split(RegExp(r'\s+'))
+        .split(_whitespaceRe)
         .map(_normalize)
         .where((token) => token.isNotEmpty)
         .toList();
@@ -384,8 +408,22 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
   }
 
   bool _matchesSaleQuery(Sale sale, List<String> queryTokens) {
-    final searchable = _buildSearchableText(sale);
+    final searchable = _searchableTextFor(sale);
     return queryTokens.every(searchable.contains);
+  }
+
+  /// Cached wrapper around [_buildSearchableText]: building the string runs
+  /// several DateFormat passes per sale, so it must not happen per keystroke.
+  String _searchableTextFor(Sale sale) {
+    final key = '${sale.id}:${sale.updatedAt.millisecondsSinceEpoch}';
+    final cached = _searchableCache[key];
+    if (cached != null) return cached;
+    if (_searchableCache.length >= _searchableCacheLimit) {
+      _searchableCache.clear();
+    }
+    final text = _buildSearchableText(sale);
+    _searchableCache[key] = text;
+    return text;
   }
 
   String _buildSearchableText(Sale sale) {
@@ -394,11 +432,11 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
     final totalQuantity =
         sale.items.fold<int>(0, (sum, item) => sum + item.quantity);
     final totalProducts = sale.totalProducts;
-    final dateA = DateFormat('MMM d, HH:mm').format(sale.createdAt);
-    final dateB = DateFormat('MMM d, yyyy HH:mm').format(sale.createdAt);
-    final dateC = DateFormat('yyyy-MM-dd').format(sale.createdAt);
-    final dateD = DateFormat('dd/MM/yyyy').format(sale.createdAt);
-    final dateE = DateFormat('HH:mm').format(sale.createdAt);
+    final dateA = _fmtMonthDayTime.format(sale.createdAt);
+    final dateB = _fmtMonthDayYearTime.format(sale.createdAt);
+    final dateC = _fmtIsoDate.format(sale.createdAt);
+    final dateD = _fmtDayMonthYear.format(sale.createdAt);
+    final dateE = _fmtTime.format(sale.createdAt);
     final fullRef = sale.id.toUpperCase();
     final shortRef = _shortReceiptRef(sale.id);
 
@@ -431,7 +469,7 @@ class _ReceiptsTabState extends ConsumerState<ReceiptsTab> {
   }
 
   String _normalize(String value) {
-    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return value.toLowerCase().replaceAll(_nonAlnumRe, '');
   }
 
   String _shortReceiptRef(String saleId) {
@@ -654,17 +692,19 @@ class _PrinterDialogState extends ConsumerState<PrinterDialog> {
                               title: Text(device.platformName),
                               subtitle: Text(device.remoteId.toString()),
                               onTap: () async {
+                                final navigator = Navigator.of(context);
+                                final messenger =
+                                    ScaffoldMessenger.of(context);
                                 setState(() => _isConnecting = true);
                                 try {
                                   await printerService.connect(device);
-                                  if (mounted) Navigator.pop(context);
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content: Text(
-                                              'Connected to ${device.platformName}')),
-                                    );
-                                  }
+                                  if (!mounted) return;
+                                  navigator.pop();
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Connected to ${device.platformName}')),
+                                  );
                                 } catch (e) {
                                   if (mounted) {
                                     setState(() {

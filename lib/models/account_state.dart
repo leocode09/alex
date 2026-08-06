@@ -139,6 +139,29 @@ class BusinessSummary {
   });
 }
 
+/// Outcome of the approved-business directory search.
+///
+/// Distinguishes "nothing matched" from "search could not run" so the
+/// join-business UI does not show a false "no businesses" message when
+/// the directory query failed (offline, signed-out, permission, etc.).
+class BusinessSearchResult {
+  final List<BusinessSummary> businesses;
+  final String? error;
+
+  const BusinessSearchResult._({
+    required this.businesses,
+    this.error,
+  });
+
+  factory BusinessSearchResult.ok(List<BusinessSummary> businesses) =>
+      BusinessSearchResult._(businesses: businesses);
+
+  factory BusinessSearchResult.fail(String error) =>
+      BusinessSearchResult._(businesses: const [], error: error);
+
+  bool get hasError => error != null && error!.trim().isNotEmpty;
+}
+
 /// Constants shared between the service and the security rules /
 /// admin UI for the new approval workflow.
 class AccountApproval {

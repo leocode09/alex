@@ -47,6 +47,9 @@ class AdminQuickActions extends ConsumerWidget {
 
     final isShopEnabled = isShop ? (data['enabled'] as bool? ?? true) : true;
     final isBlocked = !isShop && (data['blocked'] as bool? ?? false);
+    final isBound = !isShop &&
+        ((data['boundUid'] as String?)?.trim().isNotEmpty == true ||
+            (data['ownerUid'] as String?)?.trim().isNotEmpty == true);
     final approval =
         isShop ? AdminHeuristics.approvalStatus(data) : ApprovalStatus.approved;
     final needsApproval = approval == ApprovalStatus.pendingSystemAdmin;
@@ -143,6 +146,14 @@ class AdminQuickActions extends ConsumerWidget {
                     ref,
                     nextBlocked: !isBlocked,
                   ),
+                ),
+              if (isBound)
+                _actionChip(
+                  context,
+                  icon: Icons.person_remove_outlined,
+                  label: 'Unbind device',
+                  destructive: true,
+                  onTap: () => _unbindDevice(context, ref),
                 ),
             ],
           ),
@@ -374,6 +385,62 @@ class AdminQuickActions extends ConsumerWidget {
       action: nextBlocked ? 'Blocked device' : 'Unblocked device',
       successMessage: nextBlocked ? 'Device blocked' : 'Device unblocked',
     );
+  }
+
+  Future<void> _unbindDevice(BuildContext context, WidgetRef ref) async {
+    if (target != AdminQuickTarget.device) return;
+    final confirmed = await _confirm(
+      context,
+      title: 'Unbind this device?',
+      message:
+          'The current account will lose this device registration. LAN '
+          'sharing stops, and the next explicit login can register it to '
+          'another account.',
+      confirmLabel: 'Unbind device',
+    );
+    if (!confirmed || !context.mounted) return;
+    final docRef = _ref(ref);
+    if (docRef == null) {
+      _toast(context, 'Admin is not signed in.');
+      return;
+    }
+    const removedKeys = <String>{
+      'ownerUid',
+      'boundUid',
+      'boundAt',
+      'shopId',
+      'shopCode',
+      'shopName',
+      'deviceName',
+      'memberApprovalStatus',
+      'memberDisplayName',
+      'memberRole',
+    };
+    final payload = <String, dynamic>{
+      for (final key in removedKeys) key: FieldValue.delete(),
+      'unboundAt': FieldValue.serverTimestamp(),
+    };
+    try {
+      await docRef.update(payload);
+      final after = <String, dynamic>{...data};
+      for (final key in removedKeys) {
+        after.remove(key);
+      }
+      after['unboundAt'] = DateTime.now().toIso8601String();
+      await AdminAuditService().recordDeviceChange(
+        installId: targetId,
+        before: data,
+        after: after,
+        action: 'Unbound device registration',
+      );
+      if (context.mounted) {
+        _toast(context, 'Device unbound');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        _toast(context, 'Failed: $e');
+      }
+    }
   }
 
   // ---------- core commit + audit ----------

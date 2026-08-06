@@ -26,6 +26,15 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    final name = ref.read(accountServiceProvider).current.displayName?.trim();
+    if (name != null && name.isNotEmpty) {
+      _ownerNameController.text = name;
+    }
+  }
+
+  @override
   void dispose() {
     _businessNameController.dispose();
     _ownerNameController.dispose();

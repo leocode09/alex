@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../helpers/identity_labels.dart';
 import '../../../providers/admin_auth_provider.dart';
 import '../../../services/admin/admin_audit_service.dart';
 import '../../../services/admin/usage_recorder.dart';
@@ -680,9 +681,7 @@ class _DeviceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extras = context.appExtras;
-    final name = (data['deviceName'] as String?)?.trim();
-    final displayName =
-        (name != null && name.isNotEmpty) ? name : installId.substring(0, 8);
+    final displayName = IdentityLabels.deviceDisplayName(data);
     final shopName = data['shopName'] as String?;
     final platform = data['platform'] as String?;
     final lastSeen = AdminHeuristics.parseTs(data['lastSeenAtIso']);
@@ -728,6 +727,7 @@ class _DeviceTile extends StatelessWidget {
                     [
                       if (shopName != null && shopName.isNotEmpty) shopName,
                       if (platform != null && platform.isNotEmpty) platform,
+      IdentityLabels.shortId(installId),
                       if (appVersion != null && appVersion.isNotEmpty)
                         'v$appVersion',
                       if (lastSeen != null)

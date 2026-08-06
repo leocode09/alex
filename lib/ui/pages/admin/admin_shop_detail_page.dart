@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../helpers/identity_labels.dart';
 import '../../../providers/admin_auth_provider.dart';
 import '../../../services/admin/usage_recorder.dart';
 import '../../../services/cloud/firestore_paths.dart';
@@ -326,10 +327,7 @@ class _ShopDeviceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extras = context.appExtras;
-    final name = (data['deviceName'] as String?)?.trim();
-    final displayName = (name != null && name.isNotEmpty)
-        ? name
-        : installId.substring(0, 8);
+    final displayName = IdentityLabels.deviceDisplayName(data);
     final appVersion = data['appVersion'] as String?;
     final outdated = maxVersion != null &&
         appVersion != null &&
@@ -372,7 +370,9 @@ class _ShopDeviceTile extends StatelessWidget {
                   Text(
                     [
                       data['platform'] as String? ?? 'unknown',
+                      if (data['model'] is String) data['model'] as String,
                       if (appVersion != null) 'v$appVersion',
+                      IdentityLabels.shortId(installId),
                       if (lastSeen != null)
                         'seen ${AdminHeuristics.relativeShort(lastSeen)}',
                     ].join('  \u00B7  '),
@@ -424,7 +424,7 @@ class _OwnerContact extends StatelessWidget {
             label: 'Phone',
             value: (phone == null || phone.isEmpty)
                 ? 'Not provided'
-                : phone,
+                : IdentityLabels.formatPhoneForDisplay(phone),
           ),
           if (requestedAt != null)
             _row(

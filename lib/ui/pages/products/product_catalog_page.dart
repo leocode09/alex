@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,16 +19,41 @@ class ProductCatalogPage extends ConsumerStatefulWidget {
 class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
   final _searchController = TextEditingController();
   String _sortBy = 'name';
+  Timer? _searchDebounce;
+
+  // Memoized sort result: re-cloning and re-sorting the full list on every
+  // build is wasted work when neither the list nor the sort mode changed.
+  List<Product>? _sortInput;
+  String? _sortInputMode;
+  List<Product>? _sortResult;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      ref.read(searchQueryProvider.notifier).state = _searchController.text;
+      // Debounce so each keystroke doesn't trigger a full refilter + list
+      // rebuild; only the settled query is pushed to the provider.
+      _searchDebounce?.cancel();
+      _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+        if (!mounted) return;
+        ref.read(searchQueryProvider.notifier).state = _searchController.text;
+      });
     });
   }
 
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   List<Product> _sortProducts(List<Product> products) {
+    if (identical(products, _sortInput) &&
+        _sortBy == _sortInputMode &&
+        _sortResult != null) {
+      return _sortResult!;
+    }
     final sorted = List<Product>.from(products);
     if (_sortBy == 'name') {
       sorted.sort((a, b) => a.name.compareTo(b.name));
@@ -36,6 +62,9 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
     } else if (_sortBy == 'price') {
       sorted.sort((a, b) => a.price.compareTo(b.price));
     }
+    _sortInput = products;
+    _sortInputMode = _sortBy;
+    _sortResult = sorted;
     return sorted;
   }
 
@@ -205,6 +234,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
                     },
                     loading: () => const SizedBox(),
                     error: (_, __) => const SizedBox(),
+                    skipLoadingOnReload: true,
+                    skipLoadingOnRefresh: true,
                   ),
                 ),
               ],
@@ -444,6 +475,8 @@ class _ProductCatalogPageState extends ConsumerState<ProductCatalogPage> {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, stack) => Center(child: Text('Error: $err')),
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
             ),
           ),
         ],

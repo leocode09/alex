@@ -10,7 +10,7 @@ import '../database_helper.dart';
 /// Single SQLite database used for the high-volume, unbounded sales ledger.
 ///
 /// Why only sales live here: bounded collections (products, customers,
-/// categories, employees, stores, money accounts) stay on the existing
+/// categories, employees, stores) stay on the existing
 /// SharedPreferences-backed [StorageHelper] because they never grow without
 /// bound. Sales are the one collection that keeps growing as the shop trades,
 /// so they get per-row indexed storage (and SQL aggregation for reports/

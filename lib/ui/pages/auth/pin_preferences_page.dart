@@ -15,15 +15,7 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
 
   static const Map<String, String> _featureKeyByTitle = {
     'Login': 'login',
-    'Money Access': 'dashboard',
     'Settings Access': 'settings',
-    'Create Account': 'addMoneyAccount',
-    'Edit Account': 'editMoneyAccount',
-    'Delete Account': 'deleteMoneyAccount',
-    'Add Money': 'addMoney',
-    'Remove Money': 'removeMoney',
-    'View Money History': 'viewMoneyHistory',
-    'Edit Money History': 'editMoneyHistory',
     'Add Products': 'addProduct',
     'Edit Products': 'editProduct',
     'Delete Products': 'deleteProduct',
@@ -69,16 +61,6 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
   // Auth & General
   bool _requireOnLogin = true;
   bool _requireOnSettings = false;
-  bool _requireOnDashboard = false;
-
-  // Money
-  bool _requireOnAddMoneyAccount = false;
-  bool _requireOnEditMoneyAccount = false;
-  bool _requireOnDeleteMoneyAccount = false;
-  bool _requireOnAddMoney = false;
-  bool _requireOnRemoveMoney = false;
-  bool _requireOnViewMoneyHistory = false;
-  bool _requireOnEditMoneyHistory = false;
 
   // Products
   bool _requireOnAddProduct = false;
@@ -160,14 +142,6 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
       // Auth & General
       _requireOnLogin = prefs['login'] ?? true;
       _requireOnSettings = prefs['settings'] ?? false;
-      _requireOnDashboard = prefs['dashboard'] ?? false;
-      _requireOnAddMoneyAccount = prefs['addMoneyAccount'] ?? false;
-      _requireOnEditMoneyAccount = prefs['editMoneyAccount'] ?? false;
-      _requireOnDeleteMoneyAccount = prefs['deleteMoneyAccount'] ?? false;
-      _requireOnAddMoney = prefs['addMoney'] ?? false;
-      _requireOnRemoveMoney = prefs['removeMoney'] ?? false;
-      _requireOnViewMoneyHistory = prefs['viewMoneyHistory'] ?? false;
-      _requireOnEditMoneyHistory = prefs['editMoneyHistory'] ?? false;
 
       // Products
       _requireOnAddProduct = prefs['addProduct'] ?? false;
@@ -245,14 +219,6 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
       // Auth & General
       'login': _requireOnLogin,
       'settings': _requireOnSettings,
-      'dashboard': _requireOnDashboard,
-      'addMoneyAccount': _requireOnAddMoneyAccount,
-      'editMoneyAccount': _requireOnEditMoneyAccount,
-      'deleteMoneyAccount': _requireOnDeleteMoneyAccount,
-      'addMoney': _requireOnAddMoney,
-      'removeMoney': _requireOnRemoveMoney,
-      'viewMoneyHistory': _requireOnViewMoneyHistory,
-      'editMoneyHistory': _requireOnEditMoneyHistory,
 
       // Products
       'addProduct': _requireOnAddProduct,
@@ -384,86 +350,12 @@ class _PinPreferencesPageState extends State<PinPreferencesPage> {
                                 setState(() => _requireOnLogin = value),
                           ),
                           _buildPreferenceSwitch(
-                            icon: Icons.account_balance_wallet_outlined,
-                            title: 'Money Access',
-                            subtitle: 'Require PIN to view money accounts',
-                            value: _requireOnDashboard,
-                            onChanged: (value) =>
-                                setState(() => _requireOnDashboard = value),
-                          ),
-                          _buildPreferenceSwitch(
                             icon: Icons.settings_outlined,
                             title: 'Settings Access',
                             subtitle: 'Require PIN to access settings',
                             value: _requireOnSettings,
                             onChanged: (value) =>
                                 setState(() => _requireOnSettings = value),
-                          ),
-
-                          // Money Section
-                          const SizedBox(height: 24),
-                          _buildSectionHeader('Money'),
-                          _buildPreferenceSwitch(
-                            icon: Icons.account_balance_wallet_outlined,
-                            title: 'Create Account',
-                            subtitle:
-                                'Require PIN when creating money accounts',
-                            value: _requireOnAddMoneyAccount,
-                            onChanged: (value) => setState(
-                                () => _requireOnAddMoneyAccount = value),
-                          ),
-                          _buildPreferenceSwitch(
-                            icon: Icons.edit_outlined,
-                            title: 'Edit Account',
-                            subtitle: 'Require PIN when editing money accounts',
-                            value: _requireOnEditMoneyAccount,
-                            onChanged: (value) => setState(
-                                () => _requireOnEditMoneyAccount = value),
-                          ),
-                          _buildPreferenceSwitch(
-                            icon: Icons.delete_outlined,
-                            title: 'Delete Account',
-                            subtitle:
-                                'Require PIN when deleting money accounts',
-                            value: _requireOnDeleteMoneyAccount,
-                            onChanged: (value) => setState(
-                                () => _requireOnDeleteMoneyAccount = value),
-                          ),
-                          _buildPreferenceSwitch(
-                            icon: Icons.add_card_outlined,
-                            title: 'Add Money',
-                            subtitle:
-                                'Require PIN when adding money to an account',
-                            value: _requireOnAddMoney,
-                            onChanged: (value) =>
-                                setState(() => _requireOnAddMoney = value),
-                          ),
-                          _buildPreferenceSwitch(
-                            icon: Icons.remove_circle_outline,
-                            title: 'Remove Money',
-                            subtitle:
-                                'Require PIN when removing money from an account',
-                            value: _requireOnRemoveMoney,
-                            onChanged: (value) =>
-                                setState(() => _requireOnRemoveMoney = value),
-                          ),
-                          _buildPreferenceSwitch(
-                            icon: Icons.history,
-                            title: 'View Money History',
-                            subtitle:
-                                'Require PIN to view account history records',
-                            value: _requireOnViewMoneyHistory,
-                            onChanged: (value) => setState(
-                                () => _requireOnViewMoneyHistory = value),
-                          ),
-                          _buildPreferenceSwitch(
-                            icon: Icons.edit_note_outlined,
-                            title: 'Edit Money History',
-                            subtitle:
-                                'Require PIN to edit history records',
-                            value: _requireOnEditMoneyHistory,
-                            onChanged: (value) => setState(
-                                () => _requireOnEditMoneyHistory = value),
                           ),
 
                           // Products Section

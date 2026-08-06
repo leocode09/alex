@@ -2,13 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/license_gate.dart';
+import '../models/account_state.dart';
 import '../models/license_policy.dart';
 import '../models/sync_data.dart';
+import 'admin/device_registration_service.dart';
+import 'cloud/account_service.dart';
+import 'identity_label.dart';
+import 'sync_frame_codec.dart';
 import 'sync_message_utils.dart';
 import 'sync_service.dart';
 
@@ -21,13 +24,27 @@ class LanSyncService extends ChangeNotifier {
 
   static const int discoveryPort = 42111;
   static const int tcpPort = 42112;
+  static const int protocolVersion = 3;
   static const Duration announceInterval = Duration(seconds: 2);
   static const Duration peerTimeout = Duration(seconds: 6);
-  static const String _deviceNamePrefKey = 'lan_device_name';
-
   static const int _maxPayloadBytes = SyncMessageUtils.maxFramePayloadBytes;
   static const int _maxSyncPayloadBytes =
       SyncMessageUtils.maxAssembledPayloadBytes;
+  // Frames longer than this are parsed in a background isolate; parsing a
+  // multi-megabyte sync payload on the UI isolate freezes the app. Chunk
+  // envelopes are exempt (see _looksLikeChunkFrame) — they are bounded to a
+  // few hundred KB and decoding them inline is cheaper than an isolate spawn
+  // per chunk.
+  static const int _inlineParseMaxChars = 32 * 1024;
+  // Deltas are sent for ordinary updates; a full snapshot goes out on connect
+  // and at least this often as a safety net (it also covers records relayed
+  // from peers we cannot reach directly, whose timestamps predate the delta
+  // window).
+  static const Duration _fullSnapshotInterval = Duration(minutes: 5);
+  // Delta windows start this much before the last successful send so records
+  // written while a send was in flight are never skipped. Duplicates are
+  // harmless: imports merge by id.
+  static const Duration _deltaGrace = Duration(seconds: 10);
   static const Duration _healthCheckInterval = Duration(seconds: 10);
   static const Duration _handshakeTimeout = Duration(seconds: 6);
   static const Duration _connectionIdleTimeout = Duration(seconds: 35);
@@ -75,10 +92,23 @@ class LanSyncService extends ChangeNotifier {
   bool _sending = false;
   int _retryAttempts = 0;
 
+  // Delta-sync bookkeeping: when the last successful send's export began
+  // (any kind / full), and the tombstone total it carried so deletions still
+  // trigger a delta even when no records changed.
+  DateTime? _lastSentAt;
+  DateTime? _lastFullSentAt;
+  int _lastSentTombstoneCount = -1;
+  bool _forceFullSync = false;
+
   Future<void> _importQueue = Future.value();
 
   String? _deviceId;
   String? _deviceName;
+  String? _shopId;
+  StreamSubscription<String>? _identitySubscription;
+
+  @visibleForTesting
+  String? testingApprovedShopId;
 
   bool get isRunning => _running;
   bool get isConnected => _connections.isNotEmpty;
@@ -104,34 +134,26 @@ class LanSyncService extends ChangeNotifier {
       _connectionEventController.stream;
 
   Future<void> initialize() async {
-    if (kIsWeb) {
-      if (_deviceName == null || _deviceName!.trim().isEmpty) {
-        _deviceName = 'Device';
-      }
-      return;
-    }
+    await IdentityLabel.initialize();
+    _subscribeToIdentity();
+    _deviceName = IdentityLabel.current;
+    if (kIsWeb) return;
     await _ensureDeviceInfo();
     notifyListeners();
   }
 
+  /// Compatibility entry point. Device aliases no longer exist: changing
+  /// this label changes the signed-in person's canonical display name.
   Future<void> setDeviceName(String value) async {
     final nextValue = value.trim();
-    final prefs = await SharedPreferences.getInstance();
-    final resolvedName =
-        nextValue.isEmpty ? await _getDefaultDeviceName() : nextValue;
-
     if (nextValue.isEmpty) {
-      await prefs.remove(_deviceNamePrefKey);
-    } else {
-      await prefs.setString(_deviceNamePrefKey, nextValue);
+      return;
     }
-
-    _deviceName = resolvedName;
-    _addLog('Device name set to "$resolvedName".');
-    if (_running) {
-      _sendLanAnnounce();
+    final result = await AccountService().updateDisplayName(nextValue);
+    if (!result.success) {
+      _lastError = result.message;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> start() async {
@@ -146,6 +168,37 @@ class LanSyncService extends ChangeNotifier {
       _lastError = 'LAN sync disabled by administrator.';
       notifyListeners();
       return;
+    }
+    final testShopId = testingApprovedShopId;
+    if (testShopId != null && testShopId.isNotEmpty) {
+      _shopId = testShopId;
+    } else {
+      final account = AccountService().current;
+      final shopId = account.shopId?.trim();
+      if (account.stage != AccountStage.approved ||
+          shopId == null ||
+          shopId.isEmpty) {
+        _status = 'account_not_approved';
+        _lastError =
+            'LAN sharing requires an approved account in this shop.';
+        notifyListeners();
+        return;
+      }
+      final binding =
+          await DeviceRegistrationService().verifyCurrentBinding();
+      if (!binding.isBound) {
+        _status = binding.peerGateStatus;
+        _lastError = binding.message;
+        // Approved AccountState with a missing Firebase session is a
+        // desync — refresh so routing can send the user to re-login
+        // instead of leaving a confusing "device not registered" state.
+        if (binding.status == DeviceBindingStatus.signedOut) {
+          unawaited(AccountService().refresh());
+        }
+        notifyListeners();
+        return;
+      }
+      _shopId = shopId;
     }
     _lastError = null;
     await _ensureDeviceInfo();
@@ -231,6 +284,10 @@ class LanSyncService extends ChangeNotifier {
     _syncDebounceTimer = null;
     _sending = false;
     _retryAttempts = 0;
+    _lastSentAt = null;
+    _lastFullSentAt = null;
+    _lastSentTombstoneCount = -1;
+    _forceFullSync = false;
     _messageCache.clear();
     _chunkAssembler.clear();
     notifyListeners();
@@ -432,6 +489,11 @@ class LanSyncService extends ChangeNotifier {
       await start();
     }
     _addLog('Sync requested (${_formatReason(reason)}).');
+    if (reason == 'lan_connected') {
+      // A (re)connected peer may have missed any number of deltas — give it a
+      // full snapshot.
+      _forceFullSync = true;
+    }
     _pendingSync = true;
     _syncDebounceTimer?.cancel();
     _syncDebounceTimer = Timer(_syncDebounce, _flushPendingSync);
@@ -456,6 +518,13 @@ class LanSyncService extends ChangeNotifier {
           continue;
         }
         if (data['type'] != 'lan_announce') {
+          continue;
+        }
+        final remoteVersion = data['protocolVersion'];
+        final remoteShopId = data['shopId'];
+        if (remoteVersion != protocolVersion ||
+            remoteShopId is! String ||
+            remoteShopId != _shopId) {
           continue;
         }
 
@@ -506,16 +575,51 @@ class LanSyncService extends ChangeNotifier {
       'name': _deviceName,
       'port': tcpPort,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
-      'protocolVersion': 2,
+      'protocolVersion': protocolVersion,
+      'shopId': _shopId,
     };
     final bytes = utf8.encode(jsonEncode(data));
-    try {
-      socket.send(bytes, InternetAddress('255.255.255.255'), discoveryPort);
-    } catch (e) {
-      _addLog('LAN announce failed: $e');
+
+    // Announce to the limited broadcast address AND to every local subnet's
+    // directed-broadcast address. Mobile hotspots commonly drop limited
+    // 255.255.255.255 broadcasts while still delivering subnet-directed ones,
+    // so covering both is what lets the host and its clients discover each
+    // other reliably.
+    final targets = <String>{'255.255.255.255'};
+    for (final address in _localAddresses) {
+      final subnetBroadcast = _subnetBroadcastFor(address);
+      if (subnetBroadcast != null) {
+        targets.add(subnetBroadcast);
+      }
+    }
+
+    for (final target in targets) {
+      try {
+        socket.send(bytes, InternetAddress(target), discoveryPort);
+      } catch (e) {
+        _addLog('LAN announce failed to $target: $e');
+      }
     }
 
     _pruneLanPeers();
+  }
+
+  /// Derives the IPv4 /24 directed-broadcast address for [address]
+  /// (e.g. 192.168.43.1 -> 192.168.43.255). Hotspots are effectively always
+  /// /24, and an extra datagram to a non-existent subnet is harmless, so this
+  /// best-effort derivation is safe.
+  String? _subnetBroadcastFor(String address) {
+    final parts = address.split('.');
+    if (parts.length != 4) {
+      return null;
+    }
+    for (final part in parts) {
+      final value = int.tryParse(part);
+      if (value == null || value < 0 || value > 255) {
+        return null;
+      }
+    }
+    return '${parts[0]}.${parts[1]}.${parts[2]}.255';
   }
 
   void _pruneLanPeers() {
@@ -545,10 +649,15 @@ class LanSyncService extends ChangeNotifier {
       return;
     }
 
-    if (!_shouldInitiateLanConnection(peer.id)) {
-      return;
-    }
-
+    // Both peers attempt to connect. On mobile hotspots discovery and
+    // reachability are frequently one-directional (a client's UDP broadcast
+    // may never reach the hotspot host, or the host cannot dial back to the
+    // client), so letting only the lexicographically-smaller id initiate can
+    // deadlock and leave two devices "discovered but never connected" — which
+    // looks like sync silently not working. Duplicate sockets created when both
+    // sides dial are de-duplicated deterministically in _registerLanConnection
+    // (it keeps the smaller-id-outbound socket), so this converges to one
+    // connection even when only one direction actually gets through.
     _pendingConnections.add(peer.id);
     unawaited(_connectToLanPeer(peer));
   }
@@ -601,13 +710,30 @@ class LanSyncService extends ChangeNotifier {
       'type': 'lan_hello',
       'id': _deviceId,
       'name': _deviceName,
-      'protocolVersion': 2,
+      'protocolVersion': protocolVersion,
+      'shopId': _shopId,
     };
     connection.sendJson(jsonEncode(data));
   }
 
   void _onLanLine(_LanConnection connection, String line) {
     connection.touch();
+
+    // Large frames are always sync payloads/chunks — never decode them here:
+    // this callback runs on the UI isolate for every received line.
+    if (line.length > _inlineParseMaxChars) {
+      if (connection.peerId != null) {
+        unawaited(
+          _handleIncomingPayload(
+            line,
+            fallbackSourceId: connection.peerId,
+            fallbackSourceName: connection.peerName,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       final data = jsonDecode(line);
       if (data is! Map<String, dynamic>) {
@@ -618,6 +744,16 @@ class LanSyncService extends ChangeNotifier {
       if (type == 'lan_hello') {
         final peerId = data['id'];
         final peerName = data['name'];
+        final peerShopId = data['shopId'];
+        final peerVersion = data['protocolVersion'];
+        if (peerVersion != protocolVersion ||
+            peerShopId is! String ||
+            peerShopId != _shopId) {
+          _addLog('Ignored peer outside this approved shop.');
+          _handshakingConnections.remove(connection);
+          unawaited(connection.close());
+          return;
+        }
         if (peerId is String) {
           _registerLanConnection(
             connection,
@@ -763,27 +899,78 @@ class LanSyncService extends ChangeNotifier {
       return;
     }
 
-    if (SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
+    // Cheap size guard: a string's UTF-8 size is always >= its char count, so
+    // this only lets through payloads within ~1 frame of the limit without
+    // paying a full UTF-8 encode of a multi-megabyte string just to measure.
+    if (payload.length > _maxPayloadBytes) {
       _addLog('Dropped incoming frame that exceeded transport size limits.');
       return;
     }
 
     await _ensureDeviceInfo();
-    final json = _tryDecodeJsonMap(payload);
-    if (json != null && json['type'] == SyncMessageUtils.syncChunkType) {
+    // Chunk envelopes are bounded (~a few hundred KB) and cheap to decode, so
+    // they parse inline — spawning an isolate per chunk thrashes low-RAM
+    // phones when a big snapshot arrives as dozens of chunks. Only large
+    // non-chunk payloads (assembled or single-frame sync data) pay for an
+    // isolate.
+    final inlineParse = payload.length <= _inlineParseMaxChars ||
+        _looksLikeChunkFrame(payload);
+    final parsed = inlineParse
+        ? SyncFrameCodec.parseInbound(payload)
+        : await compute(SyncFrameCodec.parseInbound, payload);
+
+    if (parsed.chunkEnvelope != null) {
       await _handleIncomingChunk(
-        json,
+        parsed.chunkEnvelope!,
         fallbackSourceId: fallbackSourceId,
         fallbackSourceName: fallbackSourceName,
       );
       return;
     }
 
-    await _processSyncPayload(
-      payload,
-      json: json,
+    await _handleParsedSync(
+      parsed,
       fallbackSourceId: fallbackSourceId,
       fallbackSourceName: fallbackSourceName,
+    );
+  }
+
+  Future<void> _handleParsedSync(
+    InboundParseResult parsed, {
+    String? fallbackSourceId,
+    String? fallbackSourceName,
+  }) async {
+    final syncData = parsed.syncData;
+    if (syncData == null) {
+      return;
+    }
+
+    final fromId = parsed.fromId ?? fallbackSourceId ?? syncData.deviceId;
+    if (fromId == _deviceId || syncData.deviceId == _deviceId) {
+      return;
+    }
+
+    final messageKey = parsed.messageKey;
+    if (messageKey != null && _messageCache.isDuplicate(messageKey)) {
+      return;
+    }
+    if (messageKey != null) {
+      _messageCache.remember(messageKey);
+    }
+
+    final sourceName = _resolveSourceDeviceName(
+      deviceId: fromId,
+      providedName: parsed.fromName ?? fallbackSourceName,
+    );
+    _addLog(
+      'Received sync data (${_formatSyncDataSummary(syncData)}).',
+      deviceId: fromId,
+      deviceName: sourceName,
+    );
+    await _queueImport(
+      syncData,
+      sourceDeviceId: fromId,
+      sourceDeviceName: sourceName,
     );
   }
 
@@ -833,149 +1020,14 @@ class LanSyncService extends ChangeNotifier {
       return;
     }
 
-    await _processSyncPayload(
-      assembly.payload!,
+    // The assembled payload is the full multi-megabyte sync message — parse
+    // it in a background isolate.
+    final parsed = await compute(SyncFrameCodec.parseInbound, assembly.payload!);
+    await _handleParsedSync(
+      parsed,
       fallbackSourceId: fromId,
       fallbackSourceName: sourceName,
     );
-  }
-
-  Future<void> _processSyncPayload(
-    String payload, {
-    Map<String, dynamic>? json,
-    String? fallbackSourceId,
-    String? fallbackSourceName,
-  }) async {
-    final parsed = json ?? _tryDecodeJsonMap(payload);
-
-    if (parsed != null) {
-      if (parsed['type'] == 'sync_data') {
-        final fromId = parsed['fromId']?.toString() ?? fallbackSourceId;
-        if (fromId != null && fromId == _deviceId) {
-          return;
-        }
-
-        final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: parsed['messageId']?.toString(),
-          payload: payload,
-        );
-        if (_messageCache.isDuplicate(messageKey)) {
-          return;
-        }
-
-        final sourceName = _resolveSourceDeviceName(
-          deviceId: fromId,
-          providedName: parsed['fromName']?.toString() ?? fallbackSourceName,
-        );
-        final data = parsed['data'];
-        SyncData? syncData;
-        if (data is Map) {
-          syncData = SyncData.fromJson(Map<String, dynamic>.from(data));
-        } else if (data is String) {
-          syncData = _syncService.jsonToSyncData(data);
-        }
-        if (syncData != null) {
-          _messageCache.remember(messageKey);
-          _addLog(
-            'Received sync data (${_formatSyncDataSummary(syncData)}).',
-            deviceId: fromId,
-            deviceName: sourceName,
-          );
-          await _queueImport(
-            syncData,
-            sourceDeviceId: fromId,
-            sourceDeviceName: sourceName,
-          );
-        }
-        return;
-      }
-
-      if (_looksLikeSyncData(parsed)) {
-        final syncData = SyncData.fromJson(parsed);
-        if (syncData.deviceId == _deviceId) {
-          return;
-        }
-
-        final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: parsed['messageId']?.toString(),
-          payload: payload,
-        );
-        if (_messageCache.isDuplicate(messageKey)) {
-          return;
-        }
-        _messageCache.remember(messageKey);
-
-        final sourceName = _resolveSourceDeviceName(
-          deviceId: syncData.deviceId,
-          providedName: fallbackSourceName,
-        );
-        _addLog(
-          'Received sync data (${_formatSyncDataSummary(syncData)}).',
-          deviceId: syncData.deviceId,
-          deviceName: sourceName,
-        );
-        await _queueImport(
-          syncData,
-          sourceDeviceId: syncData.deviceId,
-          sourceDeviceName: sourceName,
-        );
-        return;
-      }
-    }
-
-    try {
-      final syncData = _syncService.jsonToSyncData(payload);
-      if (syncData.deviceId == _deviceId) {
-        return;
-      }
-
-      final messageKey = SyncMessageUtils.buildMessageKey(
-        messageId: null,
-        payload: payload,
-      );
-      if (_messageCache.isDuplicate(messageKey)) {
-        return;
-      }
-      _messageCache.remember(messageKey);
-
-      final sourceName = _resolveSourceDeviceName(
-        deviceId: syncData.deviceId,
-        providedName: fallbackSourceName,
-      );
-      _addLog(
-        'Received sync data (${_formatSyncDataSummary(syncData)}).',
-        deviceId: syncData.deviceId,
-        deviceName: sourceName,
-      );
-      await _queueImport(
-        syncData,
-        sourceDeviceId: syncData.deviceId,
-        sourceDeviceName: sourceName,
-      );
-    } catch (_) {
-      return;
-    }
-  }
-
-  Map<String, dynamic>? _tryDecodeJsonMap(String payload) {
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-      if (decoded is Map) {
-        return Map<String, dynamic>.from(decoded);
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
-  }
-
-  bool _looksLikeSyncData(Map<String, dynamic> json) {
-    return json.containsKey('products') &&
-        json.containsKey('categories') &&
-        json.containsKey('deviceId');
   }
 
   Future<bool> _sendSyncData() async {
@@ -989,72 +1041,84 @@ class LanSyncService extends ChangeNotifier {
     _sending = true;
     try {
       await _ensureDeviceInfo();
-      final data = await _syncService.exportAllData();
-      if (data.isEmpty) {
+      // Delta by default: one sale puts a few KB on the wire instead of the
+      // full dataset, which is what keeps sync realtime on slow hotspot Wi-Fi.
+      // Fulls go out on peer connect and every _fullSnapshotInterval.
+      final exportStartedAt = DateTime.now();
+      final since = _lastSentAt?.subtract(_deltaGrace);
+      final sendFull = _forceFullSync ||
+          since == null ||
+          _lastFullSentAt == null ||
+          exportStartedAt.difference(_lastFullSentAt!) >=
+              _fullSnapshotInterval;
+      final data = sendFull
+          ? await _syncService.exportAllData()
+          : await _syncService.exportChangedSince(since);
+      final tombstoneCount = _tombstoneCountOf(data);
+      if (data.isEmpty &&
+          (sendFull || tombstoneCount == _lastSentTombstoneCount)) {
+        // Nothing new to share (an item-less delta still goes out when the
+        // tombstone total moved, so deletions propagate immediately).
         return true;
       }
 
       final messageId = SyncMessageUtils.nextMessageId(data.deviceId);
-      final payload = jsonEncode({
-        'type': 'sync_data',
-        'messageId': messageId,
-        'protocolVersion': 2,
-        'fromId': data.deviceId,
-        'fromName': _deviceName ?? 'Device',
-        'sentAt': DateTime.now().toIso8601String(),
-        'data': data.toJson(),
-      });
+      // Encoding + chunking the full dataset can take hundreds of
+      // milliseconds; run it in a background isolate so the UI never skips a
+      // frame while syncing.
+      final result = await compute(
+        SyncFrameCodec.buildOutboundFrames,
+        OutboundFrameRequest(
+          data: data,
+          messageId: messageId,
+          fromName: _deviceName ?? 'Device',
+          sentAtIso: DateTime.now().toIso8601String(),
+          maxFrameBytes: _maxPayloadBytes,
+          maxTotalBytes: _maxSyncPayloadBytes,
+          chunkRawBytes: SyncMessageUtils.chunkRawBytes,
+        ),
+      );
 
-      final payloadSize = SyncMessageUtils.utf8Size(payload);
-      if (payloadSize > _maxSyncPayloadBytes) {
-        _lastError = 'Sync payload exceeded 20 MB and was not sent.';
+      if (result.error != null) {
+        _lastError = result.error;
         _addLog(_lastError!);
         notifyListeners();
         return false;
       }
 
-      int delivered;
-      var chunkCount = 1;
-      if (payloadSize <= _maxPayloadBytes) {
-        delivered = _sendPayload(payload);
-      } else {
-        final chunkFrames = _buildChunkFrames(
-          payload: payload,
-          messageId: messageId,
-          fromId: data.deviceId,
-          fromName: _deviceName ?? 'Device',
-        );
-        if (chunkFrames.isEmpty) {
-          _lastError = 'Sync payload chunks exceeded transport size limits.';
-          _addLog(_lastError!);
-          notifyListeners();
-          return false;
-        }
-        chunkCount = chunkFrames.length;
-        delivered = _sendPayloadBatch(
-          chunkFrames,
-          failureError: 'Failed to send sync payload chunk.',
-        );
-      }
+      final delivered = _sendFrameBatch(
+        result.frames,
+        failureError: result.chunkCount > 1
+            ? 'Failed to send sync payload chunk.'
+            : 'Failed to send sync payload.',
+      );
 
       if (delivered == 0) {
         _addLog('No active peers were available to receive sync payload.');
         return false;
       }
 
-      final key = SyncMessageUtils.buildMessageKey(
-        messageId: messageId,
-        payload: payload,
+      _messageCache.remember(
+        SyncMessageUtils.buildMessageKey(
+          messageId: messageId,
+          payload: messageId,
+        ),
       );
-      _messageCache.remember(key);
+      _lastSentAt = exportStartedAt;
+      if (sendFull) {
+        _lastFullSentAt = exportStartedAt;
+        _forceFullSync = false;
+      }
+      _lastSentTombstoneCount = tombstoneCount;
       final summary = _formatSyncDataSummary(data);
-      if (chunkCount == 1) {
+      final kind = sendFull ? 'full' : 'delta';
+      if (result.chunkCount == 1) {
         _addLog(
-          'Shared sync data ($summary) to $delivered peer(s).',
+          'Shared $kind sync data ($summary) to $delivered peer(s).',
         );
       } else {
         _addLog(
-          'Shared sync data ($summary, $chunkCount chunks) to $delivered peer(s).',
+          'Shared $kind sync data ($summary, ${result.chunkCount} chunks) to $delivered peer(s).',
         );
       }
       return true;
@@ -1068,55 +1132,28 @@ class LanSyncService extends ChangeNotifier {
     }
   }
 
-  List<String> _buildChunkFrames({
-    required String payload,
-    required String messageId,
-    required String fromId,
-    required String fromName,
-  }) {
-    final chunks = SyncMessageUtils.splitPayloadToBase64Chunks(payload);
-    if (chunks.isEmpty) {
-      return const <String>[];
-    }
+  /// Our chunk frames always serialize `type` as the first key, so this cheap
+  /// prefix check identifies them without a JSON decode. A foreign frame that
+  /// fails the check merely falls back to the isolate path.
+  static bool _looksLikeChunkFrame(String payload) =>
+      payload.startsWith('{"type":"${SyncMessageUtils.syncChunkType}"');
 
-    final sentAt = DateTime.now().toIso8601String();
-    final frames = <String>[];
-    for (var index = 0; index < chunks.length; index++) {
-      final frame = jsonEncode({
-        'type': SyncMessageUtils.syncChunkType,
-        'messageId': messageId,
-        'protocolVersion': 3,
-        'fromId': fromId,
-        'fromName': fromName,
-        'chunkIndex': index,
-        'chunkCount': chunks.length,
-        'encoding': SyncMessageUtils.syncChunkEncoding,
-        'payload': chunks[index],
-        'sentAt': sentAt,
-      });
-      if (SyncMessageUtils.utf8Size(frame) > _maxPayloadBytes) {
-        return const <String>[];
-      }
-      frames.add(frame);
-    }
-    return frames;
+  int _tombstoneCountOf(SyncData data) {
+    return data.deletedProductIds.length +
+        data.deletedCategoryIds.length +
+        data.deletedCustomerIds.length +
+        data.deletedEmployeeIds.length +
+        data.deletedExpenseIds.length +
+        data.deletedStoreIds.length +
+        data.deletedCustomerCreditEntryIds.length +
+        data.deletedSaleIds.length;
   }
 
-  int _sendPayload(String payload) {
-    if (payload.isEmpty) {
-      return 0;
-    }
-    return _sendPayloadBatch(
-      <String>[payload],
-      failureError: 'Failed to send sync payload.',
-    );
-  }
-
-  int _sendPayloadBatch(
-    List<String> payloads, {
+  int _sendFrameBatch(
+    List<Uint8List> frames, {
     required String failureError,
   }) {
-    if (payloads.isEmpty) {
+    if (frames.isEmpty) {
       return 0;
     }
 
@@ -1124,8 +1161,8 @@ class LanSyncService extends ChangeNotifier {
     final snapshot = _connections.values.toList();
     for (final connection in snapshot) {
       var sent = true;
-      for (final payload in payloads) {
-        if (!connection.sendJson(payload)) {
+      for (final frame in frames) {
+        if (!connection.sendFrame(frame)) {
           sent = false;
           break;
         }
@@ -1321,29 +1358,30 @@ class LanSyncService extends ChangeNotifier {
 
   Future<void> _ensureDeviceInfo() async {
     _deviceId ??= await _syncService.getDeviceId();
-    _deviceName ??=
-        await _getPreferredDeviceName() ?? await _getDefaultDeviceName();
+    await IdentityLabel.initialize();
+    _subscribeToIdentity();
+    _deviceName = IdentityLabel.current;
   }
 
-  Future<String?> _getPreferredDeviceName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedName = prefs.getString(_deviceNamePrefKey)?.trim();
-    if (savedName == null || savedName.isEmpty) {
-      return null;
-    }
-    return savedName;
+  void _subscribeToIdentity() {
+    _identitySubscription ??= IdentityLabel.changes.listen((name) {
+      _deviceName = name;
+      _addLog('Identity updated to "$name".');
+      if (_running) {
+        _sendLanAnnounce();
+        for (final connection in _connections.values) {
+          _sendLanHello(connection);
+        }
+      }
+      notifyListeners();
+    });
   }
 
-  Future<String> _getDefaultDeviceName() async {
-    if (!Platform.isAndroid) {
-      final hostname = Platform.localHostname;
-      return hostname.isNotEmpty ? hostname : 'Device';
-    }
-    try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      return info.model;
-    } catch (_) {
-      return 'Android';
+  @visibleForTesting
+  void configureApprovedShopForTesting(String? shopId) {
+    testingApprovedShopId = shopId;
+    if (shopId != null && shopId.isNotEmpty) {
+      _shopId = shopId;
     }
   }
 
@@ -1513,6 +1551,19 @@ class _LanConnection {
     try {
       socket.add(utf8.encode(jsonMessage));
       socket.add(const [10]);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Sends a pre-encoded frame (UTF-8 JSON line including trailing newline).
+  bool sendFrame(Uint8List frame) {
+    if (_closed) {
+      return false;
+    }
+    try {
+      socket.add(frame);
       return true;
     } catch (_) {
       return false;

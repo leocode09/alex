@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'cloud/firebase_init.dart';
 import 'cloud/firestore_paths.dart';
@@ -13,6 +14,12 @@ class ShopPinService {
   factory ShopPinService() => _instance;
 
   static const String settingsDocId = 'pin';
+  static const String _cachePrefsPrefix = 'shop_pin_config_';
+
+  /// Last fetched config per shop, so router redirects never need a
+  /// blocking network round-trip. Backed by SharedPreferences so it
+  /// survives restarts; refreshed in the background after each fetch.
+  final Map<String, Map<String, dynamic>> _memCache = {};
 
   DocumentReference<Map<String, dynamic>> _doc(String shopId) {
     return FirebaseFirestore.instance
@@ -31,7 +38,11 @@ class ShopPinService {
       if (!snap.exists) {
         return null;
       }
-      return snap.data();
+      final data = snap.data();
+      if (data != null) {
+        await _storeCachedConfig(shopId, data);
+      }
+      return data;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('ShopPinService.fetchConfig error: $e');
@@ -40,11 +51,70 @@ class ShopPinService {
     }
   }
 
+  /// Returns the cached copy of the last fetched config for [shopId]
+  /// (memory first, then SharedPreferences) without touching the
+  /// network. Returns null when nothing was ever fetched.
+  Future<Map<String, dynamic>?> cachedConfig(String shopId) async {
+    final mem = _memCache[shopId];
+    if (mem != null) {
+      return mem;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('$_cachePrefsPrefix$shopId');
+      if (raw == null) {
+        return null;
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        _memCache[shopId] = decoded;
+        return decoded;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('ShopPinService.cachedConfig error: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<void> _storeCachedConfig(
+    String shopId,
+    Map<String, dynamic> config,
+  ) async {
+    _memCache[shopId] = config;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_cachePrefsPrefix$shopId', jsonEncode(config));
+    } catch (e) {
+      // Best-effort: a non-JSON-encodable field or prefs failure only
+      // costs the restart-survival of the cache, never correctness.
+      if (kDebugMode) {
+        debugPrint('ShopPinService cache persist error: $e');
+      }
+    }
+  }
+
   /// Returns the owner's PIN + preference map when configured.
+  /// Performs a blocking Firestore read; prefer [loadCachedForStaff]
+  /// on latency-sensitive paths.
   Future<({String pin, Map<String, bool> preferences})?> loadForStaff(
     String shopId,
   ) async {
-    final config = await fetchConfig(shopId);
+    return _parseStaffConfig(await fetchConfig(shopId));
+  }
+
+  /// Same as [loadForStaff] but served purely from the local cache —
+  /// never hits the network. Returns null when no config was cached.
+  Future<({String pin, Map<String, bool> preferences})?> loadCachedForStaff(
+    String shopId,
+  ) async {
+    return _parseStaffConfig(await cachedConfig(shopId));
+  }
+
+  ({String pin, Map<String, bool> preferences})? _parseStaffConfig(
+    Map<String, dynamic>? config,
+  ) {
     if (config == null) {
       return null;
     }
@@ -58,24 +128,31 @@ class ShopPinService {
     );
   }
 
-  Future<void> publish({
+  Future<bool> publish({
     required String shopId,
     required String pin,
     required Map<String, bool> preferences,
   }) async {
     if (!FirebaseInit.available) {
-      return;
+      return false;
+    }
+    if (pin.length != 4) {
+      return false;
     }
     try {
-      await _doc(shopId).set({
+      final config = <String, dynamic>{
         'pin': pin,
         'preferences': preferences,
         'updatedAt': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
+      };
+      await _doc(shopId).set(config, SetOptions(merge: true));
+      await _storeCachedConfig(shopId, config);
+      return true;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('ShopPinService.publish error: $e');
       }
+      return false;
     }
   }
 

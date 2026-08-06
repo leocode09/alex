@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../../services/wifi_direct_sync_service.dart';
+
+import '../../../services/cloud/account_service.dart';
+import '../../../services/identity_label.dart';
 import '../../../services/lan_sync_service.dart';
+import '../../../services/wifi_direct_sync_service.dart';
+import '../../design_system/app_theme_extensions.dart';
 
 enum LanActionTimeRange {
   today,
@@ -23,7 +28,6 @@ class _LanManagerPageState extends State<LanManagerPage> {
   final WifiDirectSyncService _service = WifiDirectSyncService();
   final LanSyncService _lanService = LanSyncService();
   final TextEditingController _hostController = TextEditingController();
-  final TextEditingController _deviceNameController = TextEditingController();
   String _selectedDeviceFilter = _allDevicesFilter;
   LanActionTimeRange _selectedTimeRange = LanActionTimeRange.today;
   bool _showAdvancedTools = false;
@@ -31,12 +35,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
   @override
   void initState() {
     super.initState();
-    _lanService.initialize().then((_) {
-      if (!mounted) {
-        return;
-      }
-      _deviceNameController.text = _lanService.deviceName;
-    });
+    _lanService.initialize();
     _service.start();
     _lanService.start();
     _lanService.refreshLocalAddresses();
@@ -45,7 +44,6 @@ class _LanManagerPageState extends State<LanManagerPage> {
   @override
   void dispose() {
     _hostController.dispose();
-    _deviceNameController.dispose();
     super.dispose();
   }
 
@@ -67,7 +65,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
               _buildLanControlsCard(context),
               _buildLanPeersCard(context),
               _buildLanClientsCard(context),
-              _buildLanDeviceNameCard(context),
+              _buildIdentityCard(context),
               _buildAdvancedToggleCard(context),
               if (_showAdvancedTools) ...[
                 _buildGroupTitle('Advanced Tools'),
@@ -104,9 +102,9 @@ class _LanManagerPageState extends State<LanManagerPage> {
           SizedBox(height: 8),
           Text('1. Connect both devices to the same Wi-Fi or hotspot.'),
           SizedBox(height: 4),
-          Text('2. Tap "Start Sharing" on both devices.'),
+          Text('2. Use approved accounts in the same shop.'),
           SizedBox(height: 4),
-          Text('3. Wait for the device to appear, then sync.'),
+          Text('3. Tap "Start Sharing" and wait for your teammate.'),
         ],
       ),
     );
@@ -252,6 +250,8 @@ class _LanManagerPageState extends State<LanManagerPage> {
     final connectionSummary = connections == 1
         ? '1 device connected'
         : '$connections devices connected';
+    final needsSignIn = _lanService.status == 'sign_in_required';
+    final danger = context.appExtras.danger;
 
     return _card(
       child: Column(
@@ -266,7 +266,15 @@ class _LanManagerPageState extends State<LanManagerPage> {
             const SizedBox(height: 8),
             Text(
               'Issue: ${_lanService.lastError!}',
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(color: danger, fontSize: 12),
+            ),
+          ],
+          if (needsSignIn) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => _recoverSession(context),
+              icon: const Icon(Icons.login),
+              label: const Text('Log in again'),
             ),
           ],
         ],
@@ -274,39 +282,35 @@ class _LanManagerPageState extends State<LanManagerPage> {
     );
   }
 
-  Widget _buildLanDeviceNameCard(BuildContext context) {
+  Future<void> _recoverSession(BuildContext context) async {
+    await AccountService().refresh();
+    if (!context.mounted) return;
+    context.go('/account-login');
+  }
+
+  Widget _buildIdentityCard(BuildContext context) {
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Your Device Name'),
+          _sectionTitle('Your identity'),
           const SizedBox(height: 8),
-          TextField(
-            controller: _deviceNameController,
-            decoration: const InputDecoration(
-              labelText: 'Device name',
-              hintText: 'Example: Counter 1',
-              border: OutlineInputBorder(),
-              helperText: 'This is what other devices will see.',
-            ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _saveDeviceName(context),
+          Text(
+            IdentityLabel.current,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Your account name is used for LAN, sales, receipts and reports.',
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () => _saveDeviceName(context),
-                icon: const Icon(Icons.save),
-                label: const Text('Save'),
-              ),
-              OutlinedButton(
-                onPressed: () => _resetDeviceName(context),
-                child: const Text('Use Default'),
-              ),
-            ],
+          OutlinedButton.icon(
+            onPressed: () => _changeIdentity(context),
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Change name'),
           ),
         ],
       ),
@@ -371,7 +375,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
           Text(
             _lanService.isConnected
                 ? 'You can sync now.'
-                : 'Connect devices on the same Wi-Fi or hotspot, then wait for discovery.',
+                : 'Only approved members of this shop can connect.',
             style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
         ],
@@ -443,7 +447,9 @@ class _LanManagerPageState extends State<LanManagerPage> {
           _sectionTitle('Nearby Devices'),
           const SizedBox(height: 8),
           if (peers.isEmpty)
-            const Text('No nearby devices found yet.')
+            const Text(
+              'No approved devices from this shop are nearby yet.',
+            )
           else
             ...peers.map((peer) {
               final isConnected =
@@ -671,29 +677,44 @@ class _LanManagerPageState extends State<LanManagerPage> {
     return DateFormat('MMM d, yyyy h:mm a').format(timestamp);
   }
 
-  Future<void> _saveDeviceName(BuildContext context) async {
-    await _lanService.setDeviceName(_deviceNameController.text);
-    if (!context.mounted) {
-      return;
-    }
-    _deviceNameController.text = _lanService.deviceName;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Device name saved as "${_lanService.deviceName}".'),
+  Future<void> _changeIdentity(BuildContext context) async {
+    final controller = TextEditingController(text: IdentityLabel.current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Change your name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Your name',
+            helperText: 'This becomes your identity everywhere in ALEX.',
+          ),
+          onSubmitted: (value) =>
+              Navigator.of(dialogContext).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
-  }
-
-  Future<void> _resetDeviceName(BuildContext context) async {
-    await _lanService.setDeviceName('');
-    if (!context.mounted) {
+    controller.dispose();
+    if (name == null || name.isEmpty) {
       return;
     }
-    _deviceNameController.text = _lanService.deviceName;
+    final result = await AccountService().updateDisplayName(name);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Device name reset to "${_lanService.deviceName}".'),
-      ),
+      SnackBar(content: Text(result.message)),
     );
   }
 
@@ -725,13 +746,26 @@ class _LanManagerPageState extends State<LanManagerPage> {
     if (status.isEmpty) {
       return 'Unknown';
     }
-    return status
-        .replaceAll('_', ' ')
-        .split(' ')
-        .map((part) => part.isEmpty
-            ? part
-            : '${part[0].toUpperCase()}${part.substring(1)}')
-        .join(' ');
+    switch (status) {
+      case 'sign_in_required':
+        return 'Sign-in required';
+      case 'device_not_registered':
+        return 'Device not registered';
+      case 'device_conflict':
+        return 'Device belongs to another account';
+      case 'cloud_unavailable':
+        return 'Cloud unavailable';
+      case 'account_not_approved':
+        return 'Account not approved';
+      default:
+        return status
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((part) => part.isEmpty
+                ? part
+                : '${part[0].toUpperCase()}${part.substring(1)}')
+            .join(' ');
+    }
   }
 }
 

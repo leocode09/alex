@@ -3,9 +3,8 @@ rules_version = '2';
 // Security rules for the ALEX POS app.
 //
 // Two parallel trust levels live here:
-//   1. "Device" users  — anonymous Firebase auth, identified by their
-//      own uid. They read/write data under the shop they joined, and
-//      they own exactly one doc under /devices/{installId}.
+//   1. Shop members — stable phone/password Firebase auth users. Each app
+//      install is permanently bound to that uid under /devices/{installId}.
 //   2. "Super admins"  — listed explicitly in /admins/{uid}. They have
 //      full read/write across /shops, /devices, and /admins so they
 //      can manage the whole fleet from the in-app admin panel.
@@ -176,22 +175,59 @@ service cloud.firestore {
     }
 
     // ---------- /devices ----------
-    // A device (anonymous-auth uid) may read & upsert its own doc.
+    // A registered install may read & upsert its own doc. An admin-unbound
+    // doc is readable/claimable by the next explicitly authenticated login.
     // Admins can read / write every device doc.
     match /devices/{installId} {
       allow read: if isAdmin()
-          || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+          || (isSignedIn()
+              && (
+                resource.data.get('ownerUid', '') == request.auth.uid
+                || (
+                  resource.data.get('ownerUid', '') == ''
+                  && resource.data.get('boundUid', '') == ''
+                )
+              ));
       allow create: if isAdmin()
-          || (isSignedIn() && request.resource.data.ownerUid == request.auth.uid);
+          || (
+            isSignedIn()
+            && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.boundUid == request.auth.uid
+          );
       allow update: if isAdmin()
           || (
             isSignedIn()
             && resource.data.ownerUid == request.auth.uid
+            && request.resource.data.ownerUid == resource.data.ownerUid
             && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.get('boundUid', request.auth.uid)
+                == request.auth.uid
+            && resource.data.get('boundUid', request.auth.uid)
+                == request.auth.uid
+            && (
+              !('boundAt' in resource.data)
+              || request.resource.data.boundAt == resource.data.boundAt
+            )
             // A device cannot raise its own expiry or clear its block.
             && !("blocked" in request.resource.data.diff(resource.data).affectedKeys())
             && !("expiresAt" in request.resource.data.diff(resource.data).affectedKeys())
             && !("featureOverrides" in request.resource.data.diff(resource.data).affectedKeys())
+          )
+          || (
+            // Explicit login may claim a doc that an admin unbound.
+            isSignedIn()
+            && resource.data.get('ownerUid', '') == ''
+            && resource.data.get('boundUid', '') == ''
+            && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.boundUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly([
+                  'installId',
+                  'ownerUid',
+                  'boundUid',
+                  'boundAt',
+                  'unboundAt'
+                ])
           );
       allow delete: if isAdmin();
 
@@ -301,6 +337,21 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // A shop has exactly one PIN document. Every approved member can read
+      // it, but only the approved owner (or an admin) may create/change it.
+      match /settings/{settingId} {
+        allow read: if isAdmin() || isApprovedShopMember(shopId);
+        allow write: if isAdmin()
+            || (
+              settingId == 'pin'
+              && isApprovedShopOwner(shopId)
+            )
+            || (
+              settingId != 'pin'
+              && isApprovedShopMember(shopId)
+            );
+      }
+
       // Subcollections (entities) — existing pattern: an APPROVED shop
       // member (or admin) reads / writes shop data. The wildcard
       // excludes the two collections handled by their own blocks
@@ -308,12 +359,14 @@ service cloud.firestore {
       match /{subcollection}/{docId} {
         allow read, write: if subcollection != 'members'
             && subcollection != 'auditLog'
+            && subcollection != 'settings'
             && (isAdmin() || isApprovedShopMember(shopId));
       }
 
       match /{subcollection}/{docId}/{rest=**} {
         allow read, write: if subcollection != 'members'
             && subcollection != 'auditLog'
+            && subcollection != 'settings'
             && (isAdmin() || isApprovedShopMember(shopId));
       }
     }

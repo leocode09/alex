@@ -4,14 +4,16 @@ import 'dart:io' show Platform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 import '../../models/account_state.dart';
 import '../cloud/account_service.dart';
 import '../cloud/firebase_init.dart';
 import '../cloud/firestore_paths.dart';
 import '../cloud/shop_service.dart';
+import '../identity_label.dart';
+import 'device_registration_service.dart';
 import 'install_id_service.dart';
 
 /// Upserts `/devices/{installId}` so the super admin can enumerate every
@@ -31,13 +33,11 @@ class DeviceHeartbeatService {
   factory DeviceHeartbeatService() => _instance;
 
   static const Duration _interval = Duration(minutes: 5);
-  static const String _deviceNamePrefKey = 'lan_device_name';
   static const String _firstSeenPrefKey = 'install_first_seen_iso';
 
   Timer? _timer;
   bool _started = false;
   String? _installId;
-  String? _ownerUid;
   final ShopService _shopService = ShopService();
 
   /// Cached platform metadata (collected once per process).
@@ -78,11 +78,15 @@ class DeviceHeartbeatService {
     _installId = id;
 
     try {
-      final uid = _ownerUid ?? await _shopService.ensureAuth();
+      final uid = await _shopService.ensureAuth();
       if (uid == null) {
         return;
       }
-      _ownerUid = uid;
+      final binding =
+          await DeviceRegistrationService().verifyCurrentBinding();
+      if (!binding.isBound) {
+        return;
+      }
 
       final prefs = await SharedPreferences.getInstance();
       final payload = await _buildPayload(
@@ -113,24 +117,27 @@ class DeviceHeartbeatService {
     }
 
     final account = AccountService().current;
+    await IdentityLabel.initialize();
     return <String, dynamic>{
       'installId': _installId,
       'ownerUid': uid,
-      'shopId': _shopService.cachedShopId,
-      'shopCode': _shopService.cachedShopCode,
-      'shopName': _shopService.cachedShopName,
-      'deviceName': prefs.getString(_deviceNamePrefKey),
+      'boundUid': uid,
+      'shopId': account.shopId ?? _shopService.cachedShopId,
+      'shopCode': account.shopCode ?? _shopService.cachedShopCode,
+      'shopName': account.shopName ?? _shopService.cachedShopName,
+      'deviceName': IdentityLabel.current,
       'platform': platform['platform'],
       'osVersion': platform['osVersion'],
       'model': platform['model'],
       'appVersion': platform['appVersion'],
-      'shorebirdPatch': await _resolveShorebirdPatch(),
       'firstSeenAt': firstSeen,
       'lastSeenAt': FieldValue.serverTimestamp(),
       'lastSeenAtIso': DateTime.now().toIso8601String(),
       'memberApprovalStatus': _statusForAccount(account),
-      'memberDisplayName': account.displayName,
-      'memberRole': account.role == AccountRole.owner ? 'owner' : 'staff',
+      'memberDisplayName': IdentityLabel.current,
+      if (account.role != null)
+        'memberRole':
+            account.role == AccountRole.owner ? 'owner' : 'staff',
     };
   }
 
@@ -156,43 +163,48 @@ class DeviceHeartbeatService {
     if (_platformInfo != null) {
       return _platformInfo!;
     }
-    final info = <String, dynamic>{
+    final info = await PackageInfo.fromPlatform();
+    var appVersion = info.version;
+    if (!appVersion.contains('+') && info.buildNumber.isNotEmpty) {
+      appVersion = '$appVersion+${info.buildNumber}';
+    }
+    final resolved = <String, dynamic>{
       'platform': _platformName(),
       'osVersion': null,
       'model': null,
-      'appVersion': _appVersion,
+      'appVersion': appVersion,
     };
     try {
       if (kIsWeb) {
-        info['platform'] = 'web';
+        resolved['platform'] = 'web';
       } else if (Platform.isAndroid) {
         final a = await DeviceInfoPlugin().androidInfo;
-        info['osVersion'] = 'Android ${a.version.release}';
-        info['model'] = '${a.manufacturer} ${a.model}';
+        resolved['osVersion'] = 'Android ${a.version.release}';
+        resolved['model'] = '${a.manufacturer} ${a.model}';
       } else if (Platform.isIOS) {
         final i = await DeviceInfoPlugin().iosInfo;
-        info['osVersion'] = '${i.systemName} ${i.systemVersion}';
-        info['model'] = i.utsname.machine;
+        resolved['osVersion'] = '${i.systemName} ${i.systemVersion}';
+        resolved['model'] = i.utsname.machine;
       } else if (Platform.isWindows) {
         final w = await DeviceInfoPlugin().windowsInfo;
-        info['osVersion'] = 'Windows ${w.productName}';
-        info['model'] = w.computerName;
+        resolved['osVersion'] = 'Windows ${w.productName}';
+        resolved['model'] = w.computerName;
       } else if (Platform.isLinux) {
         final l = await DeviceInfoPlugin().linuxInfo;
-        info['osVersion'] = l.prettyName;
-        info['model'] = l.name;
+        resolved['osVersion'] = l.prettyName;
+        resolved['model'] = l.name;
       } else if (Platform.isMacOS) {
         final m = await DeviceInfoPlugin().macOsInfo;
-        info['osVersion'] = 'macOS ${m.osRelease}';
-        info['model'] = m.model;
+        resolved['osVersion'] = 'macOS ${m.osRelease}';
+        resolved['model'] = m.model;
       }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('DeviceHeartbeatService platform lookup failed: $e');
       }
     }
-    _platformInfo = info;
-    return info;
+    _platformInfo = resolved;
+    return resolved;
   }
 
   String _platformName() {
@@ -208,24 +220,4 @@ class DeviceHeartbeatService {
     }
     return 'unknown';
   }
-
-  Future<int?> _resolveShorebirdPatch() async {
-    if (kIsWeb) {
-      return null;
-    }
-    try {
-      final updater = ShorebirdUpdater();
-      if (!updater.isAvailable) {
-        return null;
-      }
-      final patch = await updater.readCurrentPatch();
-      return patch?.number;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Pinned to the `version:` line in pubspec.yaml. Update here when
-  /// bumping releases so admin dashboards show the right build.
-  static const String _appVersion = '1.0.0+1';
 }

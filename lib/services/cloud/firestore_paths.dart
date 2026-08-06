@@ -33,8 +33,6 @@ class FirestorePaths {
   static const String expensesSubcollection = 'expenses';
   static const String salesSubcollection = 'sales';
   static const String storesSubcollection = 'stores';
-  static const String moneyAccountsSubcollection = 'moneyAccounts';
-  static const String moneyHistorySubcollection = 'moneyHistory';
   static const String inventoryMovementsSubcollection = 'inventoryMovements';
   static const String customerCreditEntriesSubcollection =
       'customerCreditEntries';
@@ -49,8 +47,6 @@ class FirestorePaths {
     expensesSubcollection,
     salesSubcollection,
     storesSubcollection,
-    moneyAccountsSubcollection,
-    moneyHistorySubcollection,
     inventoryMovementsSubcollection,
     customerCreditEntriesSubcollection,
   ];
@@ -69,7 +65,6 @@ class SoftDeletable {
     FirestorePaths.employeesSubcollection,
     FirestorePaths.expensesSubcollection,
     FirestorePaths.storesSubcollection,
-    FirestorePaths.moneyAccountsSubcollection,
     FirestorePaths.customerCreditEntriesSubcollection,
     FirestorePaths.salesSubcollection,
   };

@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 import '../../../config/app_share_config.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -35,25 +33,11 @@ class _AboutPageState extends State<AboutPage> {
       // PackageInfo is not available on some platforms (e.g. tests, desktop CI).
     }
 
-    int? patchNumber;
-    if (!kIsWeb) {
-      try {
-        final updater = ShorebirdUpdater();
-        if (updater.isAvailable) {
-          final patch = await updater.readCurrentPatch();
-          patchNumber = patch?.number;
-        }
-      } catch (_) {
-        // Shorebird optional — ignore failures.
-      }
-    }
-
     return _AboutInfo(
       appName: packageInfo?.appName ?? AppShareConfig.appName,
       version: packageInfo?.version ?? '1.0.1',
       buildNumber: packageInfo?.buildNumber ?? '',
       packageName: packageInfo?.packageName ?? '',
-      patchNumber: patchNumber,
     );
   }
 
@@ -80,7 +64,6 @@ class _AboutPageState extends State<AboutPage> {
                 version: '1.0.1',
                 buildNumber: '',
                 packageName: '',
-                patchNumber: null,
               );
 
           return Column(
@@ -171,13 +154,6 @@ class _AboutPageState extends State<AboutPage> {
                     ),
                     _divider(context),
                     _InfoRow(
-                      label: 'Patch',
-                      value: info.patchNumber == null
-                          ? 'none'
-                          : '#${info.patchNumber}',
-                    ),
-                    _divider(context),
-                    _InfoRow(
                       label: 'Package',
                       value: info.packageName.isEmpty ? '—' : info.packageName,
                       onTap: info.packageName.isEmpty
@@ -250,9 +226,6 @@ class _AboutPageState extends State<AboutPage> {
     final buf = StringBuffer('v${info.version}');
     if (info.buildNumber.isNotEmpty) {
       buf.write(' (${info.buildNumber})');
-    }
-    if (info.patchNumber != null) {
-      buf.write(' · patch #${info.patchNumber}');
     }
     return buf.toString();
   }
@@ -328,14 +301,12 @@ class _AboutInfo {
     required this.version,
     required this.buildNumber,
     required this.packageName,
-    required this.patchNumber,
   });
 
   final String appName;
   final String version;
   final String buildNumber;
   final String packageName;
-  final int? patchNumber;
 }
 
 class _SectionHeader extends StatelessWidget {

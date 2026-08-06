@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../helpers/identity_labels.dart';
 import '../../../models/account_state.dart';
 import '../../../providers/account_provider.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -66,7 +67,11 @@ class PendingApprovalPage extends ConsumerWidget {
                       _DetailRow(
                           label: 'Your name', value: state.displayName!),
                     if (state.phone != null && state.phone!.isNotEmpty)
-                      _DetailRow(label: 'Phone', value: state.phone!),
+                      _DetailRow(
+                        label: 'Phone',
+                        value:
+                            IdentityLabels.formatPhoneForDisplay(state.phone),
+                      ),
                     if (state.rejectionReason != null &&
                         state.rejectionReason!.trim().isNotEmpty) ...[
                       const SizedBox(height: AppTokens.space3),

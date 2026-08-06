@@ -1,8 +1,7 @@
 # ALEX
 
 [![Build Android APK](https://github.com/leocode09/alex/actions/workflows/build-apk.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/build-apk.yml)
-[![shorebird ci](https://api.shorebird.dev/api/v1/github/leocode09/alex/badge.svg)](https://console.shorebird.dev/ci)
-[![Shorebird Release Android](https://github.com/leocode09/alex/actions/workflows/shorebird-release.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/shorebird-release.yml)
+[![Build Latest APK](https://github.com/leocode09/alex/actions/workflows/build-latest-apk.yml/badge.svg)](https://github.com/leocode09/alex/actions/workflows/build-latest-apk.yml)
 
 A new Flutter project.
 
@@ -21,21 +20,20 @@ samples, guidance on mobile development, and a full API reference.
 
 ## CI/CD
 
-This project uses GitHub Actions to build Android APKs and (optionally) publish **Shorebird** releases.
+This project uses GitHub Actions to build Android APKs and publish OTA manifests.
 
 ### Standard APK build
 
 - **Triggers**: Pushes and pull requests to main/master/develop, plus manual runs
 - **Artifacts**: Download the `release-apk` artifact from the workflow run summary
 
-### Shorebird release (automatic on version tags)
+### OTA release (manual)
 
-Workflow: [shorebird-release.yml](.github/workflows/shorebird-release.yml)
+Workflow: [build-latest-apk.yml](.github/workflows/build-latest-apk.yml)
 
-- **Manual run**: GitHub → Actions → **Shorebird Release Android** → Run workflow
-- **Automatic run**: Push a tag matching `v*` (e.g. `v1.0.1`) after updating `version:` in `pubspec.yaml` for that release. If the Shorebird release version already exists, the job will fail until you bump the version.
-- **Secret**: Add `SHOREBIRD_TOKEN` under repository **Settings → Secrets and variables → Actions**. Create the token locally with `shorebird login:ci` ([docs](https://docs.shorebird.dev/code-push/ci/github/)).
-- **Artifacts**: Each successful run uploads APK and AAB files from the Shorebird build.
+- **Manual run**: GitHub → Actions → **Build Latest APK** → Run workflow
+- **Publishes**: `alex-pos.apk`, versioned APK copy, and `manifest.json` for the in-app updater
+- See [UPDATES.md](UPDATES.md) for the full release playbook
 
 To view build status and download APKs:
 

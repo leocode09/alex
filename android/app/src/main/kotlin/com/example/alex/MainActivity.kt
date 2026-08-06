@@ -51,7 +51,9 @@ class MainActivity : FlutterActivity() {
 
     private var hostPreferred = false
     private var deviceId = "unknown"
-    private var deviceName = "Android"
+    private var deviceName = "Device"
+    private var shopId = ""
+    private var protocolVersion = 3
     private var connecting = false
     private var isConnected = false
     private var isGroupOwner = false
@@ -78,8 +80,22 @@ class MainActivity : FlutterActivity() {
                         val args = call.arguments as? Map<*, *>
                         hostPreferred = args?.get("host") as? Boolean ?: false
                         deviceId = args?.get("deviceId") as? String ?: "unknown"
-                        deviceName = args?.get("deviceName") as? String ?: "Android"
+                        deviceName = args?.get("deviceName") as? String ?: "Device"
+                        shopId = args?.get("shopId") as? String ?: ""
+                        protocolVersion = args?.get("protocolVersion") as? Int ?: 3
                         startWifiDirect()
+                        result.success(null)
+                    }
+                    "updateWifiDirectIdentity" -> {
+                        val args = call.arguments as? Map<*, *>
+                        deviceName = args?.get("deviceName") as? String ?: deviceName
+                        shopId = args?.get("shopId") as? String ?: shopId
+                        protocolVersion =
+                            args?.get("protocolVersion") as? Int ?: protocolVersion
+                        val connections =
+                            synchronized(peerConnections) { peerConnections.toList() }
+                        connections.forEach(::sendHello)
+                        clientConnection?.let(::sendHello)
                         result.success(null)
                     }
                     "sendMessage" -> {
@@ -302,6 +318,10 @@ class MainActivity : FlutterActivity() {
                     if (handleHello(connection, payload)) {
                         continue
                     }
+                    if (!connection.handshakeAccepted) {
+                        sendLog("Dropped Wi-Fi Direct payload before shop handshake.")
+                        break
+                    }
                     sendMessageEvent(payload, connection.peerId, connection.peerName)
                     if (isGroupOwner) {
                         forwardToPeers(payload, connection)
@@ -320,6 +340,8 @@ class MainActivity : FlutterActivity() {
         hello.put("type", "hello")
         hello.put("id", deviceId)
         hello.put("name", deviceName)
+        hello.put("shopId", shopId)
+        hello.put("protocolVersion", protocolVersion)
         sendToConnection(connection, hello.toString())
     }
 
@@ -327,13 +349,32 @@ class MainActivity : FlutterActivity() {
         return try {
             val json = JSONObject(payload)
             if (json.optString("type") == "hello") {
+                val remoteShopId = json.optString("shopId", "")
+                val remoteVersion = json.optInt("protocolVersion", 0)
+                if (
+                    shopId.isBlank() ||
+                    remoteShopId != shopId ||
+                    remoteVersion != protocolVersion
+                ) {
+                    sendLog("Rejected Wi-Fi Direct peer outside this approved shop.")
+                    connection.handshakeAccepted = false
+                    try {
+                        connection.socket.close()
+                    } catch (_: Exception) {
+                    }
+                    return true
+                }
                 connection.peerId = json.optString("id", null)
                 connection.peerName = json.optString("name", null)
+                connection.peerShopId = remoteShopId
+                connection.handshakeAccepted = true
                 sendEvent(
                     "peer_connected",
                     mapOf(
                         "peerId" to connection.peerId,
-                        "peerName" to connection.peerName
+                        "peerName" to connection.peerName,
+                        "shopId" to connection.peerShopId,
+                        "protocolVersion" to remoteVersion
                     )
                 )
                 true
@@ -348,7 +389,7 @@ class MainActivity : FlutterActivity() {
     private fun forwardToPeers(payload: String, sender: PeerConnection) {
         val snapshot = synchronized(peerConnections) { peerConnections.toList() }
         for (peer in snapshot) {
-            if (peer === sender) continue
+            if (peer === sender || !peer.handshakeAccepted) continue
             sendToConnection(peer, payload)
         }
     }
@@ -358,11 +399,12 @@ class MainActivity : FlutterActivity() {
             if (isGroupOwner) {
                 val snapshot = synchronized(peerConnections) { peerConnections.toList() }
                 for (peer in snapshot) {
+                    if (!peer.handshakeAccepted) continue
                     sendToConnection(peer, payload)
                 }
             } else {
                 val connection = clientConnection
-                if (connection != null) {
+                if (connection != null && connection.handshakeAccepted) {
                     sendToConnection(connection, payload)
                 }
             }
@@ -560,5 +602,11 @@ class MainActivity : FlutterActivity() {
 
         @Volatile
         var peerName: String? = null
+
+        @Volatile
+        var peerShopId: String? = null
+
+        @Volatile
+        var handshakeAccepted = false
     }
 }

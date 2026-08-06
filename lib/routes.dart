@@ -11,6 +11,7 @@ import 'ui/pages/auth/login_page.dart';
 import 'ui/pages/auth/pin_setup_page.dart';
 import 'ui/pages/auth/pin_entry_page.dart';
 import 'ui/pages/auth/pin_preferences_page.dart';
+import 'ui/pages/auth/shop_pin_waiting_page.dart';
 import 'providers/pin_unlock_provider.dart';
 import 'providers/license_provider.dart';
 import 'providers/account_provider.dart';
@@ -35,9 +36,6 @@ import 'ui/pages/admin/admin_login_page.dart';
 import 'ui/pages/admin/admin_shell_page.dart';
 import 'ui/pages/admin/admin_shop_detail_page.dart';
 import 'ui/pages/admin/admin_device_detail_page.dart';
-
-// Money
-import 'ui/pages/money/money_page.dart';
 
 // Sales
 import 'ui/pages/sales/sales_page.dart';
@@ -116,13 +114,11 @@ GoRoute _animatedRoute({
 
 // Helper to get current index based on location
 int _getCurrentIndex(String location) {
-  if (location.startsWith('/money')) return 0;
-  if (location.startsWith('/dashboard')) return 0;
-  if (location.startsWith('/sales')) return 1;
+  if (location.startsWith('/sales')) return 0;
   if (location.startsWith('/products') || location.startsWith('/product')) {
-    return 2;
+    return 1;
   }
-  if (location.startsWith('/reports')) return 3;
+  if (location.startsWith('/reports')) return 2;
   if (location.startsWith('/settings') ||
       location.startsWith('/lan') ||
       location.startsWith('/cloud-sync') ||
@@ -139,21 +135,10 @@ int _getCurrentIndex(String location) {
       location.startsWith('/share-app') ||
       location.startsWith('/help') ||
       location.startsWith('/about')) {
-    return 4;
+    return 3;
   }
   return 0;
 }
-
-const List<String> _moneyFeatureKeys = [
-  'dashboard',
-  'addMoneyAccount',
-  'editMoneyAccount',
-  'deleteMoneyAccount',
-  'addMoney',
-  'removeMoney',
-  'viewMoneyHistory',
-  'editMoneyHistory',
-];
 
 const List<String> _salesFeatureKeys = [
   'createSale',
@@ -238,9 +223,6 @@ bool _isRouteDisabledByPolicy(String path, LicensePolicy policy) {
 }
 
 bool _isRouteHiddenByPreferences(String path, Map<String, bool> prefs) {
-  if (path.startsWith('/money') || path.startsWith('/dashboard')) {
-    return !_isAnyFeatureVisible(prefs, _moneyFeatureKeys);
-  }
   if (path.startsWith('/sales')) {
     return !_isAnyFeatureVisible(prefs, _salesFeatureKeys);
   }
@@ -287,9 +269,6 @@ bool _isRouteHiddenByPreferences(String path, Map<String, bool> prefs) {
 }
 
 String _firstVisibleRoute(Map<String, bool> prefs) {
-  if (_isAnyFeatureVisible(prefs, _moneyFeatureKeys)) {
-    return '/money';
-  }
   if (_isAnyFeatureVisible(prefs, _salesFeatureKeys)) {
     return '/sales';
   }
@@ -357,14 +336,30 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) async {
       final pinService = PinService();
       final account = ref.read(currentAccountStateProvider);
-      await pinService.ensurePinReady(account: account);
-      final isPinSet = await pinService.isPinSet();
+      // Serves cached/local PIN state; only a first-ever staff launch
+      // (no locally imported PIN and no cached shop config) blocks on
+      // the network once. Subsequent redirects never hit the network.
+      final isShopPinReady =
+          await pinService.ensurePinReady(account: account);
+      // These reads are independent prefs-backed lookups (memoized in
+      // PinService) — run them concurrently.
+      final gateReads = await Future.wait<Object>([
+        pinService.isPinSet(),
+        pinService.canManagePinSettings(),
+        pinService.isPinRequiredForLogin(),
+        pinService.getPinPreferences(),
+      ]);
+      final isPinSet = gateReads[0] as bool;
+      final canManagePin = gateReads[1] as bool;
+      final requireLoginPin = gateReads[2] as bool;
+      final visibilityPrefs = gateReads[3] as Map<String, bool>;
       final isOnPinSetup = state.uri.path == '/pin-setup';
       final isChangingPinFlow =
           isOnPinSetup && state.uri.queryParameters['mode'] == 'change';
       final isOnPinEntry = state.uri.path == '/pin-entry';
       final isOnLogin = state.uri.path == '/';
       final isOnPinPreferences = state.uri.path == '/pin-preferences';
+      final isOnShopPinWaiting = state.uri.path == '/shop-pin-waiting';
       final isOnTimeLock = state.uri.path == '/time-lock';
       final isOnLicenseLocked = state.uri.path == '/license-locked';
       final isOnAdminRoute = state.uri.path.startsWith('/admin');
@@ -374,23 +369,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.uri.path == '/account-register';
       final isOnAccountGate =
           isOnOnboarding || isOnPendingApproval || isOnAccountLogin;
-      final canManagePin = await pinService.canManagePinSettings();
-      final requireLoginPin = await pinService.isPinRequiredForLogin();
       final isSessionVerified = pinService.isSessionVerified();
       final isUnlocked = pinUnlocked || isSessionVerified;
-      final visibilityPrefs = await pinService.getPinPreferences();
 
       final policy = ref.read(currentLicensePolicyProvider);
       final isBlocked = policy.blockReason() != null;
 
       // Staff inherit the shop owner's PIN — never show create/change flows.
       if (account.isStaff && (isOnPinSetup || isOnPinPreferences)) {
-        return isPinSet ? '/money' : '/';
+        return isPinSet ? '/sales' : '/';
       }
       if (account.isStaff &&
           isChangingPinFlow &&
           !canManagePin) {
-        return isPinSet ? '/money' : '/';
+        return isPinSet ? '/sales' : '/';
       }
 
       // Admin routes are always reachable (they are the escape hatch
@@ -400,7 +392,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/license-locked';
       }
       if (!isBlocked && isOnLicenseLocked) {
-        return '/money';
+        return '/sales';
       }
 
       // Business-approval gate. Owners must register and be approved
@@ -453,12 +445,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      // An approved cloud shop has one owner-published PIN. Owners must
+      // create it; staff wait and inherit it rather than making a local PIN.
+      if (!account.firebaseUnavailable &&
+          account.stage == AccountStage.approved &&
+          account.shopId != null &&
+          !isShopPinReady) {
+        if (account.isStaff) {
+          return isOnShopPinWaiting ? null : '/shop-pin-waiting';
+        }
+        if (account.isOwner) {
+          return isOnPinSetup ? null : '/pin-setup';
+        }
+      }
+      if (isShopPinReady && isOnShopPinWaiting) {
+        return '/';
+      }
+
       // Once approved, never strand the user on an onboarding/pending
       // screen.
       if (account.allowsAppAccess &&
           account.stage == AccountStage.approved &&
           isOnAccountGate) {
-        return '/money';
+        return '/sales';
       }
 
       if (timeTamper != null && isPinSet && !isOnTimeLock) {
@@ -466,7 +475,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (timeTamper == null && isOnTimeLock) {
-        return '/money';
+        return '/sales';
       }
 
       // First time — show the login/welcome screen before PIN setup.
@@ -622,6 +631,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      _animatedRoute(
+        path: '/shop-pin-waiting',
+        name: 'shop-pin-waiting',
+        builder: (context, state) => const ShopPinWaitingPage(),
+      ),
+
       // PIN Preferences
       _animatedRoute(
         path: '/pin-preferences',
@@ -641,7 +656,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           onSuccess: () async {
             ref.read(pinUnlockedProvider.notifier).state = true;
             if (context.mounted) {
-              context.go('/money');
+              context.go('/sales');
             }
           },
         ),
@@ -664,15 +679,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
         routes: [
-          // Money
+          // Legacy Money / Dashboard routes → Sales
           _animatedRoute(
             path: '/money',
-            name: 'money',
-            builder: (context, state) => const MoneyPage(),
+            redirect: (context, state) => '/sales',
           ),
           _animatedRoute(
             path: '/dashboard',
-            redirect: (context, state) => '/money',
+            redirect: (context, state) => '/sales',
           ),
 
           // Sales

@@ -5,7 +5,7 @@ import '../app_motion.dart';
 import '../app_tokens.dart';
 import '../glass/glass_background.dart';
 
-class AppPageScaffold extends StatelessWidget {
+class AppPageScaffold extends StatefulWidget {
   final String? title;
   final Widget child;
   final List<Widget>? actions;
@@ -38,22 +38,31 @@ class AppPageScaffold extends StatelessWidget {
   });
 
   @override
+  State<AppPageScaffold> createState() => _AppPageScaffoldState();
+}
+
+class _AppPageScaffoldState extends State<AppPageScaffold> {
+  // Stable across rebuilds so the shared backdrop layer used by every glass
+  // panel on this page (via BackdropFilter.grouped) is not re-created.
+  final BackdropKey _backdropKey = BackdropKey();
+
+  @override
   Widget build(BuildContext context) {
     Widget content = Padding(
-      padding: padding,
+      padding: widget.padding,
       child: AnimatedSwitcher(
         duration: AppMotion.stateSwitch,
         switchInCurve: AppMotion.stateCurve,
         switchOutCurve: AppMotion.stateCurve,
-        child: child,
+        child: widget.child,
       ),
     );
 
-    if (scrollable) {
+    if (widget.scrollable) {
       content = SingleChildScrollView(child: content);
     }
 
-    if (includeSafeArea) {
+    if (widget.includeSafeArea) {
       content = SafeArea(
         top: false,
         child: content,
@@ -64,23 +73,26 @@ class AppPageScaffold extends StatelessWidget {
       children: [
         const Positioned.fill(child: GlassBackground()),
         Scaffold(
-          backgroundColor: backgroundColor ?? Colors.transparent,
-          appBar: appBar ?? _buildAppBar(),
-          drawer: drawer,
-          floatingActionButton: floatingActionButton,
-          bottomNavigationBar: bottomNavigationBar,
-          body: content,
+          backgroundColor: widget.backgroundColor ?? Colors.transparent,
+          appBar: widget.appBar ?? _buildAppBar(),
+          drawer: widget.drawer,
+          floatingActionButton: widget.floatingActionButton,
+          bottomNavigationBar: widget.bottomNavigationBar,
+          body: BackdropGroup(
+            backdropKey: _backdropKey,
+            child: content,
+          ),
         ),
       ],
     );
   }
 
   PreferredSizeWidget? _buildAppBar() {
-    if (title == null) {
+    if (widget.title == null) {
       return null;
     }
     return AppBar(
-      centerTitle: centerTitle,
+      centerTitle: widget.centerTitle,
       flexibleSpace: ClipRect(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(
@@ -91,14 +103,14 @@ class AppPageScaffold extends StatelessWidget {
         ),
       ),
       title: Text(
-        title!,
+        widget.title!,
         style: const TextStyle(
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
         ),
       ),
-      actions: actions,
-      bottom: bottom,
+      actions: widget.actions,
+      bottom: widget.bottom,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../helpers/identity_labels.dart';
 import '../../../providers/admin_auth_provider.dart';
 import '../../../services/cloud/firestore_paths.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -237,6 +238,7 @@ class _AdminDevicesPageState extends ConsumerState<AdminDevicesPage> {
     if (_query.isNotEmpty) {
       final hay = [
         data['deviceName'],
+        data['memberDisplayName'],
         data['shopName'],
         data['platform'],
         data['model'],
@@ -281,8 +283,10 @@ class _AdminDevicesPageState extends ConsumerState<AdminDevicesPage> {
         final bi = (b.data()['lastSeenAtIso'] as String?) ?? '';
         return bi.compareTo(ai);
       case _DeviceSort.deviceName:
-        final an = (a.data()['deviceName'] as String?)?.toLowerCase() ?? '';
-        final bn = (b.data()['deviceName'] as String?)?.toLowerCase() ?? '';
+        final an =
+            IdentityLabels.deviceDisplayName(a.data()).toLowerCase();
+        final bn =
+            IdentityLabels.deviceDisplayName(b.data()).toLowerCase();
         return an.compareTo(bn);
       case _DeviceSort.appVersion:
         return AdminHeuristics.compareAppVersions(
@@ -407,9 +411,7 @@ class _DeviceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extras = context.appExtras;
-    final name = (data['deviceName'] as String?)?.trim();
-    final displayName =
-        (name != null && name.isNotEmpty) ? name : installId.substring(0, 8);
+    final displayName = IdentityLabels.deviceDisplayName(data);
     final shopName = data['shopName'] as String?;
     final platform = data['platform'] as String?;
     final lastSeenIso = data['lastSeenAtIso'] as String?;
@@ -476,6 +478,7 @@ class _DeviceTile extends StatelessWidget {
                       [
                         if (shopName != null && shopName.isNotEmpty) shopName,
                         if (platform != null && platform.isNotEmpty) platform,
+                        IdentityLabels.shortId(installId),
                         if (version != null && version.isNotEmpty) 'v$version',
                         if (lastSeen != null)
                           'seen ${AdminHeuristics.relativeShort(lastSeen)}',

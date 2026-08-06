@@ -10,8 +10,6 @@ import '../models/employee.dart';
 import '../models/expense.dart';
 import '../models/sale.dart';
 import '../models/store.dart';
-import '../models/money_account.dart';
-import '../models/account_history_record.dart';
 import '../models/inventory_movement.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/category_repository.dart';
@@ -21,7 +19,6 @@ import '../repositories/employee_repository.dart';
 import '../repositories/expense_repository.dart';
 import '../repositories/sale_repository.dart';
 import '../repositories/store_repository.dart';
-import '../repositories/money_repository.dart';
 import '../repositories/inventory_movement_repository.dart';
 import 'shop_app_settings_service.dart';
 import 'sync_event_bus.dart';
@@ -41,13 +38,25 @@ class SyncService {
   final ExpenseRepository _expenseRepo = ExpenseRepository();
   final SaleRepository _saleRepo = SaleRepository();
   final StoreRepository _storeRepo = StoreRepository();
-  final MoneyRepository _moneyRepo = MoneyRepository();
   final InventoryMovementRepository _movementRepo =
       InventoryMovementRepository();
   final ShopAppSettingsService _shopSettingsService = ShopAppSettingsService();
 
-  /// Get unique device identifier
+  static String? _cachedDeviceId;
+
+  /// Get unique device identifier (cached — the platform-channel lookup is
+  /// paid once per session, not once per sync).
   Future<String> getDeviceId() async {
+    final cached = _cachedDeviceId;
+    if (cached != null) {
+      return cached;
+    }
+    final resolved = await _resolveDeviceId();
+    _cachedDeviceId = resolved;
+    return resolved;
+  }
+
+  Future<String> _resolveDeviceId() async {
     try {
       final deviceInfo = DeviceInfoPlugin();
       String? deviceId;
@@ -71,7 +80,7 @@ class SyncService {
     }
   }
 
-  /// Export all data (including money, inventory, and tombstones)
+  /// Export all data (including inventory movements and tombstones)
   Future<SyncData> exportAllData() async {
     try {
       final deviceId = await getDeviceId();
@@ -83,8 +92,6 @@ class SyncService {
       final expenses = await _expenseRepo.getAllExpenses();
       final sales = await _saleRepo.getAllSales();
       final stores = await _storeRepo.getAllStores();
-      final moneyAccounts = await _moneyRepo.getAllAccounts();
-      final moneyHistory = await _moneyRepo.getAllHistory();
       final inventoryMovements = await _movementRepo.getAllMovements();
       final customerCreditEntries = await _creditRepo.getAll();
 
@@ -94,8 +101,6 @@ class SyncService {
       final deletedEmployeeIds = await _employeeRepo.getDeletedEmployeeIds();
       final deletedExpenseIds = await _expenseRepo.getDeletedExpenseIds();
       final deletedStoreIds = await _storeRepo.getDeletedStoreIds();
-      final deletedMoneyAccountIds =
-          await _moneyRepo.getDeletedMoneyAccountIds();
       final deletedCreditEntryIds = await _creditRepo.getDeletedIds();
       final deletedSaleIds = await _saleRepo.getDeletedSaleIds();
       final shopAppSettings = await _shopSettingsService.snapshotForSync();
@@ -108,8 +113,6 @@ class SyncService {
         expenses: expenses,
         sales: sales,
         stores: stores,
-        moneyAccounts: moneyAccounts,
-        moneyHistory: moneyHistory,
         inventoryMovements: inventoryMovements,
         customerCreditEntries: customerCreditEntries,
         deletedProductIds: deletedProductIds,
@@ -118,7 +121,6 @@ class SyncService {
         deletedEmployeeIds: deletedEmployeeIds,
         deletedExpenseIds: deletedExpenseIds,
         deletedStoreIds: deletedStoreIds,
-        deletedMoneyAccountIds: deletedMoneyAccountIds,
         deletedCustomerCreditEntryIds: deletedCreditEntryIds,
         deletedSaleIds: deletedSaleIds,
         shopAppSettings: shopAppSettings.isEmpty ? null : shopAppSettings,
@@ -126,6 +128,77 @@ class SyncService {
       );
     } catch (e) {
       print('Error exporting data: $e');
+      rethrow;
+    }
+  }
+
+  /// Export only records changed since [since] (plus all tombstones, which
+  /// are tiny id lists). Used for delta syncs: one sale should put a few KB
+  /// on the wire, not the whole dataset. Deltas import through the same
+  /// merge path as full snapshots, so they are always safe to apply.
+  Future<SyncData> exportChangedSince(DateTime since) async {
+    try {
+      final deviceId = await getDeviceId();
+
+      bool changed(DateTime? updatedAt, DateTime? createdAt) {
+        return (updatedAt != null && !updatedAt.isBefore(since)) ||
+            (createdAt != null && !createdAt.isBefore(since));
+      }
+
+      final products = (await _productRepo.getAllProducts())
+          .where((p) => changed(p.updatedAt, p.createdAt))
+          .toList();
+      final categories = (await _categoryRepo.getAllCategories())
+          .where((c) => changed(c.updatedAt, null))
+          .toList();
+      final customers = (await _customerRepo.getAllCustomers())
+          .where((c) => changed(c.updatedAt, c.joinDate))
+          .toList();
+      final employees = (await _employeeRepo.getAllEmployees())
+          .where((e) => changed(e.updatedAt, e.joinDate))
+          .toList();
+      final expenses = (await _expenseRepo.getAllExpenses())
+          .where((e) => changed(e.updatedAt, null))
+          .toList();
+      final sales = (await _saleRepo.getAllSales())
+          .where((s) => changed(s.updatedAt, s.createdAt))
+          .toList();
+      final stores = (await _storeRepo.getAllStores())
+          .where((s) => changed(s.updatedAt, s.createdAt))
+          .toList();
+      final inventoryMovements = (await _movementRepo.getAllMovements())
+          .where((m) => changed(null, m.createdAt))
+          .toList();
+      final customerCreditEntries = (await _creditRepo.getAll())
+          .where((e) => changed(null, e.createdAt))
+          .toList();
+
+      // Tombstones are always sent in full so deletes propagate even when
+      // the deletion happened before this delta window.
+      final shopAppSettings = await _shopSettingsService.snapshotForSync();
+      return SyncData(
+        products: products,
+        categories: categories,
+        customers: customers,
+        employees: employees,
+        expenses: expenses,
+        sales: sales,
+        stores: stores,
+        inventoryMovements: inventoryMovements,
+        customerCreditEntries: customerCreditEntries,
+        deletedProductIds: await _productRepo.getDeletedProductIds(),
+        deletedCategoryIds: await _categoryRepo.getDeletedCategoryIds(),
+        deletedCustomerIds: await _customerRepo.getDeletedCustomerIds(),
+        deletedEmployeeIds: await _employeeRepo.getDeletedEmployeeIds(),
+        deletedExpenseIds: await _expenseRepo.getDeletedExpenseIds(),
+        deletedStoreIds: await _storeRepo.getDeletedStoreIds(),
+        deletedCustomerCreditEntryIds: await _creditRepo.getDeletedIds(),
+        deletedSaleIds: await _saleRepo.getDeletedSaleIds(),
+        shopAppSettings: shopAppSettings.isEmpty ? null : shopAppSettings,
+        deviceId: deviceId,
+      );
+    } catch (e) {
+      print('Error exporting delta data: $e');
       rethrow;
     }
   }
@@ -167,7 +240,7 @@ class SyncService {
 
       // Apply all tombstones up-front so incoming records for deleted ids
       // are filtered during the merge phase below.
-      await _applyTombstones(incomingData);
+      final tombstonesRemoved = await _applyTombstones(incomingData);
 
       switch (strategy) {
         case SyncStrategy.replace:
@@ -183,10 +256,6 @@ class SyncService {
               await _replaceExpenses(incomingData.expenses);
           syncResult.salesImported = await _replaceSales(incomingData.sales);
           syncResult.storesImported = await _replaceStores(incomingData.stores);
-          syncResult.moneyAccountsImported =
-              await _replaceMoneyAccounts(incomingData.moneyAccounts);
-          syncResult.moneyHistoryImported =
-              await _replaceMoneyHistory(incomingData.moneyHistory);
           syncResult.inventoryMovementsImported = await _replaceMovements(
               incomingData.inventoryMovements);
           syncResult.customerCreditEntriesImported =
@@ -207,10 +276,6 @@ class SyncService {
               await _mergeExpenses(incomingData.expenses);
           syncResult.salesImported = await _mergeSales(incomingData.sales);
           syncResult.storesImported = await _mergeStores(incomingData.stores);
-          syncResult.moneyAccountsImported =
-              await _mergeMoneyAccounts(incomingData.moneyAccounts);
-          syncResult.moneyHistoryImported =
-              await _mergeMoneyHistory(incomingData.moneyHistory);
           syncResult.inventoryMovementsImported =
               await _mergeMovements(incomingData.inventoryMovements);
           syncResult.customerCreditEntriesImported =
@@ -230,10 +295,6 @@ class SyncService {
               await _appendExpenses(incomingData.expenses);
           syncResult.salesImported = await _appendSales(incomingData.sales);
           syncResult.storesImported = await _appendStores(incomingData.stores);
-          syncResult.moneyAccountsImported =
-              await _appendMoneyAccounts(incomingData.moneyAccounts);
-          syncResult.moneyHistoryImported =
-              await _appendMoneyHistory(incomingData.moneyHistory);
           syncResult.inventoryMovementsImported =
               await _appendMovements(incomingData.inventoryMovements);
           syncResult.customerCreditEntriesImported =
@@ -241,14 +302,22 @@ class SyncService {
           break;
       }
 
+      var settingsChanged = false;
       if (incomingData.shopAppSettings != null &&
           !incomingData.shopAppSettings!.isEmpty) {
-        await _shopSettingsService.mergeIncoming(incomingData.shopAppSettings!);
+        settingsChanged =
+            await _shopSettingsService.mergeIncoming(incomingData.shopAppSettings!);
       }
 
       syncResult.success = true;
       syncResult.message = 'Sync completed successfully';
-      SyncEventBus.instance.emit(reason: 'import');
+      // Only wake up the rest of the app (which reloads every list from disk and
+      // rebuilds the UI) when this sync actually changed local data. No-op
+      // re-syncs from reconnects/relays are common as device count grows, and
+      // emitting on every one of them is what makes the app lag with more peers.
+      if (syncResult.totalImported > 0 || tombstonesRemoved || settingsChanged) {
+        SyncEventBus.instance.emit(reason: 'import');
+      }
       return syncResult;
     } catch (e) {
       print('Error importing data: $e');
@@ -259,36 +328,51 @@ class SyncService {
     }
   }
 
-  Future<void> _applyTombstones(SyncData incoming) async {
+  /// Applies incoming tombstones and returns whether any local row was actually
+  /// removed (so callers can avoid a full UI refresh on no-op syncs).
+  Future<bool> _applyTombstones(SyncData incoming) async {
+    var removed = false;
     if (incoming.deletedProductIds.isNotEmpty) {
-      await _productRepo.applyDeletedProductIds(incoming.deletedProductIds);
+      removed = await _productRepo
+              .applyDeletedProductIds(incoming.deletedProductIds) ||
+          removed;
     }
     if (incoming.deletedCategoryIds.isNotEmpty) {
-      await _categoryRepo.applyDeletedCategoryIds(incoming.deletedCategoryIds);
+      removed = await _categoryRepo
+              .applyDeletedCategoryIds(incoming.deletedCategoryIds) ||
+          removed;
     }
     if (incoming.deletedCustomerIds.isNotEmpty) {
-      await _customerRepo.applyDeletedCustomerIds(incoming.deletedCustomerIds);
+      removed = await _customerRepo
+              .applyDeletedCustomerIds(incoming.deletedCustomerIds) ||
+          removed;
     }
     if (incoming.deletedEmployeeIds.isNotEmpty) {
-      await _employeeRepo.applyDeletedEmployeeIds(incoming.deletedEmployeeIds);
+      removed = await _employeeRepo
+              .applyDeletedEmployeeIds(incoming.deletedEmployeeIds) ||
+          removed;
     }
     if (incoming.deletedExpenseIds.isNotEmpty) {
-      await _expenseRepo.applyDeletedExpenseIds(incoming.deletedExpenseIds);
+      removed = await _expenseRepo
+              .applyDeletedExpenseIds(incoming.deletedExpenseIds) ||
+          removed;
     }
     if (incoming.deletedStoreIds.isNotEmpty) {
-      await _storeRepo.applyDeletedStoreIds(incoming.deletedStoreIds);
-    }
-    if (incoming.deletedMoneyAccountIds.isNotEmpty) {
-      await _moneyRepo.applyDeletedMoneyAccountIds(
-          incoming.deletedMoneyAccountIds);
+      removed =
+          await _storeRepo.applyDeletedStoreIds(incoming.deletedStoreIds) ||
+              removed;
     }
     if (incoming.deletedCustomerCreditEntryIds.isNotEmpty) {
-      await _creditRepo
-          .applyDeletedIds(incoming.deletedCustomerCreditEntryIds);
+      removed = await _creditRepo
+              .applyDeletedIds(incoming.deletedCustomerCreditEntryIds) ||
+          removed;
     }
     if (incoming.deletedSaleIds.isNotEmpty) {
-      await _saleRepo.applyDeletedSaleIds(incoming.deletedSaleIds);
+      removed =
+          await _saleRepo.applyDeletedSaleIds(incoming.deletedSaleIds) ||
+              removed;
     }
+    return removed;
   }
 
   // Replace strategies
@@ -341,16 +425,6 @@ class SyncService {
     return stores.length;
   }
 
-  Future<int> _replaceMoneyAccounts(List<MoneyAccount> accounts) async {
-    await _moneyRepo.replaceAllAccounts(accounts);
-    return accounts.length;
-  }
-
-  Future<int> _replaceMoneyHistory(List<AccountHistoryRecord> history) async {
-    await _moneyRepo.replaceAllHistory(history);
-    return history.length;
-  }
-
   Future<int> _replaceMovements(List<InventoryMovement> movements) async {
     await _movementRepo.replaceAllMovements(movements);
     return movements.length;
@@ -377,7 +451,9 @@ class SyncService {
         imported++;
       }
     }
-    await _creditRepo.replaceAll(map.values.toList());
+    if (imported > 0) {
+      await _creditRepo.replaceAll(map.values.toList());
+    }
     return imported;
   }
 
@@ -412,7 +488,9 @@ class SyncService {
       }
     }
 
-    await _productRepo.replaceAllProducts(productMap.values.toList());
+    if (imported > 0) {
+      await _productRepo.replaceAllProducts(productMap.values.toList());
+    }
     return imported;
   }
 
@@ -433,7 +511,9 @@ class SyncService {
       }
     }
 
-    await _categoryRepo.replaceAllCategories(categoryMap.values.toList());
+    if (imported > 0) {
+      await _categoryRepo.replaceAllCategories(categoryMap.values.toList());
+    }
     return imported;
   }
 
@@ -456,7 +536,9 @@ class SyncService {
       }
     }
 
-    await _customerRepo.replaceAllCustomers(customerMap.values.toList());
+    if (imported > 0) {
+      await _customerRepo.replaceAllCustomers(customerMap.values.toList());
+    }
     return imported;
   }
 
@@ -479,7 +561,9 @@ class SyncService {
       }
     }
 
-    await _employeeRepo.replaceAllEmployees(employeeMap.values.toList());
+    if (imported > 0) {
+      await _employeeRepo.replaceAllEmployees(employeeMap.values.toList());
+    }
     return imported;
   }
 
@@ -500,7 +584,9 @@ class SyncService {
       }
     }
 
-    await _expenseRepo.replaceAllExpenses(expenseMap.values.toList());
+    if (imported > 0) {
+      await _expenseRepo.replaceAllExpenses(expenseMap.values.toList());
+    }
     return imported;
   }
 
@@ -522,7 +608,9 @@ class SyncService {
       }
     }
 
-    await _saleRepo.replaceAllSales(saleMap.values.toList());
+    if (imported > 0) {
+      await _saleRepo.replaceAllSales(saleMap.values.toList());
+    }
     return imported;
   }
 
@@ -543,50 +631,9 @@ class SyncService {
       }
     }
 
-    await _storeRepo.replaceAllStores(storeMap.values.toList());
-    return imported;
-  }
-
-  Future<int> _mergeMoneyAccounts(List<MoneyAccount> incoming) async {
-    final deletedIds =
-        (await _moneyRepo.getDeletedMoneyAccountIds()).toSet();
-    final existing = await _moneyRepo.getAllAccounts();
-    final Map<String, MoneyAccount> accountMap = {
-      for (var a in existing) a.id: a
-    };
-
-    int imported = 0;
-    for (var acc in incoming) {
-      if (deletedIds.contains(acc.id)) continue;
-      final current = accountMap[acc.id];
-      if (current == null || acc.updatedAt.isAfter(current.updatedAt)) {
-        accountMap[acc.id] = acc;
-        imported++;
-      }
+    if (imported > 0) {
+      await _storeRepo.replaceAllStores(storeMap.values.toList());
     }
-
-    await _moneyRepo.replaceAllAccounts(accountMap.values.toList());
-    return imported;
-  }
-
-  Future<int> _mergeMoneyHistory(List<AccountHistoryRecord> incoming) async {
-    // Money history records are immutable; merge is id-dedupe append.
-    final existing = await _moneyRepo.getAllHistory();
-    final Map<String, AccountHistoryRecord> map = {
-      for (var r in existing) r.id: r
-    };
-
-    int imported = 0;
-    for (var r in incoming) {
-      if (!map.containsKey(r.id)) {
-        map[r.id] = r;
-        imported++;
-      }
-    }
-
-    final merged = map.values.toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    await _moneyRepo.replaceAllHistory(merged);
     return imported;
   }
 
@@ -605,8 +652,10 @@ class SyncService {
       }
     }
 
-    final merged = map.values.toList();
-    await _movementRepo.replaceAllMovements(merged);
+    if (imported > 0) {
+      final merged = map.values.toList();
+      await _movementRepo.replaceAllMovements(merged);
+    }
     return imported;
   }
 
@@ -698,30 +747,6 @@ class SyncService {
     return newItems.length;
   }
 
-  Future<int> _appendMoneyAccounts(List<MoneyAccount> incoming) async {
-    final existing = await _moneyRepo.getAllAccounts();
-    final existingIds = existing.map((a) => a.id).toSet();
-    final newItems =
-        incoming.where((a) => !existingIds.contains(a.id)).toList();
-    if (newItems.isNotEmpty) {
-      existing.addAll(newItems);
-      await _moneyRepo.replaceAllAccounts(existing);
-    }
-    return newItems.length;
-  }
-
-  Future<int> _appendMoneyHistory(List<AccountHistoryRecord> incoming) async {
-    final existing = await _moneyRepo.getAllHistory();
-    final existingIds = existing.map((r) => r.id).toSet();
-    final newItems =
-        incoming.where((r) => !existingIds.contains(r.id)).toList();
-    if (newItems.isNotEmpty) {
-      existing.addAll(newItems);
-      await _moneyRepo.replaceAllHistory(existing);
-    }
-    return newItems.length;
-  }
-
   Future<int> _appendMovements(List<InventoryMovement> incoming) async {
     final existing = await _movementRepo.getAllMovements();
     final existingIds = existing.map((m) => m.id).toSet();
@@ -763,8 +788,6 @@ class SyncResult {
   int expensesImported;
   int salesImported;
   int storesImported;
-  int moneyAccountsImported;
-  int moneyHistoryImported;
   int inventoryMovementsImported;
   int customerCreditEntriesImported;
 
@@ -778,8 +801,6 @@ class SyncResult {
     this.expensesImported = 0,
     this.salesImported = 0,
     this.storesImported = 0,
-    this.moneyAccountsImported = 0,
-    this.moneyHistoryImported = 0,
     this.inventoryMovementsImported = 0,
     this.customerCreditEntriesImported = 0,
   });
@@ -792,8 +813,6 @@ class SyncResult {
       expensesImported +
       salesImported +
       storesImported +
-      moneyAccountsImported +
-      moneyHistoryImported +
       inventoryMovementsImported +
       customerCreditEntriesImported;
 
@@ -808,8 +827,6 @@ class SyncResult {
       'expensesImported': expensesImported,
       'salesImported': salesImported,
       'storesImported': storesImported,
-      'moneyAccountsImported': moneyAccountsImported,
-      'moneyHistoryImported': moneyHistoryImported,
       'inventoryMovementsImported': inventoryMovementsImported,
       'customerCreditEntriesImported': customerCreditEntriesImported,
       'totalImported': totalImported,

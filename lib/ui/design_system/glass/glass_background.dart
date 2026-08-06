@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 
 import '../app_theme_extensions.dart';
@@ -80,20 +78,26 @@ class _Blob extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A wide, soft radial falloff reproduces the old sigma-90 Gaussian blur of
+    // a smaller circle at zero image-filter cost (a blurred radial gradient is
+    // itself just a softer radial gradient). The extra diameter accounts for
+    // the ~3-sigma spread the blur used to add.
     return Align(
       alignment: alignment,
-      child: ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
+      child: IgnorePointer(
         child: Container(
-          width: diameter,
-          height: diameter,
+          width: diameter * 2.2,
+          height: diameter * 2.2,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: RadialGradient(
               colors: [
-                color.withValues(alpha: 0.55),
+                color.withValues(alpha: 0.42),
+                color.withValues(alpha: 0.28),
+                color.withValues(alpha: 0.10),
                 color.withValues(alpha: 0.0),
               ],
+              stops: const [0.0, 0.35, 0.7, 1.0],
             ),
           ),
         ),

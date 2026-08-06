@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../helpers/identity_labels.dart';
 import '../../../providers/admin_auth_provider.dart';
 import '../../../services/cloud/firestore_paths.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -130,10 +131,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extras = context.appExtras;
-    final name = (data['deviceName'] as String?)?.trim();
-    final displayName = (name != null && name.isNotEmpty)
-        ? name
-        : installId.substring(0, 8);
+    final displayName = IdentityLabels.deviceDisplayName(data);
     final lastSeen = AdminHeuristics.parseTs(data['lastSeenAtIso']);
     final appVersion = data['appVersion'] as String?;
     final meta = <String>[
@@ -141,6 +139,7 @@ class _Header extends StatelessWidget {
       if (data['platform'] is String) data['platform'] as String,
       if (data['osVersion'] is String) data['osVersion'] as String,
       if (data['model'] is String) data['model'] as String,
+      if (data['memberRole'] is String) data['memberRole'] as String,
       if (appVersion != null && appVersion.isNotEmpty) 'v$appVersion',
       if (lastSeen != null)
         'seen ${AdminHeuristics.relativeShort(lastSeen)}',

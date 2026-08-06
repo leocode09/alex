@@ -1,11 +1,9 @@
-import 'account_history_record.dart';
 import 'category.dart';
 import 'customer.dart';
 import 'customer_credit_entry.dart';
 import 'employee.dart';
 import 'expense.dart';
 import 'inventory_movement.dart';
-import 'money_account.dart';
 import 'product.dart';
 import 'sale.dart';
 import 'store.dart';
@@ -13,11 +11,9 @@ import 'shop_app_settings.dart';
 
 /// Envelope for all synced data.
 ///
-/// Extended for cloud sync to also carry money accounts, money history,
-/// inventory movements, and per-entity tombstone lists (previously only
-/// products had tombstones). All new fields are optional with empty-list
-/// defaults so older LAN / Wi-Fi Direct peers that send the v1 payload
-/// continue to deserialize cleanly.
+/// Carries inventory movements and per-entity tombstone lists. All optional
+/// fields use empty-list defaults so older LAN / Wi-Fi Direct peers that send
+/// a v1 payload (or leftover money fields) continue to deserialize cleanly.
 class SyncData {
   final List<Product> products;
   final List<Category> categories;
@@ -26,8 +22,6 @@ class SyncData {
   final List<Expense> expenses;
   final List<Sale> sales;
   final List<Store> stores;
-  final List<MoneyAccount> moneyAccounts;
-  final List<AccountHistoryRecord> moneyHistory;
   final List<InventoryMovement> inventoryMovements;
   final List<CustomerCreditEntry> customerCreditEntries;
 
@@ -37,7 +31,6 @@ class SyncData {
   final List<String> deletedEmployeeIds;
   final List<String> deletedExpenseIds;
   final List<String> deletedStoreIds;
-  final List<String> deletedMoneyAccountIds;
   final List<String> deletedCustomerCreditEntryIds;
   final List<String> deletedSaleIds;
 
@@ -54,8 +47,6 @@ class SyncData {
     required this.expenses,
     required this.sales,
     required this.stores,
-    this.moneyAccounts = const [],
-    this.moneyHistory = const [],
     this.inventoryMovements = const [],
     this.customerCreditEntries = const [],
     this.deletedProductIds = const [],
@@ -64,7 +55,6 @@ class SyncData {
     this.deletedEmployeeIds = const [],
     this.deletedExpenseIds = const [],
     this.deletedStoreIds = const [],
-    this.deletedMoneyAccountIds = const [],
     this.deletedCustomerCreditEntryIds = const [],
     this.deletedSaleIds = const [],
     this.shopAppSettings,
@@ -82,8 +72,6 @@ class SyncData {
       'expenses': expenses.map((e) => e.toMap()).toList(),
       'sales': sales.map((s) => s.toMap()).toList(),
       'stores': stores.map((s) => s.toMap()).toList(),
-      'moneyAccounts': moneyAccounts.map((a) => a.toMap()).toList(),
-      'moneyHistory': moneyHistory.map((r) => r.toMap()).toList(),
       'inventoryMovements': inventoryMovements.map((m) => m.toMap()).toList(),
       'customerCreditEntries':
           customerCreditEntries.map((e) => e.toMap()).toList(),
@@ -93,7 +81,6 @@ class SyncData {
       'deletedEmployeeIds': deletedEmployeeIds,
       'deletedExpenseIds': deletedExpenseIds,
       'deletedStoreIds': deletedStoreIds,
-      'deletedMoneyAccountIds': deletedMoneyAccountIds,
       'deletedCustomerCreditEntryIds': deletedCustomerCreditEntryIds,
       'deletedSaleIds': deletedSaleIds,
       if (shopAppSettings != null) 'shopAppSettings': shopAppSettings!.toJson(),
@@ -144,14 +131,6 @@ class SyncData {
           json['stores'],
           (m) => Store.fromMap(m),
         ),
-        moneyAccounts: _decodeList(
-          json['moneyAccounts'],
-          (m) => MoneyAccount.fromMap(m),
-        ),
-        moneyHistory: _decodeList(
-          json['moneyHistory'],
-          (m) => AccountHistoryRecord.fromMap(m),
-        ),
         inventoryMovements: _decodeList(
           json['inventoryMovements'],
           (m) => InventoryMovement.fromMap(m),
@@ -166,7 +145,6 @@ class SyncData {
         deletedEmployeeIds: _decodeIds(json['deletedEmployeeIds']),
         deletedExpenseIds: _decodeIds(json['deletedExpenseIds']),
         deletedStoreIds: _decodeIds(json['deletedStoreIds']),
-        deletedMoneyAccountIds: _decodeIds(json['deletedMoneyAccountIds']),
         deletedCustomerCreditEntryIds:
             _decodeIds(json['deletedCustomerCreditEntryIds']),
         deletedSaleIds: _decodeIds(json['deletedSaleIds']),
@@ -195,8 +173,6 @@ class SyncData {
       expenses.length +
       sales.length +
       stores.length +
-      moneyAccounts.length +
-      moneyHistory.length +
       inventoryMovements.length +
       customerCreditEntries.length;
 
@@ -211,8 +187,6 @@ class SyncData {
       expenses: const [],
       sales: const [],
       stores: const [],
-      moneyAccounts: const [],
-      moneyHistory: const [],
       inventoryMovements: const [],
       deviceId: deviceId,
     );
@@ -226,8 +200,6 @@ class SyncData {
     List<Expense>? expenses,
     List<Sale>? sales,
     List<Store>? stores,
-    List<MoneyAccount>? moneyAccounts,
-    List<AccountHistoryRecord>? moneyHistory,
     List<InventoryMovement>? inventoryMovements,
     List<CustomerCreditEntry>? customerCreditEntries,
     List<String>? deletedProductIds,
@@ -236,7 +208,6 @@ class SyncData {
     List<String>? deletedEmployeeIds,
     List<String>? deletedExpenseIds,
     List<String>? deletedStoreIds,
-    List<String>? deletedMoneyAccountIds,
     List<String>? deletedCustomerCreditEntryIds,
     List<String>? deletedSaleIds,
     ShopAppSettings? shopAppSettings,
@@ -252,8 +223,6 @@ class SyncData {
       expenses: expenses ?? this.expenses,
       sales: sales ?? this.sales,
       stores: stores ?? this.stores,
-      moneyAccounts: moneyAccounts ?? this.moneyAccounts,
-      moneyHistory: moneyHistory ?? this.moneyHistory,
       inventoryMovements: inventoryMovements ?? this.inventoryMovements,
       customerCreditEntries:
           customerCreditEntries ?? this.customerCreditEntries,
@@ -263,8 +232,6 @@ class SyncData {
       deletedEmployeeIds: deletedEmployeeIds ?? this.deletedEmployeeIds,
       deletedExpenseIds: deletedExpenseIds ?? this.deletedExpenseIds,
       deletedStoreIds: deletedStoreIds ?? this.deletedStoreIds,
-      deletedMoneyAccountIds:
-          deletedMoneyAccountIds ?? this.deletedMoneyAccountIds,
       deletedCustomerCreditEntryIds: deletedCustomerCreditEntryIds ??
           this.deletedCustomerCreditEntryIds,
       deletedSaleIds: deletedSaleIds ?? this.deletedSaleIds,

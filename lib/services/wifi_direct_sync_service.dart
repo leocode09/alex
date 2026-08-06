@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -8,8 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../helpers/license_gate.dart';
+import '../models/account_state.dart';
 import '../models/license_policy.dart';
 import '../models/sync_data.dart';
+import 'admin/device_registration_service.dart';
+import 'cloud/account_service.dart';
+import 'identity_label.dart';
+import 'sync_frame_codec.dart';
 import 'sync_message_utils.dart';
 import 'sync_service.dart';
 
@@ -22,10 +26,14 @@ class WifiDirectSyncService extends ChangeNotifier {
 
   static const MethodChannel _methodChannel = MethodChannel('wifi_direct');
   static const EventChannel _eventChannel = EventChannel('wifi_direct_events');
+  static const int protocolVersion = 3;
 
   static const int _maxPayloadBytes = SyncMessageUtils.maxFramePayloadBytes;
   static const int _maxSyncPayloadBytes =
       SyncMessageUtils.maxAssembledPayloadBytes;
+  // Frames longer than this are parsed in a background isolate; parsing a
+  // multi-megabyte sync payload on the UI isolate freezes the app.
+  static const int _inlineParseMaxChars = 4096;
   static const Duration _healthCheckInterval = Duration(seconds: 12);
   static const Duration _peerDiscoveryInterval = Duration(seconds: 15);
   static const int _maxSyncRetryAttempts = 5;
@@ -54,6 +62,8 @@ class WifiDirectSyncService extends ChangeNotifier {
 
   String? _deviceId;
   String? _deviceName;
+  String? _shopId;
+  StreamSubscription<String>? _identitySubscription;
 
   final Map<String, DateTime> _peerSyncTimes = {};
   final Duration _peerSyncCooldown = const Duration(seconds: 20);
@@ -94,6 +104,29 @@ class WifiDirectSyncService extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    final account = AccountService().current;
+    final shopId = account.shopId?.trim();
+    if (account.stage != AccountStage.approved ||
+        shopId == null ||
+        shopId.isEmpty) {
+      _status = 'account_not_approved';
+      _lastError =
+          'Wi-Fi Direct requires an approved account in this shop.';
+      notifyListeners();
+      return;
+    }
+    final binding =
+        await DeviceRegistrationService().verifyCurrentBinding();
+    if (!binding.isBound) {
+      _status = binding.peerGateStatus;
+      _lastError = binding.message;
+      if (binding.status == DeviceBindingStatus.signedOut) {
+        unawaited(AccountService().refresh());
+      }
+      notifyListeners();
+      return;
+    }
+    _shopId = shopId;
 
     if (_started && _hostPreferred != hostPreferred) {
       await stop();
@@ -113,7 +146,9 @@ class WifiDirectSyncService extends ChangeNotifier {
       }
 
       _deviceId ??= await _syncService.getDeviceId();
-      _deviceName ??= await _getDeviceName();
+      await IdentityLabel.initialize();
+      _subscribeToIdentity();
+      _deviceName = IdentityLabel.current;
 
       _subscription ??= _eventChannel.receiveBroadcastStream().listen(
         _handleEvent,
@@ -128,6 +163,8 @@ class WifiDirectSyncService extends ChangeNotifier {
         'host': hostPreferred,
         'deviceId': _deviceId,
         'deviceName': _deviceName,
+        'shopId': _shopId,
+        'protocolVersion': protocolVersion,
       });
 
       _started = true;
@@ -264,13 +301,20 @@ class WifiDirectSyncService extends ChangeNotifier {
     }
   }
 
-  Future<String> _getDeviceName() async {
-    try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      return info.model;
-    } catch (_) {
-      return 'Android';
-    }
+  void _subscribeToIdentity() {
+    _identitySubscription ??= IdentityLabel.changes.listen((name) {
+      _deviceName = name;
+      if (_started) {
+        unawaited(
+          _methodChannel.invokeMethod('updateWifiDirectIdentity', {
+            'deviceName': name,
+            'shopId': _shopId,
+            'protocolVersion': protocolVersion,
+          }),
+        );
+      }
+      notifyListeners();
+    });
   }
 
   Future<void> _handleEvent(dynamic event) async {
@@ -414,27 +458,30 @@ class WifiDirectSyncService extends ChangeNotifier {
       return;
     }
 
-    if (SyncMessageUtils.utf8Size(payload) > _maxPayloadBytes) {
+    // Cheap size guard (UTF-8 size >= char count) — avoids re-encoding a
+    // multi-megabyte string just to measure it.
+    if (payload.length > _maxPayloadBytes) {
       _addLog('Dropped incoming frame that exceeded transport size limits.');
       return;
     }
 
     _deviceId ??= await _syncService.getDeviceId();
     final fallbackSourceId = event['fromId']?.toString();
-    final json = _tryDecodeJsonMap(payload);
-    if (json != null && json['type'] == SyncMessageUtils.syncChunkType) {
+    // Parse large frames in a background isolate so BLE sync bursts can't
+    // freeze the UI.
+    final parsed = payload.length > _inlineParseMaxChars
+        ? await compute(SyncFrameCodec.parseInbound, payload)
+        : SyncFrameCodec.parseInbound(payload);
+
+    if (parsed.chunkEnvelope != null) {
       await _handleIncomingChunk(
-        json,
+        parsed.chunkEnvelope!,
         fallbackSourceId: fallbackSourceId,
       );
       return;
     }
 
-    await _processSyncPayload(
-      payload,
-      json: json,
-      fallbackSourceId: fallbackSourceId,
-    );
+    await _handleParsedSync(parsed, fallbackSourceId: fallbackSourceId);
   }
 
   Future<void> _handleIncomingChunk(
@@ -469,107 +516,35 @@ class WifiDirectSyncService extends ChangeNotifier {
       return;
     }
 
-    await _processSyncPayload(
-      assembly.payload!,
-      fallbackSourceId: fromId,
-    );
+    // The assembled payload is the full multi-megabyte sync message — parse
+    // it in a background isolate.
+    final parsed = await compute(SyncFrameCodec.parseInbound, assembly.payload!);
+    await _handleParsedSync(parsed, fallbackSourceId: fromId);
   }
 
-  Future<void> _processSyncPayload(
-    String payload, {
-    Map<String, dynamic>? json,
+  Future<void> _handleParsedSync(
+    InboundParseResult parsed, {
     String? fallbackSourceId,
   }) async {
-    final parsed = json ?? _tryDecodeJsonMap(payload);
-
-    if (parsed != null) {
-      if (parsed['type'] == 'sync_data') {
-        final fromId = parsed['fromId']?.toString() ?? fallbackSourceId;
-        if (fromId != null && fromId == _deviceId) {
-          return;
-        }
-
-        final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: parsed['messageId']?.toString(),
-          payload: payload,
-        );
-        if (_messageCache.isDuplicate(messageKey)) {
-          return;
-        }
-
-        final data = parsed['data'];
-        SyncData? syncData;
-        if (data is Map) {
-          syncData = SyncData.fromJson(Map<String, dynamic>.from(data));
-        } else if (data is String) {
-          syncData = _syncService.jsonToSyncData(data);
-        }
-
-        if (syncData != null) {
-          _messageCache.remember(messageKey);
-          await _queueImport(syncData);
-        }
-        return;
-      }
-
-      if (_looksLikeSyncData(parsed)) {
-        final messageKey = SyncMessageUtils.buildMessageKey(
-          messageId: parsed['messageId']?.toString(),
-          payload: payload,
-        );
-        if (_messageCache.isDuplicate(messageKey)) {
-          return;
-        }
-
-        final syncData = SyncData.fromJson(parsed);
-        if (syncData.deviceId == _deviceId) {
-          return;
-        }
-        _messageCache.remember(messageKey);
-        await _queueImport(syncData);
-        return;
-      }
+    final syncData = parsed.syncData;
+    if (syncData == null) {
+      return;
     }
 
-    try {
-      final syncData = _syncService.jsonToSyncData(payload);
-      if (syncData.deviceId == _deviceId) {
-        return;
-      }
+    final fromId = parsed.fromId ?? fallbackSourceId ?? syncData.deviceId;
+    if (fromId == _deviceId || syncData.deviceId == _deviceId) {
+      return;
+    }
 
-      final messageKey = SyncMessageUtils.buildMessageKey(
-        messageId: null,
-        payload: payload,
-      );
+    final messageKey = parsed.messageKey;
+    if (messageKey != null) {
       if (_messageCache.isDuplicate(messageKey)) {
         return;
       }
       _messageCache.remember(messageKey);
-      await _queueImport(syncData);
-    } catch (_) {
-      return;
     }
-  }
 
-  Map<String, dynamic>? _tryDecodeJsonMap(String payload) {
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-      if (decoded is Map) {
-        return Map<String, dynamic>.from(decoded);
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
-  }
-
-  bool _looksLikeSyncData(Map<String, dynamic> json) {
-    return json.containsKey('products') &&
-        json.containsKey('categories') &&
-        json.containsKey('deviceId');
+    await _queueImport(syncData);
   }
 
   Future<bool> _sendSyncData() async {
@@ -585,59 +560,46 @@ class WifiDirectSyncService extends ChangeNotifier {
       }
 
       final messageId = SyncMessageUtils.nextMessageId(data.deviceId);
-      final payload = jsonEncode({
-        'type': 'sync_data',
-        'messageId': messageId,
-        'protocolVersion': 2,
-        'fromId': data.deviceId,
-        'fromName': _deviceName ?? 'Android',
-        'sentAt': DateTime.now().toIso8601String(),
-        'data': data.toJson(),
-      });
+      // Encode + chunk the full dataset in a background isolate so the UI
+      // never skips a frame while syncing.
+      final result = await compute(
+        SyncFrameCodec.buildOutboundStringFrames,
+        OutboundFrameRequest(
+          data: data,
+          messageId: messageId,
+          fromName: _deviceName ?? 'Android',
+          sentAtIso: DateTime.now().toIso8601String(),
+          maxFrameBytes: _maxPayloadBytes,
+          maxTotalBytes: _maxSyncPayloadBytes,
+          chunkRawBytes: SyncMessageUtils.chunkRawBytes,
+        ),
+      );
 
-      final payloadSize = SyncMessageUtils.utf8Size(payload);
-      if (payloadSize > _maxSyncPayloadBytes) {
-        _lastError = 'Wi-Fi Direct payload exceeded 20 MB and was not sent.';
+      if (result.error != null) {
+        _lastError = result.error;
         notifyListeners();
         return false;
       }
 
-      var chunkCount = 1;
-      if (payloadSize <= _maxPayloadBytes) {
-        final sent = await _sendFrame(payload);
-        if (!sent) {
-          _lastError = 'Wi-Fi Direct failed to send sync payload.';
-          notifyListeners();
-          return false;
-        }
-      } else {
-        final chunkFrames = _buildChunkFrames(
-          payload: payload,
-          messageId: messageId,
-          fromId: data.deviceId,
-          fromName: _deviceName ?? 'Android',
-        );
-        if (chunkFrames.isEmpty) {
-          _lastError = 'Wi-Fi Direct payload chunks exceeded transport limits.';
-          notifyListeners();
-          return false;
-        }
-        chunkCount = chunkFrames.length;
-        final sent = await _sendFrames(chunkFrames);
-        if (!sent) {
-          _lastError = 'Wi-Fi Direct failed while sending sync payload chunks.';
-          notifyListeners();
-          return false;
-        }
+      final sent = await _sendFrames(result.frames);
+      if (!sent) {
+        _lastError = result.chunkCount > 1
+            ? 'Wi-Fi Direct failed while sending sync payload chunks.'
+            : 'Wi-Fi Direct failed to send sync payload.';
+        notifyListeners();
+        return false;
       }
 
-      final key = SyncMessageUtils.buildMessageKey(
-        messageId: messageId,
-        payload: payload,
+      _messageCache.remember(
+        SyncMessageUtils.buildMessageKey(
+          messageId: messageId,
+          payload: messageId,
+        ),
       );
-      _messageCache.remember(key);
-      if (chunkCount > 1) {
-        _addLog('Shared Wi-Fi Direct sync payload in $chunkCount chunks.');
+      if (result.chunkCount > 1) {
+        _addLog(
+          'Shared Wi-Fi Direct sync payload in ${result.chunkCount} chunks.',
+        );
       }
       return true;
     } catch (e) {
@@ -648,40 +610,6 @@ class WifiDirectSyncService extends ChangeNotifier {
     } finally {
       _sending = false;
     }
-  }
-
-  List<String> _buildChunkFrames({
-    required String payload,
-    required String messageId,
-    required String fromId,
-    required String fromName,
-  }) {
-    final chunks = SyncMessageUtils.splitPayloadToBase64Chunks(payload);
-    if (chunks.isEmpty) {
-      return const <String>[];
-    }
-
-    final sentAt = DateTime.now().toIso8601String();
-    final frames = <String>[];
-    for (var index = 0; index < chunks.length; index++) {
-      final frame = jsonEncode({
-        'type': SyncMessageUtils.syncChunkType,
-        'messageId': messageId,
-        'protocolVersion': 3,
-        'fromId': fromId,
-        'fromName': fromName,
-        'chunkIndex': index,
-        'chunkCount': chunks.length,
-        'encoding': SyncMessageUtils.syncChunkEncoding,
-        'payload': chunks[index],
-        'sentAt': sentAt,
-      });
-      if (SyncMessageUtils.utf8Size(frame) > _maxPayloadBytes) {
-        return const <String>[];
-      }
-      frames.add(frame);
-    }
-    return frames;
   }
 
   Future<bool> _sendFrames(List<String> frames) async {

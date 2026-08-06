@@ -194,7 +194,7 @@ class _CloudSyncPageState extends ConsumerState<CloudSyncPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'A shop groups devices that share the same catalog, sales, and money accounts.',
+            'A shop groups devices that share the same catalog and sales.',
             style: TextStyle(color: extras.muted, fontSize: 12),
           ),
           const SizedBox(height: AppTokens.space3),

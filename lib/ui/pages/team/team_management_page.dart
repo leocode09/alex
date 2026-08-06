@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../helpers/identity_labels.dart';
 import '../../../models/account_state.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/cloud/firestore_paths.dart';
@@ -14,7 +15,7 @@ import '../../design_system/widgets/app_section_header.dart';
 
 /// Owner-facing screen that lists members of the current business and
 /// lets the owner approve, reject, or remove staff. The page reads
-/// /shops/{shopId}/members directly via the device's anonymous-auth
+/// /shops/{shopId}/members directly via the signed-in member's
 /// Firestore instance — the security rules restrict the staff approval
 /// writes to the approved owner.
 class TeamManagementPage extends ConsumerWidget {
@@ -421,8 +422,10 @@ class _MemberTileState extends ConsumerState<_MemberTile> {
     final status = (data[AccountApproval.fieldStatus] as String?) ??
         AccountApproval.statusApproved;
     final role = (data['role'] as String?) ?? AccountApproval.roleStaff;
-    final displayName =
-        _readString('displayName') ?? widget.docId.substring(0, 8);
+    final displayName = IdentityLabels.memberDisplayName(
+      data,
+      uid: widget.docId,
+    );
     final phone = _readString('phone');
     final isPending = status == AccountApproval.statusPendingOwner;
     final isRejected = status == AccountApproval.statusRejected;
@@ -448,7 +451,8 @@ class _MemberTileState extends ConsumerState<_MemberTile> {
                     Text(
                       [
                         role == AccountApproval.roleOwner ? 'Owner' : 'Staff',
-                        if (phone != null) phone,
+                        if (phone != null)
+                          IdentityLabels.formatPhoneForDisplay(phone),
                       ].join('  \u00B7  '),
                       style: TextStyle(color: extras.muted, fontSize: 12),
                     ),

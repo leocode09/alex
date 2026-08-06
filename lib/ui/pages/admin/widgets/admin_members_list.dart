@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../helpers/identity_labels.dart';
 import '../../../../services/cloud/firestore_paths.dart';
 import '../../../design_system/app_theme_extensions.dart';
 import '../../../design_system/app_tokens.dart';
@@ -242,8 +243,10 @@ class _MemberTileState extends State<_MemberTile> {
     final data = widget.data;
     final approval = AdminHeuristics.approvalStatus(data);
     final role = (data['role'] as String?) ?? 'staff';
-    final displayName =
-        ((data['displayName'] as String?) ?? widget.docId).trim();
+    final displayName = IdentityLabels.memberDisplayName(
+      data,
+      uid: widget.docId,
+    );
     final phone = (data['phone'] as String?)?.trim();
     final isOwner = role == 'owner';
 
@@ -260,13 +263,14 @@ class _MemberTileState extends State<_MemberTile> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      displayName.isEmpty ? widget.docId : displayName,
+                      displayName,
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     Text(
                       [
                         isOwner ? 'Owner' : 'Staff',
-                        if (phone != null && phone.isNotEmpty) phone,
+                        if (phone != null && phone.isNotEmpty)
+                          IdentityLabels.formatPhoneForDisplay(phone),
                       ].join('  \u00B7  '),
                       style: TextStyle(color: extras.muted, fontSize: 12),
                     ),

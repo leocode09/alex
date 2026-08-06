@@ -37,6 +37,10 @@ class SaleRepository {
   static const String _deletedSaleIdsKey = 'deleted_sale_ids';
   static const double _epsilon = 0.000001;
 
+  // In-memory cache of the legacy SharedPreferences deleted-sale-id blob
+  // (used only when SQLite is unavailable). Read on every sync export.
+  static List<String>? _legacyDeletedIdsCache;
+
   bool? _dbReady;
 
   /// Lazily resolve whether the SQLite ledger is usable. Cached after the
@@ -587,11 +591,18 @@ class SaleRepository {
     } catch (e) {
       print('Error reading deleted sale ids: $e');
     }
+    final cached = _legacyDeletedIdsCache;
+    if (cached != null) return List<String>.of(cached);
     final jsonData = await _storage.getData(_deletedSaleIdsKey);
-    if (jsonData == null) return [];
+    if (jsonData == null) {
+      _legacyDeletedIdsCache = <String>[];
+      return [];
+    }
     try {
-      final List<dynamic> decoded = jsonDecode(jsonData);
-      return decoded.cast<String>();
+      final List<dynamic> decoded = await decodeJson(jsonData);
+      final ids = List<String>.of(decoded.cast<String>());
+      _legacyDeletedIdsCache = ids;
+      return List<String>.of(ids);
     } catch (e) {
       return [];
     }
@@ -618,15 +629,24 @@ class SaleRepository {
     }
     final existing = (await getDeletedSaleIds()).toSet();
     existing.addAll(ids);
-    await _storage.saveData(_deletedSaleIdsKey, jsonEncode(existing.toList()));
+    final updated = existing.toList();
+    _legacyDeletedIdsCache = updated;
+    final saved =
+        await _storage.saveData(_deletedSaleIdsKey, await encodeJson(updated));
+    if (!saved) _legacyDeletedIdsCache = null;
   }
 
-  Future<void> applyDeletedSaleIds(List<String> ids) async {
-    if (ids.isEmpty) return;
+  /// Returns whether any local sale was actually removed.
+  Future<bool> applyDeletedSaleIds(List<String> ids) async {
+    if (ids.isEmpty) return false;
     try {
       if (await _ready()) {
         final db = await _appDb.database;
+        var removed = false;
         await db.transaction((txn) async {
+          final beforeRows = await txn
+              .rawQuery('SELECT COUNT(*) AS c FROM ${AppDatabase.tableSales}');
+          final before = (beforeRows.first['c'] as int?) ?? 0;
           final batch = txn.batch();
           for (final id in ids) {
             batch.delete(AppDatabase.tableSales,
@@ -640,8 +660,12 @@ class SaleRepository {
             );
           }
           await batch.commit(noResult: true);
+          final afterRows = await txn
+              .rawQuery('SELECT COUNT(*) AS c FROM ${AppDatabase.tableSales}');
+          final after = (afterRows.first['c'] as int?) ?? 0;
+          removed = after < before;
         });
-        return;
+        return removed;
       }
     } catch (e) {
       print('Error applying deleted sale ids: $e');
@@ -649,10 +673,12 @@ class SaleRepository {
     final deletedSet = ids.toSet();
     final sales = await _legacyGetAll();
     final filtered = sales.where((s) => !deletedSet.contains(s.id)).toList();
-    if (filtered.length < sales.length) {
+    final removed = filtered.length < sales.length;
+    if (removed) {
       await _legacySaveAll(filtered);
     }
     await addDeletedSaleIds(ids);
+    return removed;
   }
 
   // ======================= RETENTION / BACKUP =======================
@@ -761,7 +787,7 @@ class SaleRepository {
     try {
       final jsonData = await _storage.getData(_salesKey);
       if (jsonData == null) return [];
-      final List<dynamic> decoded = jsonDecode(jsonData);
+      final List<dynamic> decoded = await decodeJson(jsonData);
       final sales = decoded.map((json) => Sale.fromMap(json)).toList();
       sales.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return sales;
@@ -774,7 +800,7 @@ class SaleRepository {
   Future<bool> _legacySaveAll(List<Sale> sales) async {
     try {
       final jsonList = sales.map((s) => s.toMap()).toList();
-      return await _storage.saveData(_salesKey, jsonEncode(jsonList));
+      return await _storage.saveData(_salesKey, await encodeJson(jsonList));
     } catch (e) {
       print('Error saving sales (legacy): $e');
       return false;

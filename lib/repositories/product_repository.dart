@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import '../models/inventory_movement.dart';
 import '../models/product.dart';
@@ -25,18 +24,28 @@ class ProductRepository {
   static const String _deletedProductIdsKey = 'deleted_product_ids';
   static const Uuid _uuid = Uuid();
 
+  // In-memory caches (static: repositories are instantiated in many places).
+  static List<Product>? _cache;
+  static List<String>? _deletedIdsCache;
+
   // Get all products
   Future<List<Product>> getAllProducts() async {
+    final cached = _cache;
+    if (cached != null) return List<Product>.of(cached);
     try {
       final jsonData = await _storage.getData(_productsKey);
-      if (jsonData == null) return [];
+      if (jsonData == null) {
+        _cache = <Product>[];
+        return [];
+      }
 
-      final List<dynamic> decoded = jsonDecode(jsonData);
+      final List<dynamic> decoded = await decodeJson(jsonData);
       final products = decoded.map((json) => Product.fromMap(json)).toList();
 
       // Sort by name
       products.sort((a, b) => a.name.compareTo(b.name));
-      return products;
+      _cache = products;
+      return List<Product>.of(products);
     } catch (e, stackTrace) {
       print('Error getting all products: $e');
       print('Stack trace: $stackTrace');
@@ -44,14 +53,24 @@ class ProductRepository {
     }
   }
 
-  // Save all products
+  // Save all products (updates the in-memory cache first so reads are
+  // instantly consistent, then persists).
   Future<bool> _saveProducts(List<Product> products) async {
+    final snapshot = List<Product>.of(products)
+      ..sort((a, b) => a.name.compareTo(b.name));
+    _cache = snapshot;
     try {
-      final jsonList = products.map((p) => p.toMap()).toList();
-      final jsonData = jsonEncode(jsonList);
-      return await _storage.saveData(_productsKey, jsonData);
+      final jsonList = snapshot.map((p) => p.toMap()).toList();
+      final jsonData = await encodeJson(jsonList);
+      final success = await _storage.saveData(_productsKey, jsonData);
+      if (!success) {
+        // Persist failed: refresh from storage on next read.
+        _cache = null;
+      }
+      return success;
     } catch (e) {
       print('Error saving products: $e');
+      _cache = null;
       return false;
     }
   }
@@ -174,11 +193,18 @@ class ProductRepository {
   }
 
   Future<List<String>> getDeletedProductIds() async {
+    final cached = _deletedIdsCache;
+    if (cached != null) return List<String>.of(cached);
     final jsonData = await _storage.getData(_deletedProductIdsKey);
-    if (jsonData == null) return [];
+    if (jsonData == null) {
+      _deletedIdsCache = <String>[];
+      return [];
+    }
     try {
-      final List<dynamic> decoded = jsonDecode(jsonData);
-      return decoded.cast<String>();
+      final List<dynamic> decoded = await decodeJson(jsonData);
+      final ids = List<String>.of(decoded.cast<String>());
+      _deletedIdsCache = ids;
+      return List<String>.of(ids);
     } catch (e) {
       return [];
     }
@@ -187,19 +213,28 @@ class ProductRepository {
   Future<void> addDeletedProductIds(List<String> ids) async {
     if (ids.isEmpty) return;
     final existing = (await getDeletedProductIds()).toSet();
+    final before = existing.length;
     existing.addAll(ids);
-    await _storage.saveData(_deletedProductIdsKey, jsonEncode(existing.toList()));
+    if (existing.length == before) return;
+    final updated = existing.toList();
+    _deletedIdsCache = updated;
+    final saved = await _storage.saveData(
+        _deletedProductIdsKey, await encodeJson(updated));
+    if (!saved) _deletedIdsCache = null;
   }
 
-  Future<void> applyDeletedProductIds(List<String> ids) async {
-    if (ids.isEmpty) return;
+  /// Returns whether any local product was actually removed.
+  Future<bool> applyDeletedProductIds(List<String> ids) async {
+    if (ids.isEmpty) return false;
     final deletedSet = ids.toSet();
     final products = await getAllProducts();
     final filtered = products.where((p) => !deletedSet.contains(p.id)).toList();
-    if (filtered.length < products.length) {
+    final removed = filtered.length < products.length;
+    if (removed) {
       await _saveProducts(filtered);
     }
     await addDeletedProductIds(ids);
+    return removed;
   }
 
   // Update stock

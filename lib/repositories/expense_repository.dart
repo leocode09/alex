@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../models/expense.dart';
 import '../services/database_helper.dart';
 
@@ -8,12 +6,21 @@ class ExpenseRepository {
   static const String _expensesKey = 'expenses';
   static const String _deletedIdsKey = 'deleted_expense_ids';
 
+  // In-memory caches (static: repositories are instantiated in many places).
+  static List<Expense>? _cache;
+  static List<String>? _deletedIdsCache;
+
   Future<List<Expense>> getAllExpenses() async {
+    final cached = _cache;
+    if (cached != null) return List<Expense>.of(cached);
     try {
       final jsonData = await _storage.getData(_expensesKey);
-      if (jsonData == null) return [];
+      if (jsonData == null) {
+        _cache = <Expense>[];
+        return [];
+      }
 
-      final decoded = jsonDecode(jsonData);
+      final decoded = await decodeJson(jsonData);
       if (decoded is! List) {
         return [];
       }
@@ -30,7 +37,8 @@ class ExpenseRepository {
         }
       }
       expenses.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return expenses;
+      _cache = expenses;
+      return List<Expense>.of(expenses);
     } catch (e, stackTrace) {
       print('Error getting all expenses: $e');
       print('Stack trace: $stackTrace');
@@ -38,13 +46,24 @@ class ExpenseRepository {
     }
   }
 
+  // Saves all expenses (updates the in-memory cache first so reads are
+  // instantly consistent, then persists).
   Future<bool> _saveExpenses(List<Expense> expenses) async {
+    final snapshot = List<Expense>.of(expenses)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _cache = snapshot;
     try {
-      final jsonList = expenses.map((expense) => expense.toMap()).toList();
-      final jsonData = jsonEncode(jsonList);
-      return await _storage.saveData(_expensesKey, jsonData);
+      final jsonList = snapshot.map((expense) => expense.toMap()).toList();
+      final jsonData = await encodeJson(jsonList);
+      final success = await _storage.saveData(_expensesKey, jsonData);
+      if (!success) {
+        // Persist failed: refresh from storage on next read.
+        _cache = null;
+      }
+      return success;
     } catch (e) {
       print('Error saving expenses: $e');
+      _cache = null;
       return false;
     }
   }
@@ -102,11 +121,18 @@ class ExpenseRepository {
   }
 
   Future<List<String>> getDeletedExpenseIds() async {
+    final cached = _deletedIdsCache;
+    if (cached != null) return List<String>.of(cached);
     final jsonData = await _storage.getData(_deletedIdsKey);
-    if (jsonData == null) return [];
+    if (jsonData == null) {
+      _deletedIdsCache = <String>[];
+      return [];
+    }
     try {
-      final List<dynamic> decoded = jsonDecode(jsonData);
-      return decoded.cast<String>();
+      final List<dynamic> decoded = await decodeJson(jsonData);
+      final ids = List<String>.of(decoded.cast<String>());
+      _deletedIdsCache = ids;
+      return List<String>.of(ids);
     } catch (e) {
       return [];
     }
@@ -115,20 +141,29 @@ class ExpenseRepository {
   Future<void> addDeletedExpenseIds(List<String> ids) async {
     if (ids.isEmpty) return;
     final existing = (await getDeletedExpenseIds()).toSet();
+    final before = existing.length;
     existing.addAll(ids);
-    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+    if (existing.length == before) return;
+    final updated = existing.toList();
+    _deletedIdsCache = updated;
+    final saved =
+        await _storage.saveData(_deletedIdsKey, await encodeJson(updated));
+    if (!saved) _deletedIdsCache = null;
   }
 
-  Future<void> applyDeletedExpenseIds(List<String> ids) async {
-    if (ids.isEmpty) return;
+  /// Returns whether any local expense was actually removed.
+  Future<bool> applyDeletedExpenseIds(List<String> ids) async {
+    if (ids.isEmpty) return false;
     final deletedSet = ids.toSet();
     final expenses = await getAllExpenses();
     final filtered =
         expenses.where((e) => !deletedSet.contains(e.id)).toList();
-    if (filtered.length < expenses.length) {
+    final removed = filtered.length < expenses.length;
+    if (removed) {
       await _saveExpenses(filtered);
     }
     await addDeletedExpenseIds(ids);
+    return removed;
   }
 
   Future<List<Expense>> getExpensesByDateRange(

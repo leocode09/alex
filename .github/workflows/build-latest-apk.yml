@@ -1,4 +1,4 @@
-# Builds the latest Android APK and publishes update.json for the in-app updater.
+# Builds the latest Android APK and publishes manifest.json for the in-app updater.
 #
 # Run from GitHub: Actions -> "Build Latest APK" -> Run workflow.
 name: Build Latest APK
@@ -10,16 +10,6 @@ on:
         description: 'Optional version name. Defaults to the name in pubspec.yaml, e.g. 1.0.4.'
         required: false
         type: string
-      release_notes:
-        description: 'Release notes shown by the in-app updater.'
-        required: false
-        default: 'Latest ALEX APK build.'
-        type: string
-      mandatory:
-        description: 'Force users to install before dismissing the update dialog.'
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
   group: build-latest-apk
@@ -89,19 +79,21 @@ jobs:
           LATEST_DIR="${RUNNER_TEMP}/latest-release"
           mkdir -p "$LATEST_DIR"
           LATEST_UPDATE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
-            --jq 'first(.[] | select(.draft == false and any(.assets[]?; .name == "update.json")) | .tag_name) // ""')"
+            --jq 'first(.[] | select(.draft == false and any(.assets[]?; .name == "manifest.json")) | .tag_name) // ""')"
 
-          if [[ -n "$LATEST_UPDATE_TAG" ]] && gh release download "$LATEST_UPDATE_TAG" --repo "$GITHUB_REPOSITORY" --pattern update.json --dir "$LATEST_DIR" >/dev/null 2>&1; then
+          if [[ -n "$LATEST_UPDATE_TAG" ]] && gh release download "$LATEST_UPDATE_TAG" --repo "$GITHUB_REPOSITORY" --pattern manifest.json --dir "$LATEST_DIR" >/dev/null 2>&1; then
             LATEST_CODE="$(python3 - <<PY
           import json
+          import re
           from pathlib import Path
 
-          path = Path("$LATEST_DIR") / "update.json"
+          path = Path("$LATEST_DIR") / "manifest.json"
           try:
-              value = json.loads(path.read_text(encoding="utf-8")).get("versionCode")
+              value = json.loads(path.read_text(encoding="utf-8")).get("version", "")
           except Exception:
-              value = None
-          print(value if isinstance(value, int) else "")
+              value = ""
+          match = re.search(r"\+(\d+)$", value)
+          print(match.group(1) if match else "")
           PY
           )"
             if [[ "$LATEST_CODE" =~ ^[0-9]+$ ]] && (( LATEST_CODE > BASE_CODE )); then
@@ -112,15 +104,17 @@ jobs:
           VERSION_CODE="$((BASE_CODE + 1))"
           TAG="apk-v${VERSION_NAME}-${VERSION_CODE}"
           VERSIONED_APK_NAME="alex-${VERSION_NAME}-${VERSION_CODE}.apk"
+          MANIFEST_VERSION="${VERSION_NAME}+${VERSION_CODE}"
 
           {
             echo "version_name=${VERSION_NAME}"
             echo "version_code=${VERSION_CODE}"
+            echo "manifest_version=${MANIFEST_VERSION}"
             echo "tag=${TAG}"
             echo "versioned_apk_name=${VERSIONED_APK_NAME}"
           } >> "$GITHUB_OUTPUT"
 
-          echo "Building ${VERSION_NAME}+${VERSION_CODE}"
+          echo "Building ${MANIFEST_VERSION}"
 
       - name: Build release APK
         run: |
@@ -132,10 +126,9 @@ jobs:
         env:
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          MANIFEST_VERSION: ${{ steps.version.outputs.manifest_version }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSIONED_APK_NAME: ${{ steps.version.outputs.versioned_apk_name }}
-          RELEASE_NOTES: ${{ inputs.release_notes }}
-          MANDATORY: ${{ inputs.mandatory }}
         run: |
           set -euo pipefail
 
@@ -143,34 +136,18 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk "dist/alex-pos.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "dist/${VERSIONED_APK_NAME}"
 
+          node scripts/make_update_manifest.mjs \
+            --version "${MANIFEST_VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --tag "${TAG}" \
+            --android "dist/alex-pos.apk" \
+            --out "dist/manifest.json"
+
           SHA256="$(sha256sum dist/alex-pos.apk | awk '{ print $1 }')"
-          APK_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/alex-pos.apk"
-          export APK_URL SHA256
-
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          manifest = {
-              "versionCode": int(os.environ["VERSION_CODE"]),
-              "versionName": os.environ["VERSION_NAME"],
-              "apkUrl": os.environ["APK_URL"],
-              "releaseNotes": os.environ["RELEASE_NOTES"],
-              "mandatory": os.environ["MANDATORY"].lower() == "true",
-              "sha256": os.environ["SHA256"],
-          }
-
-          Path("dist/update.json").write_text(
-              json.dumps(manifest, indent=2) + "\n",
-              encoding="utf-8",
-          )
-          PY
 
           cat > dist/release-notes.md <<EOF
-          ${RELEASE_NOTES}
+          ALEX ${MANIFEST_VERSION}
 
-          Version: ${VERSION_NAME}+${VERSION_CODE}
           SHA-256: ${SHA256}
           EOF
 
@@ -181,7 +158,7 @@ jobs:
           path: |
             dist/alex-pos.apk
             dist/${{ steps.version.outputs.versioned_apk_name }}
-            dist/update.json
+            dist/manifest.json
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -190,12 +167,13 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          MANIFEST_VERSION: ${{ steps.version.outputs.manifest_version }}
           VERSIONED_APK_NAME: ${{ steps.version.outputs.versioned_apk_name }}
         run: |
           gh release create "$TAG" \
             "dist/alex-pos.apk" \
             "dist/${VERSIONED_APK_NAME}" \
-            "dist/update.json" \
+            "dist/manifest.json" \
             --latest \
-            --title "ALEX ${VERSION_NAME}+${VERSION_CODE}" \
+            --title "ALEX ${MANIFEST_VERSION}" \
             --notes-file "dist/release-notes.md"

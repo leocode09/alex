@@ -48,13 +48,14 @@ const List<_Faq> _faqs = [
   ),
   _Faq(
     'How do I update the app?',
-    'Settings → Check for Updates fetches the latest build from the release '
-        'server. Long-press the tile to change the manifest URL. Dart-only '
-        'patches are delivered silently through Shorebird on next launch.',
+    'On Android, ALEX checks for updates on launch and downloads newer builds '
+        'in the background. When ready, a green Install banner appears at the '
+        'top of the screen. You can also use Settings → Check for Updates. '
+        'Long-press that tile to change the manifest URL.',
   ),
   _Faq(
     'Does ALEX work offline?',
-    'Yes. Sales, inventory and money are stored locally as JSON. Cloud Sync '
+    'Yes. Sales and inventory are stored locally as JSON. Cloud Sync '
         'only activates when a network is available and resumes on its own.',
   ),
   _Faq(

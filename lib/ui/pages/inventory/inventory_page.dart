@@ -17,8 +17,27 @@ class InventoryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
-    final varianceMovementsAsync = ref.watch(inventoryVariancesProvider);
     final varianceStatsAsync = ref.watch(inventoryVarianceStatsProvider);
+    // Derived providers keep the fold/sort/filter work out of build(): they
+    // recompute once per underlying list change instead of on every frame.
+    final totalUnitsAsync = ref.watch(inventoryTotalUnitsProvider);
+    final lowStockItemsAsync = ref.watch(inventoryLowStockItemsProvider);
+    final outOfStockItemsAsync = ref.watch(inventoryOutOfStockItemsProvider);
+    final recentVarianceStatsAsync =
+        ref.watch(recentInventoryVarianceStatsProvider);
+    final recentVarianceLogsAsync =
+        ref.watch(recentInventoryVarianceLogsProvider);
+
+    const emptyStats = InventoryVarianceStats(
+      totalLogs: 0,
+      matchedLogs: 0,
+      adjustedLogs: 0,
+      unitsAdded: 0,
+      unitsRemoved: 0,
+      netUnits: 0,
+      retailImpact: 0.0,
+      costImpact: 0.0,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -31,26 +50,35 @@ class InventoryPage extends ConsumerWidget {
           context,
           ref,
           products,
-          varianceMovementsAsync.maybeWhen(
+          totalUnits: totalUnitsAsync.maybeWhen(
+            data: (units) => units,
+            orElse: () => 0,
+          ),
+          lowStockItems: lowStockItemsAsync.maybeWhen(
+            data: (items) => items,
+            orElse: () => const <Product>[],
+          ),
+          outOfStockItems: outOfStockItemsAsync.maybeWhen(
+            data: (items) => items,
+            orElse: () => const <Product>[],
+          ),
+          recentVarianceStats: recentVarianceStatsAsync.maybeWhen(
+            data: (stats) => stats,
+            orElse: () => emptyStats,
+          ),
+          recentVarianceLogs: recentVarianceLogsAsync.maybeWhen(
             data: (movements) => movements,
             orElse: () => const <InventoryMovement>[],
           ),
-          varianceStatsAsync.maybeWhen(
+          varianceStats: varianceStatsAsync.maybeWhen(
             data: (stats) => stats,
-            orElse: () => const InventoryVarianceStats(
-              totalLogs: 0,
-              matchedLogs: 0,
-              adjustedLogs: 0,
-              unitsAdded: 0,
-              unitsRemoved: 0,
-              netUnits: 0,
-              retailImpact: 0.0,
-              costImpact: 0.0,
-            ),
+            orElse: () => emptyStats,
           ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
       ),
     );
   }
@@ -58,26 +86,16 @@ class InventoryPage extends ConsumerWidget {
   Widget _buildContent(
     BuildContext context,
     WidgetRef ref,
-    List<Product> products,
-    List<InventoryMovement> varianceMovements,
-    InventoryVarianceStats varianceStats,
-  ) {
+    List<Product> products, {
+    required int totalUnits,
+    required List<Product> lowStockItems,
+    required List<Product> outOfStockItems,
+    required InventoryVarianceStats recentVarianceStats,
+    required List<InventoryMovement> recentVarianceLogs,
+    required InventoryVarianceStats varianceStats,
+  }) {
     final totalProducts = products.length;
-    final totalUnits = products.fold<int>(0, (sum, p) => sum + p.stock);
-    final lowStockItems = products
-        .where((p) => p.stock > 0 && p.stock <= _lowStockThreshold)
-        .toList()
-      ..sort((a, b) => a.stock.compareTo(b.stock));
-    final outOfStockItems = products.where((p) => p.stock == 0).toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
     final alertItems = [...outOfStockItems, ...lowStockItems];
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    final recentVariances = varianceMovements
-        .where((movement) => !movement.createdAt.isBefore(sevenDaysAgo))
-        .toList();
-    final recentVarianceStats =
-        InventoryVarianceStats.fromMovements(recentVariances);
-    final recentVarianceLogs = varianceMovements.take(8).toList();
     final dateFormatter = DateFormat('MMM d, h:mm a');
 
     return ListView(

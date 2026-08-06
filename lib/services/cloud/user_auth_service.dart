@@ -79,6 +79,11 @@ class UserAuthService {
 
   /// The logged-in user's phone, read from their `/users/{uid}` doc.
   Future<String?> currentPhone() async {
+    return (await currentProfile())?['phone'] as String?;
+  }
+
+  /// The canonical profile stored at `/users/{uid}`.
+  Future<Map<String, dynamic>?> currentProfile() async {
     final uid = currentUid;
     if (uid == null || !FirebaseInit.available) return null;
     try {
@@ -86,9 +91,40 @@ class UserAuthService {
           .collection(FirestorePaths.usersCollection)
           .doc(uid)
           .get();
-      return snap.data()?['phone'] as String?;
+      return snap.data();
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<String?> currentDisplayName() async {
+    final name = (await currentProfile())?['displayName'] as String?;
+    final trimmed = name?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  /// Updates the single person label used by account, member, and device UI.
+  Future<bool> updateDisplayName(String displayName) async {
+    final uid = currentUid;
+    final name = displayName.trim();
+    if (uid == null || !FirebaseInit.available || name.isEmpty) {
+      return false;
+    }
+    try {
+      await FirebaseFirestore.instance
+          .collection(FirestorePaths.usersCollection)
+          .doc(uid)
+          .set({
+        'displayName': name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('UserAuthService.updateDisplayName error: $e');
+      }
+      return false;
     }
   }
 
@@ -204,6 +240,35 @@ class UserAuthService {
       if (kDebugMode) {
         debugPrint('UserAuthService.signOut error: $e');
       }
+    }
+  }
+
+  /// Removes an account that was just created but could not claim this
+  /// install. Firebase Auth deletion succeeds because registration is a
+  /// recent authentication event.
+  Future<void> discardJustRegisteredAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid;
+    if (uid == null) {
+      return;
+    }
+    try {
+      await FirebaseFirestore.instance
+          .collection(FirestorePaths.usersCollection)
+          .doc(uid)
+          .delete();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('UserAuthService profile cleanup failed: $e');
+      }
+    }
+    try {
+      await user?.delete();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('UserAuthService auth cleanup failed: $e');
+      }
+      await signOut();
     }
   }
 

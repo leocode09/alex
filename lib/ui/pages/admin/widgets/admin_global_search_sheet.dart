@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../helpers/identity_labels.dart';
 import '../../../../providers/admin_auth_provider.dart';
 import '../../../../services/cloud/firestore_paths.dart';
 import '../../../design_system/app_theme_extensions.dart';
@@ -246,9 +247,7 @@ class _DeviceResult extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extras = context.appExtras;
-    final name = (data['deviceName'] as String?)?.trim();
-    final displayName =
-        (name != null && name.isNotEmpty) ? name : id.substring(0, 8);
+    final displayName = IdentityLabels.deviceDisplayName(data);
     final shop = data['shopName'] as String?;
     final platform = data['platform'] as String?;
     final version = data['appVersion'] as String?;
@@ -271,6 +270,7 @@ class _DeviceResult extends StatelessWidget {
             if (shop != null && shop.isNotEmpty) shop,
             if (platform != null && platform.isNotEmpty) platform,
             if (version != null && version.isNotEmpty) 'v$version',
+      IdentityLabels.shortId(id),
           ].join('  \u00B7  '),
           style: TextStyle(color: extras.muted, fontSize: 12),
         ),

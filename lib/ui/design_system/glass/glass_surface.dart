@@ -90,9 +90,13 @@ class GlassSurface extends StatelessWidget {
       );
     }
 
+    // `.grouped` lets every glass surface under one BackdropGroup (see
+    // AppPageScaffold) share a single engine blur pass instead of one
+    // readback+blur per panel/row; with no group ancestor it falls back to a
+    // regular BackdropFilter.
     Widget surface = ClipRRect(
       borderRadius: borderRadius,
-      child: BackdropFilter(
+      child: BackdropFilter.grouped(
         filter: ui.ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
         child: DecoratedBox(
           decoration: BoxDecoration(

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../models/account_state.dart';
+import '../../services/cloud/account_service.dart';
 import '../../services/lan_sync_service.dart';
 
 class LanSyncWatcher extends StatefulWidget {
@@ -17,6 +19,7 @@ class _LanSyncWatcherState extends State<LanSyncWatcher>
     with WidgetsBindingObserver {
   final LanSyncService _service = LanSyncService();
   StreamSubscription<LanConnectionEvent>? _eventSub;
+  StreamSubscription<AccountState>? _accountSub;
   bool _starting = false;
 
   @override
@@ -24,6 +27,9 @@ class _LanSyncWatcherState extends State<LanSyncWatcher>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _eventSub = _service.connectionEvents.listen(_onConnectionEvent);
+    // Boot may race AccountService attach; retry once the member is
+    // approved so a cold-start "account_not_approved" does not stick.
+    _accountSub = AccountService().watch().listen(_onAccountChanged);
     _start();
   }
 
@@ -31,6 +37,7 @@ class _LanSyncWatcherState extends State<LanSyncWatcher>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _eventSub?.cancel();
+    _accountSub?.cancel();
     super.dispose();
   }
 
@@ -38,6 +45,24 @@ class _LanSyncWatcherState extends State<LanSyncWatcher>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _service.onNetworkResume();
+    }
+  }
+
+  void _onAccountChanged(AccountState account) {
+    if (!mounted) return;
+    final shopId = account.shopId?.trim();
+    if (account.stage != AccountStage.approved ||
+        shopId == null ||
+        shopId.isEmpty ||
+        _service.isRunning ||
+        _starting) {
+      return;
+    }
+    // Only auto-retry cold-start races (watcher mounted before approval).
+    // Auth / registration failures need an explicit user recovery path.
+    final status = _service.status;
+    if (status == 'stopped' || status == 'account_not_approved') {
+      _start();
     }
   }
 

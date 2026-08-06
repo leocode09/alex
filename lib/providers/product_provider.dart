@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/inventory_movement.dart';
 import '../models/product.dart';
 import '../repositories/product_repository.dart';
 import '../services/data_sync_triggers.dart';
@@ -10,7 +12,9 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return ProductRepository();
 });
 
-// Products list provider
+// Products list provider — the single source of truth for the product list.
+// Every derived provider below computes from this one shared list instead of
+// issuing its own repository read (which decodes the whole collection).
 final productsProvider = FutureProvider<List<Product>>((ref) async {
   ref.watch(syncEventsProvider);
   final repository = ref.watch(productRepositoryProvider);
@@ -27,67 +31,89 @@ final productsProvider = FutureProvider<List<Product>>((ref) async {
 // Single product provider
 final productProvider =
     FutureProvider.family<Product?, String>((ref, id) async {
-  ref.watch(syncEventsProvider);
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.getProductById(id);
+  final products = await ref.watch(productsProvider.future);
+  for (final p in products) {
+    if (p.id == id) return p;
+  }
+  return null;
 });
 
 // Products by category provider
 final productsByCategoryProvider =
     FutureProvider.family<List<Product>, String>((ref, category) async {
-  ref.watch(syncEventsProvider);
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.getProductsByCategory(category);
+  final products = await ref.watch(productsProvider.future);
+  return products.where((p) => p.category == category).toList();
 });
+
+// Mirrors ProductRepository.searchProducts semantics: name or barcode
+// contains the query, case-insensitive.
+List<Product> _searchProducts(List<Product> products, String query) {
+  final lowerQuery = query.toLowerCase();
+  return products.where((p) {
+    final nameMatch = p.name.toLowerCase().contains(lowerQuery);
+    final barcodeMatch = p.barcode?.toLowerCase().contains(lowerQuery) ?? false;
+    return nameMatch || barcodeMatch;
+  }).toList();
+}
 
 // Search products provider
 final searchProductsProvider =
     FutureProvider.family<List<Product>, String>((ref, query) async {
-  ref.watch(syncEventsProvider);
+  final products = await ref.watch(productsProvider.future);
   if (query.isEmpty) {
-    return ref.watch(productsProvider).maybeWhen(
-          data: (products) => products,
-          orElse: () => [],
-        );
+    return products;
   }
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.searchProducts(query);
+  return _searchProducts(products, query);
 });
 
-// Low stock products provider
+// Low stock products provider (threshold mirrors the repository call: <= 20,
+// sorted ascending by stock)
 final lowStockProductsProvider = FutureProvider<List<Product>>((ref) async {
-  ref.watch(syncEventsProvider);
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.getLowStockProducts(threshold: 20);
+  final products = await ref.watch(productsProvider.future);
+  final lowStock = products.where((p) => p.stock <= 20).toList()
+    ..sort((a, b) => a.stock.compareTo(b.stock));
+  return lowStock;
 });
 
 // Categories provider
 final categoriesProvider = FutureProvider<List<String>>((ref) async {
-  ref.watch(syncEventsProvider);
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.getAllCategories();
+  final products = await ref.watch(productsProvider.future);
+  final categories = products
+      .where((p) => p.category != null)
+      .map((p) => p.category!)
+      .toSet()
+      .toList()
+    ..sort();
+  return categories;
 });
 
 // Total products count provider
 final totalProductsCountProvider = FutureProvider<int>((ref) async {
-  ref.watch(syncEventsProvider);
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.getTotalProductsCount();
+  final products = await ref.watch(productsProvider.future);
+  return products.length;
 });
 
 // Total inventory value provider
 final totalInventoryValueProvider = FutureProvider<double>((ref) async {
-  ref.watch(syncEventsProvider);
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.getTotalInventoryValue();
+  final products = await ref.watch(productsProvider.future);
+  double total = 0;
+  for (final product in products) {
+    total += product.price * product.stock;
+  }
+  return total;
 });
 
 // Products count by category provider
 final productsCountByCategoryProvider =
     FutureProvider<Map<String, int>>((ref) async {
-  ref.watch(syncEventsProvider);
-  final repository = ref.watch(productRepositoryProvider);
-  return await repository.getProductsCountByCategory();
+  final products = await ref.watch(productsProvider.future);
+  final Map<String, int> counts = {};
+  for (final product in products) {
+    if (product.category != null) {
+      counts[product.category!] = (counts[product.category!] ?? 0) + 1;
+    }
+  }
+  return counts;
 });
 
 // Selected category state provider
@@ -98,13 +124,12 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 // Filtered products provider (combines search and category filter)
 final filteredProductsProvider = FutureProvider<List<Product>>((ref) async {
-  ref.watch(syncEventsProvider);
   final selectedCategory = ref.watch(selectedCategoryProvider);
   final searchQuery = ref.watch(searchQueryProvider);
-  final repository = ref.watch(productRepositoryProvider);
+  final products = await ref.watch(productsProvider.future);
 
   if (searchQuery.isNotEmpty) {
-    final searchResults = await repository.searchProducts(searchQuery);
+    final searchResults = _searchProducts(products, searchQuery);
     if (selectedCategory == null || selectedCategory.isEmpty) {
       return searchResults;
     }
@@ -112,10 +137,57 @@ final filteredProductsProvider = FutureProvider<List<Product>>((ref) async {
   }
 
   if (selectedCategory != null && selectedCategory.isNotEmpty) {
-    return await repository.getProductsByCategory(selectedCategory);
+    return products.where((p) => p.category == selectedCategory).toList();
   }
 
-  return await repository.getAllProducts();
+  return products;
+});
+
+// ---------------------------------------------------------------------------
+// Inventory page derived providers — keep the fold/sort work out of build().
+// ---------------------------------------------------------------------------
+
+/// Sum of stock across every product.
+final inventoryTotalUnitsProvider = FutureProvider<int>((ref) async {
+  final products = await ref.watch(productsProvider.future);
+  return products.fold<int>(0, (sum, p) => sum + p.stock);
+});
+
+/// Products with 0 < stock <= 20, sorted by stock ascending.
+final inventoryLowStockItemsProvider =
+    FutureProvider<List<Product>>((ref) async {
+  final products = await ref.watch(productsProvider.future);
+  final lowStock =
+      products.where((p) => p.stock > 0 && p.stock <= 20).toList()
+        ..sort((a, b) => a.stock.compareTo(b.stock));
+  return lowStock;
+});
+
+/// Products with zero stock, sorted by name.
+final inventoryOutOfStockItemsProvider =
+    FutureProvider<List<Product>>((ref) async {
+  final products = await ref.watch(productsProvider.future);
+  final outOfStock = products.where((p) => p.stock == 0).toList()
+    ..sort((a, b) => a.name.compareTo(b.name));
+  return outOfStock;
+});
+
+/// Variance stats over the last 7 days of variance movements.
+final recentInventoryVarianceStatsProvider =
+    FutureProvider<InventoryVarianceStats>((ref) async {
+  final movements = await ref.watch(inventoryVariancesProvider.future);
+  final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+  final recent = movements
+      .where((movement) => !movement.createdAt.isBefore(sevenDaysAgo))
+      .toList();
+  return InventoryVarianceStats.fromMovements(recent);
+});
+
+/// The most recent variance movements (for the "Recent Variances" list).
+final recentInventoryVarianceLogsProvider =
+    FutureProvider<List<InventoryMovement>>((ref) async {
+  final movements = await ref.watch(inventoryVariancesProvider.future);
+  return movements.take(8).toList();
 });
 
 // Product operations notifier
@@ -153,7 +225,9 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       }
       state = const AsyncValue.data(null);
       _invalidateProductCaches(productId: product.id);
-      await DataSyncTriggers.trigger(reason: 'product_added');
+      // Sync fan-out runs in the background so mutations never stall on
+      // sync socket binding (mirrors the checkout path in sales_page.dart).
+      unawaited(DataSyncTriggers.trigger(reason: 'product_added'));
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -170,7 +244,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       }
       state = const AsyncValue.data(null);
       _invalidateProductCaches(productId: product.id);
-      await DataSyncTriggers.trigger(reason: 'product_updated');
+      unawaited(DataSyncTriggers.trigger(reason: 'product_updated'));
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -187,7 +261,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       }
       state = const AsyncValue.data(null);
       _invalidateProductCaches(productId: id);
-      await DataSyncTriggers.trigger(reason: 'product_deleted');
+      unawaited(DataSyncTriggers.trigger(reason: 'product_deleted'));
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -214,7 +288,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       }
       state = const AsyncValue.data(null);
       _invalidateProductCaches(productId: id);
-      await DataSyncTriggers.trigger(reason: 'product_stock_updated');
+      unawaited(DataSyncTriggers.trigger(reason: 'product_stock_updated'));
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -243,7 +317,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       );
       state = const AsyncValue.data(null);
       _invalidateProductCaches();
-      await DataSyncTriggers.trigger(reason: syncReason);
+      unawaited(DataSyncTriggers.trigger(reason: syncReason));
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -269,7 +343,7 @@ class ProductNotifier extends StateNotifier<AsyncValue<void>> {
       );
       state = const AsyncValue.data(null);
       _invalidateProductCaches(productId: productId);
-      await DataSyncTriggers.trigger(reason: 'product_variance_recorded');
+      unawaited(DataSyncTriggers.trigger(reason: 'product_variance_recorded'));
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

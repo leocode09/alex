@@ -7,17 +7,6 @@ import '../../services/pin_service.dart';
 import '../design_system/app_theme_extensions.dart';
 import '../design_system/app_tokens.dart';
 
-const List<String> _moneyVisibilityKeys = [
-  'dashboard',
-  'addMoneyAccount',
-  'editMoneyAccount',
-  'deleteMoneyAccount',
-  'addMoney',
-  'removeMoney',
-  'viewMoneyHistory',
-  'editMoneyHistory',
-];
-
 const List<String> _salesVisibilityKeys = [
   'createSale',
   'viewSalesHistory',
@@ -64,7 +53,7 @@ class _NavItem {
   final String? pinSubtitle;
 }
 
-class MainScaffold extends StatelessWidget {
+class MainScaffold extends StatefulWidget {
   final Widget child;
   final int currentIndex;
 
@@ -75,9 +64,41 @@ class MainScaffold extends StatelessWidget {
   });
 
   @override
+  State<MainScaffold> createState() => _MainScaffoldState();
+}
+
+class _MainScaffoldState extends State<MainScaffold> {
+  // Created once (and re-created only when PIN preferences actually
+  // change) instead of on every build, so navigation never flashes or
+  // reflows while a freshly created future resolves.
+  late Future<Map<String, bool>> _preferencesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _preferencesFuture = PinService().getPinPreferences();
+    PinService.preferencesRevision.addListener(_onPreferencesChanged);
+  }
+
+  @override
+  void dispose() {
+    PinService.preferencesRevision.removeListener(_onPreferencesChanged);
+    super.dispose();
+  }
+
+  void _onPreferencesChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _preferencesFuture = PinService().getPinPreferences();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, bool>>(
-      future: PinService().getPinPreferences(),
+      future: _preferencesFuture,
       builder: (context, snapshot) {
         final preferences = snapshot.data ?? const <String, bool>{};
         final navItems = _visibleNavItems(preferences);
@@ -106,19 +127,8 @@ class MainScaffold extends StatelessWidget {
 
   List<_NavItem> _allNavItems() {
     return [
-      _NavItem(
-        slotIndex: 0,
-        label: 'Money',
-        icon: Icons.account_balance_wallet_outlined,
-        selectedIcon: Icons.account_balance_wallet,
-        route: '/money',
-        visibilityKeys: _moneyVisibilityKeys,
-        isPinRequired: (service) => service.isPinRequiredForDashboard(),
-        pinTitle: 'Money Access',
-        pinSubtitle: 'Enter PIN to view money accounts',
-      ),
       const _NavItem(
-        slotIndex: 1,
+        slotIndex: 0,
         label: 'Sales',
         icon: Icons.point_of_sale_outlined,
         selectedIcon: Icons.point_of_sale,
@@ -126,7 +136,7 @@ class MainScaffold extends StatelessWidget {
         visibilityKeys: _salesVisibilityKeys,
       ),
       const _NavItem(
-        slotIndex: 2,
+        slotIndex: 1,
         label: 'Inventory',
         icon: Icons.inventory_2_outlined,
         selectedIcon: Icons.inventory_2,
@@ -134,7 +144,7 @@ class MainScaffold extends StatelessWidget {
         visibilityKeys: _productVisibilityKeys,
       ),
       _NavItem(
-        slotIndex: 3,
+        slotIndex: 2,
         label: 'Reports',
         icon: Icons.assessment_outlined,
         selectedIcon: Icons.assessment,
@@ -150,7 +160,7 @@ class MainScaffold extends StatelessWidget {
         pinSubtitle: 'Enter PIN to view reports',
       ),
       _NavItem(
-        slotIndex: 4,
+        slotIndex: 3,
         label: 'More',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
@@ -175,7 +185,8 @@ class MainScaffold extends StatelessWidget {
     if (navItems.isEmpty) {
       return 0;
     }
-    final index = navItems.indexWhere((item) => item.slotIndex == currentIndex);
+    final index =
+        navItems.indexWhere((item) => item.slotIndex == widget.currentIndex);
     return index >= 0 ? index : 0;
   }
 
@@ -187,12 +198,12 @@ class MainScaffold extends StatelessWidget {
     final extras = context.appExtras;
 
     if (navItems.isEmpty) {
-      return Scaffold(backgroundColor: Colors.transparent, body: child);
+      return Scaffold(backgroundColor: Colors.transparent, body: widget.child);
     }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: child,
+      body: widget.child,
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(
@@ -236,7 +247,7 @@ class MainScaffold extends StatelessWidget {
     final extras = context.appExtras;
 
     if (navItems.isEmpty) {
-      return Scaffold(backgroundColor: Colors.transparent, body: child);
+      return Scaffold(backgroundColor: Colors.transparent, body: widget.child);
     }
 
     return Scaffold(
@@ -284,7 +295,7 @@ class MainScaffold extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxWidth: extendedRail ? 1080 : double.infinity,
                   ),
-                  child: child,
+                  child: widget.child,
                 ),
               ),
             ),

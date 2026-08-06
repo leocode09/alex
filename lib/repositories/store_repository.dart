@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../models/store.dart';
 import '../services/database_helper.dart';
 
@@ -7,32 +6,52 @@ class StoreRepository {
   static const String _storesKey = 'stores';
   static const String _deletedIdsKey = 'deleted_store_ids';
 
+  // In-memory caches (static: repositories are instantiated in many places).
+  static List<Store>? _cache;
+  static List<String>? _deletedIdsCache;
+
   // Get all stores
   Future<List<Store>> getAllStores() async {
+    final cached = _cache;
+    if (cached != null) return List<Store>.of(cached);
     try {
       final jsonData = await _storage.getData(_storesKey);
-      if (jsonData == null) return [];
+      if (jsonData == null) {
+        _cache = <Store>[];
+        return [];
+      }
 
-      final List<dynamic> decoded = jsonDecode(jsonData);
+      final List<dynamic> decoded = await decodeJson(jsonData);
       final stores = decoded.map((json) => Store.fromMap(json)).toList();
 
       // Sort by name
       stores.sort((a, b) => a.name.compareTo(b.name));
-      return stores;
+      _cache = stores;
+      return List<Store>.of(stores);
     } catch (e) {
       print('Error getting all stores: $e');
       return [];
     }
   }
 
-  // Save all stores
+  // Save all stores (updates the in-memory cache first so reads are
+  // instantly consistent, then persists).
   Future<bool> _saveStores(List<Store> stores) async {
+    final snapshot = List<Store>.of(stores)
+      ..sort((a, b) => a.name.compareTo(b.name));
+    _cache = snapshot;
     try {
-      final jsonList = stores.map((s) => s.toMap()).toList();
-      final jsonData = jsonEncode(jsonList);
-      return await _storage.saveData(_storesKey, jsonData);
+      final jsonList = snapshot.map((s) => s.toMap()).toList();
+      final jsonData = await encodeJson(jsonList);
+      final success = await _storage.saveData(_storesKey, jsonData);
+      if (!success) {
+        // Persist failed: refresh from storage on next read.
+        _cache = null;
+      }
+      return success;
     } catch (e) {
       print('Error saving stores: $e');
+      _cache = null;
       return false;
     }
   }
@@ -93,11 +112,18 @@ class StoreRepository {
   }
 
   Future<List<String>> getDeletedStoreIds() async {
+    final cached = _deletedIdsCache;
+    if (cached != null) return List<String>.of(cached);
     final jsonData = await _storage.getData(_deletedIdsKey);
-    if (jsonData == null) return [];
+    if (jsonData == null) {
+      _deletedIdsCache = <String>[];
+      return [];
+    }
     try {
-      final List<dynamic> decoded = jsonDecode(jsonData);
-      return decoded.cast<String>();
+      final List<dynamic> decoded = await decodeJson(jsonData);
+      final ids = List<String>.of(decoded.cast<String>());
+      _deletedIdsCache = ids;
+      return List<String>.of(ids);
     } catch (e) {
       return [];
     }
@@ -106,19 +132,28 @@ class StoreRepository {
   Future<void> addDeletedStoreIds(List<String> ids) async {
     if (ids.isEmpty) return;
     final existing = (await getDeletedStoreIds()).toSet();
+    final before = existing.length;
     existing.addAll(ids);
-    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+    if (existing.length == before) return;
+    final updated = existing.toList();
+    _deletedIdsCache = updated;
+    final saved =
+        await _storage.saveData(_deletedIdsKey, await encodeJson(updated));
+    if (!saved) _deletedIdsCache = null;
   }
 
-  Future<void> applyDeletedStoreIds(List<String> ids) async {
-    if (ids.isEmpty) return;
+  /// Returns whether any local store was actually removed.
+  Future<bool> applyDeletedStoreIds(List<String> ids) async {
+    if (ids.isEmpty) return false;
     final deletedSet = ids.toSet();
     final stores = await getAllStores();
     final filtered = stores.where((s) => !deletedSet.contains(s.id)).toList();
-    if (filtered.length < stores.length) {
+    final removed = filtered.length < stores.length;
+    if (removed) {
       await _saveStores(filtered);
     }
     await addDeletedStoreIds(ids);
+    return removed;
   }
 
   // Replace all stores (for sync)

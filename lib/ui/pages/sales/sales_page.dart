@@ -21,8 +21,8 @@ import '../../../models/license_policy.dart';
 import '../../../services/bonus_engine.dart';
 import '../../../services/pin_service.dart';
 import '../../../services/data_sync_triggers.dart';
+import '../../../services/identity_label.dart';
 import '../../../services/receipt_print_service.dart';
-import '../../../services/lan_sync_service.dart';
 import '../../../services/sync_event_bus.dart';
 import 'receipts_page.dart';
 import 'widgets/customer_picker_sheet.dart';
@@ -51,6 +51,19 @@ class _SalesPageState extends ConsumerState<SalesPage>
   int _previousTabIndex = 0;
   bool _receiptsPinInFlight = false;
 
+  // Debounced search: typing bumps [_searchRevision] after a short pause so
+  // only the product grid (wrapped in a ValueListenableBuilder) rebuilds,
+  // instead of setState-ing the whole page per keystroke.
+  Timer? _searchDebounce;
+  final ValueNotifier<int> _searchRevision = ValueNotifier<int>(0);
+
+  // Memoized catalog entries so re-filtering + package expansion only runs
+  // when the products list instance, query, or category actually changes.
+  List<Product>? _entriesCacheProducts;
+  String? _entriesCacheQuery;
+  String? _entriesCacheCategory;
+  List<_CatalogEntry>? _entriesCache;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +74,8 @@ class _SalesPageState extends ConsumerState<SalesPage>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchRevision.dispose();
     _tabController.removeListener(_handleTabControllerChange);
     _tabController.dispose();
     _searchController.dispose();
@@ -215,8 +230,24 @@ class _SalesPageState extends ConsumerState<SalesPage>
     });
   }
 
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted) return;
+      // Bump the revision so only the product grid rebuilds.
+      _searchRevision.value++;
+    });
+  }
+
   List<_CatalogEntry> _getFilteredEntries(List<Product> allProducts) {
     final query = _searchController.text.toLowerCase();
+    final cached = _entriesCache;
+    if (cached != null &&
+        identical(_entriesCacheProducts, allProducts) &&
+        _entriesCacheQuery == query &&
+        _entriesCacheCategory == _selectedCategory) {
+      return cached;
+    }
     final filtered = allProducts.where((product) {
       final matchesCategory =
           _selectedCategory == 'All' || product.category == _selectedCategory;
@@ -244,6 +275,10 @@ class _SalesPageState extends ConsumerState<SalesPage>
         }
       }
     }
+    _entriesCacheProducts = allProducts;
+    _entriesCacheQuery = query;
+    _entriesCacheCategory = _selectedCategory;
+    _entriesCache = entries;
     return entries;
   }
 
@@ -770,25 +805,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
           // Clear editing state
           ref.read(editingReceiptProvider.notifier).state = null;
         } else {
-          // Use this device's configured app name for sales attribution.
-          String employeeId = 'default-employee';
-          final prefs = await SharedPreferences.getInstance();
-          final configuredDeviceName =
-              prefs.getString('lan_device_name')?.trim();
-          if (configuredDeviceName != null && configuredDeviceName.isNotEmpty) {
-            employeeId = configuredDeviceName;
-          } else {
-            try {
-              final lanService = LanSyncService();
-              await lanService.initialize();
-              final deviceName = lanService.deviceName.trim();
-              if (deviceName.isNotEmpty) {
-                employeeId = deviceName;
-              }
-            } catch (_) {
-              // Keep fallback when device name cannot be resolved.
-            }
-          }
+          // Sales are attributed to the one signed-in person identity.
+          await IdentityLabel.initialize();
+          final employeeId = IdentityLabel.current;
 
           final effectiveCustomerId = _selectedCustomer?.id ??
               (_customerController.text.isNotEmpty
@@ -1481,7 +1500,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                     filled: true,
                     fillColor: Colors.grey[50],
                   ),
-                  onChanged: (value) => setState(() {}),
+                  onChanged: _onSearchChanged,
                 ),
               ),
               SizedBox(
@@ -1522,7 +1541,9 @@ class _SalesPageState extends ConsumerState<SalesPage>
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: productsAsync.when(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _searchRevision,
+                  builder: (context, _, __) => productsAsync.when(
                   data: (products) {
                     final filtered = _getFilteredEntries(products);
                     if (filtered.isEmpty) {
@@ -1766,6 +1787,7 @@ class _SalesPageState extends ConsumerState<SalesPage>
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Error: $err')),
+                  ),
                 ),
               ),
             ],

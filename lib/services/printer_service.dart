@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/sale.dart';
 import 'package:intl/intl.dart';
 
@@ -11,11 +12,19 @@ import '../repositories/customer_repository.dart';
 import 'bonus_rule_service.dart';
 
 class PrinterService {
+  // Persisted id/name of the last printer we connected to, so we can silently
+  // reconnect before a print instead of forcing the cashier back through the
+  // scan dialog every time the BLE link drops.
+  static const String _kLastPrinterId = 'printer_last_remote_id';
+  static const String _kLastPrinterName = 'printer_last_name';
+
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _writeCharacteristic;
   bool _useWriteWithoutResponse = false;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
+  bool get isConnected =>
+      _connectedDevice != null && _connectedDevice!.isConnected;
 
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
   Stream<bool> get isScanning => FlutterBluePlus.isScanning;
@@ -81,6 +90,9 @@ class PrinterService {
 
       await _findWriteCharacteristic(device);
 
+      // Remember this printer so later prints can auto-reconnect to it.
+      await _rememberDevice(device);
+
       // Listen for disconnection
       device.connectionState.listen((state) {
         if (state == BluetoothConnectionState.disconnected) {
@@ -101,6 +113,71 @@ class PrinterService {
       _connectedDevice = null;
       _writeCharacteristic = null;
       _useWriteWithoutResponse = false;
+    }
+  }
+
+  Future<void> _rememberDevice(BluetoothDevice device) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kLastPrinterId, device.remoteId.str);
+      await prefs.setString(_kLastPrinterName, device.platformName);
+    } catch (e) {
+      print('Could not persist last printer: $e');
+    }
+  }
+
+  /// The last printer we connected to, reconstructed from its saved id, or
+  /// null if we have never connected on this device.
+  Future<BluetoothDevice?> _lastKnownDevice() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getString(_kLastPrinterId);
+      if (id == null || id.isEmpty) return null;
+      return BluetoothDevice.fromId(id);
+    } catch (e) {
+      print('Could not load last printer: $e');
+      return null;
+    }
+  }
+
+  /// Connect with a few retries — cheap thermal printers routinely refuse the
+  /// first BLE connect attempt after going idle.
+  Future<void> _connectWithRetry(BluetoothDevice device,
+      {int attempts = 3}) async {
+    for (var attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        await connect(device);
+        return;
+      } catch (e) {
+        print('Connect attempt $attempt/$attempts failed: $e');
+        if (attempt == attempts) rethrow;
+        await Future.delayed(Duration(milliseconds: 400 * attempt));
+      }
+    }
+  }
+
+  /// Ensure there is a live connection with a usable write characteristic
+  /// before printing. Transparently reconnects to the current or last-used
+  /// printer when the link has dropped — the common cause of "it stopped
+  /// printing". Throws only when no printer has ever been connected.
+  Future<void> _ensureReady() async {
+    final current = _connectedDevice;
+    if (current != null &&
+        current.isConnected &&
+        _writeCharacteristic != null) {
+      return;
+    }
+
+    // Fall back to the last-known printer when we have no live handle.
+    final device = current ?? await _lastKnownDevice();
+    if (device == null) {
+      throw Exception('Printer not connected');
+    }
+
+    await _connectWithRetry(device);
+
+    if (_writeCharacteristic == null) {
+      await _findWriteCharacteristic(device);
     }
   }
 
@@ -196,13 +273,7 @@ class PrinterService {
     ReceiptSettings settings, {
     int printNumber = 1,
   }) async {
-    if (_connectedDevice == null) {
-      throw Exception('Printer not connected');
-    }
-
-    if (_writeCharacteristic == null) {
-      await _findWriteCharacteristic(_connectedDevice!);
-    }
+    await _ensureReady();
 
     final profile = await CapabilityProfile.load();
     final generator = Generator(PaperSize.mm58, profile);
@@ -532,13 +603,7 @@ class PrinterService {
 
   /// Test print function to verify printer connectivity
   Future<void> testPrint() async {
-    if (_connectedDevice == null) {
-      throw Exception('Printer not connected');
-    }
-
-    if (_writeCharacteristic == null) {
-      await _findWriteCharacteristic(_connectedDevice!);
-    }
+    await _ensureReady();
 
     final profile = await CapabilityProfile.load();
     final generator = Generator(PaperSize.mm58, profile);
@@ -563,8 +628,23 @@ class PrinterService {
     await _sendBytesToPrinter(bytes);
   }
 
-  /// Sends bytes to the connected printer in chunks
+  /// Sends bytes to the connected printer in chunks.
+  ///
+  /// If the whole transfer fails (the link dropped between connecting and
+  /// writing — the usual cause of a missed receipt), reconnect once and resend
+  /// before giving up.
   Future<void> _sendBytesToPrinter(List<int> bytes) async {
+    try {
+      await _writeAllChunks(bytes);
+    } catch (e) {
+      print('Print failed ($e); reconnecting and retrying once...');
+      _writeCharacteristic = null;
+      await _ensureReady();
+      await _writeAllChunks(bytes);
+    }
+  }
+
+  Future<void> _writeAllChunks(List<int> bytes) async {
     if (_writeCharacteristic == null) {
       throw Exception('Write characteristic not available');
     }

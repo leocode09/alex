@@ -32,7 +32,22 @@ class _JoinBusinessPageState extends ConsumerState<JoinBusinessPage> {
   bool _searching = false;
   bool _submitting = false;
   List<BusinessSummary> _results = const [];
+  String? _searchError;
   BusinessSummary? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    final account = ref.read(accountServiceProvider).current;
+    final name = account.displayName?.trim();
+    final phone = account.phone?.trim();
+    if (name != null && name.isNotEmpty) {
+      _nameController.text = name;
+    }
+    if (phone != null && phone.isNotEmpty) {
+      _phoneController.text = phone;
+    }
+  }
 
   @override
   void dispose() {
@@ -51,17 +66,22 @@ class _JoinBusinessPageState extends ConsumerState<JoinBusinessPage> {
     if (next.isEmpty) {
       setState(() {
         _results = const [];
+        _searchError = null;
         _searching = false;
       });
       return;
     }
-    setState(() => _searching = true);
+    setState(() {
+      _searching = true;
+      _searchError = null;
+    });
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       final service = ref.read(accountServiceProvider);
-      final results = await service.searchApprovedBusinesses(next);
+      final result = await service.searchApprovedBusinesses(next);
       if (!mounted || _query != next) return;
       setState(() {
-        _results = results;
+        _results = result.businesses;
+        _searchError = result.error;
         _searching = false;
       });
     });
@@ -174,9 +194,13 @@ class _JoinBusinessPageState extends ConsumerState<JoinBusinessPage> {
             AppPanel(
               padding: const EdgeInsets.all(AppTokens.space3),
               child: Text(
-                'No approved businesses match "$_query". Check the '
-                'spelling, or ask the owner for the exact name.',
-                style: TextStyle(color: extras.muted),
+                _searchError ??
+                    'No approved businesses match "$_query". Check the '
+                        'spelling, or ask the owner for the exact name '
+                        '(or shop code).',
+                style: TextStyle(
+                  color: _searchError != null ? extras.danger : extras.muted,
+                ),
               ),
             ),
           if (_selected == null && _results.isNotEmpty)

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../helpers/pin_protection.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/pin_service.dart';
 import '../../design_system/app_theme_extensions.dart';
@@ -85,27 +84,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
       return;
     }
 
-    final requireDashboardPin = await pinService.isPinRequiredForDashboard();
     if (!mounted) {
       return;
     }
 
-    if (requireDashboardPin) {
-      final verified = await PinProtection.requirePin(
-        context,
-        title: 'Money Access',
-        subtitle: 'Enter PIN to view money accounts',
-      );
-      if (!verified) {
-        return;
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    context.go('/money');
+    context.go('/sales');
   }
 
   @override

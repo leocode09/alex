@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../models/category.dart';
 import '../services/database_helper.dart';
 
@@ -7,20 +6,38 @@ class CategoryRepository {
   static const String _categoriesKey = 'categories';
   static const String _deletedIdsKey = 'deleted_category_ids';
 
+  // In-memory caches (static: repositories are instantiated in many places).
+  // The cache holds the stored list; an empty stored list still yields
+  // defaults from [getAllCategories], matching the uncached behavior.
+  static List<Category>? _cache;
+  static List<String>? _deletedIdsCache;
+
   // Get all categories
   Future<List<Category>> getAllCategories() async {
+    final cached = _cache;
+    if (cached != null) {
+      if (cached.isEmpty) return _getDefaultCategories();
+      return List<Category>.of(cached);
+    }
     try {
       final jsonData = await _storage.getData(_categoriesKey);
-      if (jsonData == null) return _getDefaultCategories();
+      if (jsonData == null) {
+        _cache = <Category>[];
+        return _getDefaultCategories();
+      }
 
-      final List<dynamic> decoded = jsonDecode(jsonData);
-      if (decoded.isEmpty) return _getDefaultCategories();
+      final List<dynamic> decoded = await decodeJson(jsonData);
+      if (decoded.isEmpty) {
+        _cache = <Category>[];
+        return _getDefaultCategories();
+      }
 
       final categories = decoded.map((json) => Category.fromMap(json)).toList();
 
       // Sort by name
       categories.sort((a, b) => a.name.compareTo(b.name));
-      return categories;
+      _cache = categories;
+      return List<Category>.of(categories);
     } catch (e) {
       print('Error getting categories: $e');
       return _getDefaultCategories();
@@ -58,14 +75,24 @@ class CategoryRepository {
     ];
   }
 
-  // Save all categories
+  // Save all categories (updates the in-memory cache first so reads are
+  // instantly consistent, then persists).
   Future<bool> _saveCategories(List<Category> categories) async {
+    final snapshot = List<Category>.of(categories)
+      ..sort((a, b) => a.name.compareTo(b.name));
+    _cache = snapshot;
     try {
-      final jsonList = categories.map((c) => c.toMap()).toList();
-      final jsonData = jsonEncode(jsonList);
-      return await _storage.saveData(_categoriesKey, jsonData);
+      final jsonList = snapshot.map((c) => c.toMap()).toList();
+      final jsonData = await encodeJson(jsonList);
+      final success = await _storage.saveData(_categoriesKey, jsonData);
+      if (!success) {
+        // Persist failed: refresh from storage on next read.
+        _cache = null;
+      }
+      return success;
     } catch (e) {
       print('Error saving categories: $e');
+      _cache = null;
       return false;
     }
   }
@@ -131,11 +158,18 @@ class CategoryRepository {
   }
 
   Future<List<String>> getDeletedCategoryIds() async {
+    final cached = _deletedIdsCache;
+    if (cached != null) return List<String>.of(cached);
     final jsonData = await _storage.getData(_deletedIdsKey);
-    if (jsonData == null) return [];
+    if (jsonData == null) {
+      _deletedIdsCache = <String>[];
+      return [];
+    }
     try {
-      final List<dynamic> decoded = jsonDecode(jsonData);
-      return decoded.cast<String>();
+      final List<dynamic> decoded = await decodeJson(jsonData);
+      final ids = List<String>.of(decoded.cast<String>());
+      _deletedIdsCache = ids;
+      return List<String>.of(ids);
     } catch (e) {
       return [];
     }
@@ -144,20 +178,29 @@ class CategoryRepository {
   Future<void> addDeletedCategoryIds(List<String> ids) async {
     if (ids.isEmpty) return;
     final existing = (await getDeletedCategoryIds()).toSet();
+    final before = existing.length;
     existing.addAll(ids);
-    await _storage.saveData(_deletedIdsKey, jsonEncode(existing.toList()));
+    if (existing.length == before) return;
+    final updated = existing.toList();
+    _deletedIdsCache = updated;
+    final saved =
+        await _storage.saveData(_deletedIdsKey, await encodeJson(updated));
+    if (!saved) _deletedIdsCache = null;
   }
 
-  Future<void> applyDeletedCategoryIds(List<String> ids) async {
-    if (ids.isEmpty) return;
+  /// Returns whether any local category was actually removed.
+  Future<bool> applyDeletedCategoryIds(List<String> ids) async {
+    if (ids.isEmpty) return false;
     final deletedSet = ids.toSet();
     final categories = await getAllCategories();
     final filtered =
         categories.where((c) => !deletedSet.contains(c.id)).toList();
-    if (filtered.length < categories.length) {
+    final removed = filtered.length < categories.length;
+    if (removed) {
       await _saveCategories(filtered);
     }
     await addDeletedCategoryIds(ids);
+    return removed;
   }
 
   // Initialize default categories if none exist

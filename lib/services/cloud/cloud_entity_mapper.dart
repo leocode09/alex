@@ -1,13 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../models/account_history_record.dart';
 import '../../models/category.dart';
 import '../../models/customer.dart';
 import '../../models/customer_credit_entry.dart';
 import '../../models/employee.dart';
 import '../../models/expense.dart';
 import '../../models/inventory_movement.dart';
-import '../../models/money_account.dart';
 import '../../models/product.dart';
 import '../../models/sale.dart';
 import '../../models/store.dart';
@@ -85,19 +83,6 @@ class CloudEntityMapper {
   }) =>
       _stamp(store.toMap(), deviceId: deviceId, deleted: deleted);
 
-  static Map<String, dynamic> moneyAccountToDoc(
-    MoneyAccount account, {
-    required String deviceId,
-    bool deleted = false,
-  }) =>
-      _stamp(account.toMap(), deviceId: deviceId, deleted: deleted);
-
-  static Map<String, dynamic> moneyHistoryToDoc(
-    AccountHistoryRecord record, {
-    required String deviceId,
-  }) =>
-      _stamp(record.toMap(), deviceId: deviceId, deleted: false);
-
   static Map<String, dynamic> inventoryMovementToDoc(
     InventoryMovement movement, {
     required String deviceId,
@@ -133,12 +118,6 @@ class CloudEntityMapper {
 
   static Store? storeFromDoc(Map<String, dynamic> doc) =>
       _safeDecode(doc, (m) => Store.fromMap(m));
-
-  static MoneyAccount? moneyAccountFromDoc(Map<String, dynamic> doc) =>
-      _safeDecode(doc, (m) => MoneyAccount.fromMap(m));
-
-  static AccountHistoryRecord? moneyHistoryFromDoc(Map<String, dynamic> doc) =>
-      _safeDecode(doc, (m) => AccountHistoryRecord.fromMap(m));
 
   static InventoryMovement? inventoryMovementFromDoc(
           Map<String, dynamic> doc) =>
