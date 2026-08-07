@@ -1,0 +1,17 @@
+{
+  "id": "a2c848d6-1eba-d982-3bd6-7425eb40403c",
+  "createdAt": "2026-08-06T03:10:56.895Z",
+  "version": "1.0.9+10",
+  "runtimeVersion": "1.0.9+10",
+  "platforms": {
+    "android": {
+      "launchAsset": {
+        "hash": "2TXFYP5IJHOcIrvrEvA1TNYLy09f0yYK4yK57zinWEI",
+        "key": "46cac0d711032acb402efc42a1ae0359",
+        "contentType": "application/vnd.android.package-archive",
+        "fileExtension": ".apk",
+        "url": "https://github.com/leocode09/alex/releases/download/apk-v1.0.9-10/alex-pos.apk"
+      }
+    }
+  }
+}

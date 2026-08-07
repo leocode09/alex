@@ -1,0 +1,739 @@
+{
+  "summary": {
+    "shops": 3,
+    "users": 3,
+    "devices": 16,
+    "admins": 2,
+    "membersTotal": 9,
+    "softDeletedShops": 0,
+    "approvedShops": 3
+  },
+  "inventory": {
+    "shops": [
+      {
+        "id": "A672wCH5e51CYax90yVl",
+        "name": "ALEX SHOP",
+        "code": "PBHKH6",
+        "ownerUid": "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+        "ownerName": "alex",
+        "ownerPhone": "0784712870",
+        "businessPhone": "0784712870",
+        "approvalStatus": "approved",
+        "enabled": false,
+        "createdAt": "2026-05-22T04:28:59.323321",
+        "pinPresent": false,
+        "memberCount": 1
+      },
+      {
+        "id": "Mcl5IaVSZjyQdMnogXh8",
+        "name": "Dime shop",
+        "code": "TT7U4S",
+        "ownerUid": "LbY4O5HRlhfpIRRV7bhSXTMn04a2",
+        "ownerName": "leo",
+        "ownerPhone": "0798579079",
+        "businessPhone": "0798579079",
+        "approvalStatus": "approved",
+        "createdAt": "2026-05-21T22:41:12.867096",
+        "pinPresent": false,
+        "memberCount": 4
+      },
+      {
+        "id": "Y6XpFI3Qp0vqS19tEeWK",
+        "name": "ALEX SHOP",
+        "code": "DFDXXY",
+        "ownerUid": "zFuDiCyZ5AV8a5RdShsp5PLVecs1",
+        "ownerName": "alex",
+        "ownerPhone": "0784712870",
+        "businessPhone": "0784712870",
+        "approvalStatus": "approved",
+        "enabled": true,
+        "createdAt": "2026-05-21T20:35:07.712969",
+        "pinPresent": false,
+        "memberCount": 4
+      }
+    ],
+    "users": [
+      {
+        "id": "SleDof2llmWws5cs4J7UBv2Vmwh1",
+        "displayName": "Maggi",
+        "updatedAt": "2026-07-25T12:19:48.685Z"
+      },
+      {
+        "id": "UONx1jXzB0dv6Iy5pzNXZzpncDy1",
+        "shopId": "",
+        "role": "",
+        "updatedAt": "2026-07-14T18:47:28.927Z"
+      },
+      {
+        "id": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "phone": "0784712870",
+        "phoneKey": "250784712870",
+        "displayName": "kudzi",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "role": "staff",
+        "updatedAt": "2026-08-07T14:25:28.605Z"
+      }
+    ],
+    "members": [
+      {
+        "shopId": "A672wCH5e51CYax90yVl",
+        "shopName": "ALEX SHOP",
+        "shopCode": "PBHKH6",
+        "id": "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+        "role": "owner",
+        "displayName": "alex",
+        "phone": "0784712870",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "shopName": "Dime shop",
+        "shopCode": "TT7U4S",
+        "id": "LbY4O5HRlhfpIRRV7bhSXTMn04a2",
+        "role": "owner",
+        "displayName": "leo",
+        "phone": "0798579079",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "shopName": "Dime shop",
+        "shopCode": "TT7U4S",
+        "id": "QlvUgAb2qog1kIVaaRVN82siDa13",
+        "role": "staff",
+        "displayName": "maggi",
+        "phone": "0784712871",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "shopName": "Dime shop",
+        "shopCode": "TT7U4S",
+        "id": "SleDof2llmWws5cs4J7UBv2Vmwh1",
+        "role": "staff",
+        "displayName": "Alex muzaliwa",
+        "phone": "+263773888087",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "shopName": "Dime shop",
+        "shopCode": "TT7U4S",
+        "id": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "role": "staff",
+        "displayName": "kudzi",
+        "phone": "0784712870",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "shopName": "ALEX SHOP",
+        "shopCode": "DFDXXY",
+        "id": "RrObW4sipjN90IV2T2lpgbfaaPL2",
+        "role": "staff",
+        "displayName": "Mai alex",
+        "phone": "0773888087",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "shopName": "ALEX SHOP",
+        "shopCode": "DFDXXY",
+        "id": "lwn8rbvyqLN3msdgR4wKQBLAEU33",
+        "role": "staff",
+        "displayName": "alex",
+        "phone": "0784712877",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "shopName": "ALEX SHOP",
+        "shopCode": "DFDXXY",
+        "id": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "role": "staff",
+        "displayName": "ALEX",
+        "phone": "0784712870",
+        "approvalStatus": "approved"
+      },
+      {
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "shopName": "ALEX SHOP",
+        "shopCode": "DFDXXY",
+        "id": "zFuDiCyZ5AV8a5RdShsp5PLVecs1",
+        "role": "owner",
+        "displayName": "alex",
+        "phone": "0784712870",
+        "approvalStatus": "approved"
+      }
+    ],
+    "devices": [
+      {
+        "id": "0e432bd6-bd3b-4dc8-a644-8250b253e054",
+        "ownerUid": "RrObW4sipjN90IV2T2lpgbfaaPL2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "deviceName": "Mai alex",
+        "installId": "0e432bd6-bd3b-4dc8-a644-8250b253e054",
+        "platform": "android",
+        "model": "HUAWEI STK-L21",
+        "lastSeenAt": "2026-06-22T07:27:12.351Z"
+      },
+      {
+        "id": "128b1449-a6ac-47fc-b781-8cbc236bfcbd",
+        "ownerUid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "deviceName": null,
+        "installId": "128b1449-a6ac-47fc-b781-8cbc236bfcbd",
+        "platform": "android",
+        "model": "samsung SM-F926N",
+        "lastSeenAt": "2026-06-26T15:14:03.665Z"
+      },
+      {
+        "id": "1d9ea88f-a17a-46ef-93f9-a1d4fd7e45b6",
+        "ownerUid": "wO2hq63xIIcA60nl0qHqJ15XZCv2",
+        "shopId": null,
+        "deviceName": null,
+        "installId": "1d9ea88f-a17a-46ef-93f9-a1d4fd7e45b6",
+        "platform": "android",
+        "model": "samsung SM-F926N",
+        "lastSeenAt": "2026-06-16T20:15:14.122Z"
+      },
+      {
+        "id": "31b88d74-0194-4c11-80a7-dde67d96025d",
+        "ownerUid": "0OcYOIvr4BW0Z6FICdsQ1HTlb9G2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "deviceName": "KUDZI",
+        "installId": "31b88d74-0194-4c11-80a7-dde67d96025d",
+        "platform": "android",
+        "model": "Xiaomi 2201116TG",
+        "lastSeenAt": "2026-05-21T19:15:45.667Z",
+        "blocked": true
+      },
+      {
+        "id": "49bc872a-7a66-445a-8532-510587abcdd8",
+        "ownerUid": "S22UaIIhOFaV5KKqrgURz3L5pP92",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "deviceName": null,
+        "installId": "49bc872a-7a66-445a-8532-510587abcdd8",
+        "platform": "android",
+        "model": "samsung SM-A065F",
+        "lastSeenAt": "2026-06-25T15:12:49.560Z"
+      },
+      {
+        "id": "6383b7ff-3a3a-405c-a1b9-4a3f4edaf7d5",
+        "ownerUid": "QlvUgAb2qog1kIVaaRVN82siDa13",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "deviceName": "Maggi",
+        "installId": "6383b7ff-3a3a-405c-a1b9-4a3f4edaf7d5",
+        "platform": "android",
+        "model": "HUAWEI STK-L21",
+        "lastSeenAt": "2026-07-11T13:52:25.423Z"
+      },
+      {
+        "id": "7521c0fc-bea6-4de6-a1b6-cb1879f52e22",
+        "ownerUid": "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+        "shopId": "A672wCH5e51CYax90yVl",
+        "deviceName": "KUDZI",
+        "installId": "7521c0fc-bea6-4de6-a1b6-cb1879f52e22",
+        "platform": "android",
+        "model": "Xiaomi 2201116TG",
+        "lastSeenAt": "2026-05-22T02:33:11.846Z"
+      },
+      {
+        "id": "8423f11d-9789-41a6-837a-ea4112b177f1",
+        "ownerUid": "y6M36m4QKZWjOgYIDSrdFeNTTIq2",
+        "shopId": null,
+        "deviceName": "KUDZI",
+        "installId": "8423f11d-9789-41a6-837a-ea4112b177f1",
+        "platform": "android",
+        "model": "Xiaomi 2201116TG",
+        "lastSeenAt": "2026-05-23T19:20:46.195Z"
+      },
+      {
+        "id": "9ace6575-87ab-41d5-b144-d66b163933d3",
+        "ownerUid": "6gZDWZpsXNfmVMyA7QQ0LzGgTjC3",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "deviceName": "ALEX",
+        "installId": "9ace6575-87ab-41d5-b144-d66b163933d3",
+        "platform": "android",
+        "model": "samsung SM-F926N",
+        "lastSeenAt": "2026-05-21T18:56:51.817Z",
+        "blocked": false
+      },
+      {
+        "id": "a0d5af77-0274-4c30-85cf-f585f991ac9d",
+        "ownerUid": "oViMfrxWS1OL24QwpH7eOVdRGfy1",
+        "shopId": null,
+        "deviceName": null,
+        "installId": "a0d5af77-0274-4c30-85cf-f585f991ac9d",
+        "platform": "android",
+        "model": "samsung SM-A055F",
+        "lastSeenAt": "2026-07-15T13:21:08.255Z"
+      },
+      {
+        "id": "b918768e-72a0-46a9-be21-c46c5222ba72",
+        "ownerUid": "Ue8gT92OOJhJ3m1Xi4vneS9eC9s2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "deviceName": null,
+        "installId": "b918768e-72a0-46a9-be21-c46c5222ba72",
+        "platform": "android",
+        "model": "samsung SM-A065F",
+        "lastSeenAt": "2026-05-21T19:23:06.554Z"
+      },
+      {
+        "id": "c05d8cee-9926-47de-aaf0-c2c8414573ea",
+        "ownerUid": "EnmVOuG6EIXfEFs8SWMbrABVC3z2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "deviceName": null,
+        "installId": "c05d8cee-9926-47de-aaf0-c2c8414573ea",
+        "platform": "android",
+        "model": "samsung SM-A065F",
+        "lastSeenAt": "2026-05-21T18:59:24.001Z"
+      },
+      {
+        "id": "d1c5776d-f31e-4913-8271-234c5e745340",
+        "ownerUid": "JJnIMupFOmZAInGHJF7AsvDCui72",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "deviceName": null,
+        "installId": "d1c5776d-f31e-4913-8271-234c5e745340",
+        "platform": "web",
+        "model": null,
+        "lastSeenAt": "2026-06-02T22:55:04.890Z"
+      },
+      {
+        "id": "d414804e-d569-479c-a7cd-76653781a6ca",
+        "boundUid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "ownerUid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "deviceName": "Maggi",
+        "installId": "d414804e-d569-479c-a7cd-76653781a6ca",
+        "platform": "android",
+        "model": "samsung SM-F926N",
+        "lastSeenAt": "2026-07-25T19:19:53.395Z"
+      },
+      {
+        "id": "e118c26d-1b41-49cc-ad79-c9efa51b65d8",
+        "ownerUid": "660epvf5YCdSubbHks0JMdC5yJV2",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "deviceName": null,
+        "installId": "e118c26d-1b41-49cc-ad79-c9efa51b65d8",
+        "platform": "android",
+        "model": "samsung SM-A165F",
+        "lastSeenAt": "2026-06-14T16:07:22.942Z"
+      },
+      {
+        "id": "fa99d007-50ef-443f-9e4f-d913cc6e1238",
+        "ownerUid": "LbY4O5HRlhfpIRRV7bhSXTMn04a2",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "deviceName": null,
+        "installId": "fa99d007-50ef-443f-9e4f-d913cc6e1238",
+        "platform": "android",
+        "model": "samsung SM-A065F",
+        "lastSeenAt": "2026-06-18T19:25:27.108Z"
+      }
+    ],
+    "admins": [
+      {
+        "id": "TrmYJB3iQKMrjxufUlXGryTdCrL2",
+        "email": "leo@dime.rw",
+        "role": "owner",
+        "createdAt": "2026-04-19"
+      },
+      {
+        "id": "kqjuKRIfeUNoW2cEGXZUMdVOSyF3",
+        "phone": "0784712870",
+        "email": "alex@alexshop.rw",
+        "role": "owner",
+        "createdAt": "2026-05-21"
+      }
+    ],
+    "pinSummary": [
+      {
+        "id": "A672wCH5e51CYax90yVl",
+        "name": "ALEX SHOP",
+        "pinPresent": false,
+        "hasSettings": false
+      },
+      {
+        "id": "Mcl5IaVSZjyQdMnogXh8",
+        "name": "Dime shop",
+        "pinPresent": false,
+        "hasSettings": false
+      },
+      {
+        "id": "Y6XpFI3Qp0vqS19tEeWK",
+        "name": "ALEX SHOP",
+        "pinPresent": false,
+        "hasSettings": false
+      }
+    ]
+  },
+  "issueCounts": {
+    "duplicateShopsByPhoneKey": 0,
+    "duplicateShopsByOwnerPhone": 1,
+    "missingOrMismatchedOwnerPhoneKey": 3,
+    "userPointerMismatch": 0,
+    "duplicatePhoneKeyOnUsers": 0,
+    "phoneSharedAcrossUidsViaMembersShops": 1,
+    "memberPhoneMismatchVsUser": 0,
+    "orphanMembers": 3,
+    "ownerMembershipIssues": 0,
+    "enabledFalseButApproved": 1,
+    "deviceUserMissing": 14,
+    "deviceNoBoundUid": 0,
+    "deviceShopMismatch": 0,
+    "adminInconsistencies": 2,
+    "softDeletedShopStillReferenced": 0,
+    "multiShopApprovedMemberships": 1,
+    "displayNameMismatches": 2,
+    "pinSettingsQuirks": 0,
+    "knownCaseInventory": "see detail"
+  },
+  "issues": {
+    "duplicateShopsByPhoneKey": [],
+    "duplicateShopsByOwnerPhone": [
+      {
+        "ownerPhoneNormalized": "250784712870",
+        "shops": [
+          "A672wCH5e51CYax90yVl \"ALEX SHOP\" code=PBHKH6 ownerUid=yxE9H8BdSYgVxIYSBY8MKwZPkTo2 phone=0784712870 key=? status=approved enabled=false deleted=false",
+          "Y6XpFI3Qp0vqS19tEeWK \"ALEX SHOP\" code=DFDXXY ownerUid=zFuDiCyZ5AV8a5RdShsp5PLVecs1 phone=0784712870 key=? status=approved enabled=true deleted=false"
+        ]
+      }
+    ],
+    "missingOrMismatchedOwnerPhoneKey": [
+      {
+        "kind": "missing",
+        "shop": "A672wCH5e51CYax90yVl \"ALEX SHOP\" code=PBHKH6 ownerUid=yxE9H8BdSYgVxIYSBY8MKwZPkTo2 phone=0784712870 key=? status=approved enabled=false deleted=false",
+        "expectedFromOwnerPhone": "250784712870"
+      },
+      {
+        "kind": "missing",
+        "shop": "Mcl5IaVSZjyQdMnogXh8 \"Dime shop\" code=TT7U4S ownerUid=LbY4O5HRlhfpIRRV7bhSXTMn04a2 phone=0798579079 key=? status=approved enabled=undefined deleted=false",
+        "expectedFromOwnerPhone": "250798579079"
+      },
+      {
+        "kind": "missing",
+        "shop": "Y6XpFI3Qp0vqS19tEeWK \"ALEX SHOP\" code=DFDXXY ownerUid=zFuDiCyZ5AV8a5RdShsp5PLVecs1 phone=0784712870 key=? status=approved enabled=true deleted=false",
+        "expectedFromOwnerPhone": "250784712870"
+      }
+    ],
+    "userPointerMismatch": [],
+    "duplicatePhoneKeyOnUsers": [],
+    "phoneSharedAcrossUidsViaMembersShops": [
+      {
+        "phoneKey": "250784712870",
+        "uids": [
+          "oshMkZAte0gcGI71F5taEdbTUdj1",
+          "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+          "zFuDiCyZ5AV8a5RdShsp5PLVecs1"
+        ],
+        "users": [
+          "oshMkZAte0gcGI71F5taEdbTUdj1 phone=0784712870 key=250784712870 name=kudzi shopId=Mcl5IaVSZjyQdMnogXh8 role=staff",
+          "MISSING_USER yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+          "MISSING_USER zFuDiCyZ5AV8a5RdShsp5PLVecs1"
+        ]
+      }
+    ],
+    "memberPhoneMismatchVsUser": [],
+    "orphanMembers": [
+      {
+        "shop": "Mcl5IaVSZjyQdMnogXh8 \"Dime shop\" code=TT7U4S ownerUid=LbY4O5HRlhfpIRRV7bhSXTMn04a2 phone=0798579079 key=? status=approved enabled=undefined deleted=false",
+        "memberUid": "QlvUgAb2qog1kIVaaRVN82siDa13",
+        "displayName": "maggi",
+        "role": "staff",
+        "phone": "0784712871",
+        "approvalStatus": "approved"
+      },
+      {
+        "shop": "Y6XpFI3Qp0vqS19tEeWK \"ALEX SHOP\" code=DFDXXY ownerUid=zFuDiCyZ5AV8a5RdShsp5PLVecs1 phone=0784712870 key=? status=approved enabled=true deleted=false",
+        "memberUid": "RrObW4sipjN90IV2T2lpgbfaaPL2",
+        "displayName": "Mai alex",
+        "role": "staff",
+        "phone": "0773888087",
+        "approvalStatus": "approved"
+      },
+      {
+        "shop": "Y6XpFI3Qp0vqS19tEeWK \"ALEX SHOP\" code=DFDXXY ownerUid=zFuDiCyZ5AV8a5RdShsp5PLVecs1 phone=0784712870 key=? status=approved enabled=true deleted=false",
+        "memberUid": "lwn8rbvyqLN3msdgR4wKQBLAEU33",
+        "displayName": "alex",
+        "role": "staff",
+        "phone": "0784712877",
+        "approvalStatus": "approved"
+      }
+    ],
+    "ownerMembershipIssues": [],
+    "enabledFalseButApproved": [
+      "A672wCH5e51CYax90yVl \"ALEX SHOP\" code=PBHKH6 ownerUid=yxE9H8BdSYgVxIYSBY8MKwZPkTo2 phone=0784712870 key=? status=approved enabled=false deleted=false"
+    ],
+    "deviceUserMissing": [
+      {
+        "deviceId": "0e432bd6-bd3b-4dc8-a644-8250b253e054",
+        "field": "ownerUid",
+        "uid": "RrObW4sipjN90IV2T2lpgbfaaPL2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "label": "Mai alex"
+      },
+      {
+        "deviceId": "1d9ea88f-a17a-46ef-93f9-a1d4fd7e45b6",
+        "field": "ownerUid",
+        "uid": "wO2hq63xIIcA60nl0qHqJ15XZCv2",
+        "shopId": null
+      },
+      {
+        "deviceId": "31b88d74-0194-4c11-80a7-dde67d96025d",
+        "field": "ownerUid",
+        "uid": "0OcYOIvr4BW0Z6FICdsQ1HTlb9G2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "label": "KUDZI"
+      },
+      {
+        "deviceId": "49bc872a-7a66-445a-8532-510587abcdd8",
+        "field": "ownerUid",
+        "uid": "S22UaIIhOFaV5KKqrgURz3L5pP92",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8"
+      },
+      {
+        "deviceId": "6383b7ff-3a3a-405c-a1b9-4a3f4edaf7d5",
+        "field": "ownerUid",
+        "uid": "QlvUgAb2qog1kIVaaRVN82siDa13",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8",
+        "label": "Maggi"
+      },
+      {
+        "deviceId": "7521c0fc-bea6-4de6-a1b6-cb1879f52e22",
+        "field": "ownerUid",
+        "uid": "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+        "shopId": "A672wCH5e51CYax90yVl",
+        "label": "KUDZI"
+      },
+      {
+        "deviceId": "8423f11d-9789-41a6-837a-ea4112b177f1",
+        "field": "ownerUid",
+        "uid": "y6M36m4QKZWjOgYIDSrdFeNTTIq2",
+        "shopId": null,
+        "label": "KUDZI"
+      },
+      {
+        "deviceId": "9ace6575-87ab-41d5-b144-d66b163933d3",
+        "field": "ownerUid",
+        "uid": "6gZDWZpsXNfmVMyA7QQ0LzGgTjC3",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+        "label": "ALEX"
+      },
+      {
+        "deviceId": "a0d5af77-0274-4c30-85cf-f585f991ac9d",
+        "field": "ownerUid",
+        "uid": "oViMfrxWS1OL24QwpH7eOVdRGfy1",
+        "shopId": null
+      },
+      {
+        "deviceId": "b918768e-72a0-46a9-be21-c46c5222ba72",
+        "field": "ownerUid",
+        "uid": "Ue8gT92OOJhJ3m1Xi4vneS9eC9s2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK"
+      },
+      {
+        "deviceId": "c05d8cee-9926-47de-aaf0-c2c8414573ea",
+        "field": "ownerUid",
+        "uid": "EnmVOuG6EIXfEFs8SWMbrABVC3z2",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK"
+      },
+      {
+        "deviceId": "d1c5776d-f31e-4913-8271-234c5e745340",
+        "field": "ownerUid",
+        "uid": "JJnIMupFOmZAInGHJF7AsvDCui72",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8"
+      },
+      {
+        "deviceId": "e118c26d-1b41-49cc-ad79-c9efa51b65d8",
+        "field": "ownerUid",
+        "uid": "660epvf5YCdSubbHks0JMdC5yJV2",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8"
+      },
+      {
+        "deviceId": "fa99d007-50ef-443f-9e4f-d913cc6e1238",
+        "field": "ownerUid",
+        "uid": "LbY4O5HRlhfpIRRV7bhSXTMn04a2",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8"
+      }
+    ],
+    "deviceNoBoundUid": [],
+    "deviceShopMismatch": [],
+    "adminInconsistencies": [
+      {
+        "admin": {
+          "id": "TrmYJB3iQKMrjxufUlXGryTdCrL2",
+          "role": "owner",
+          "createdAt": "2026-04-19",
+          "email": "leo@dime.rw"
+        },
+        "problems": [
+          "no matching /users doc"
+        ],
+        "matchedUser": null
+      },
+      {
+        "admin": {
+          "id": "kqjuKRIfeUNoW2cEGXZUMdVOSyF3",
+          "role": "owner",
+          "createdAt": "2026-05-21",
+          "phone": "0784712870",
+          "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+          "shopCode": "DFDXXY",
+          "name": "ALEX",
+          "email": "alex@alexshop.rw"
+        },
+        "problems": [
+          "no matching /users doc"
+        ],
+        "matchedUser": null
+      }
+    ],
+    "softDeletedShopStillReferenced": [],
+    "multiShopApprovedMemberships": [
+      {
+        "uid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "user": "oshMkZAte0gcGI71F5taEdbTUdj1 phone=0784712870 key=250784712870 name=kudzi shopId=Mcl5IaVSZjyQdMnogXh8 role=staff",
+        "memberships": [
+          "shop=Mcl5IaVSZjyQdMnogXh8 \"Dime shop\" code=TT7U4S role=staff status=approved name=kudzi",
+          "shop=Y6XpFI3Qp0vqS19tEeWK \"ALEX SHOP\" code=DFDXXY role=staff status=approved name=ALEX"
+        ]
+      }
+    ],
+    "displayNameMismatches": [
+      {
+        "kind": "user_vs_member",
+        "uid": "SleDof2llmWws5cs4J7UBv2Vmwh1",
+        "userName": "Maggi",
+        "memberName": "Alex muzaliwa",
+        "shopId": "Mcl5IaVSZjyQdMnogXh8"
+      },
+      {
+        "kind": "user_vs_member",
+        "uid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+        "userName": "kudzi",
+        "memberName": "ALEX",
+        "shopId": "Y6XpFI3Qp0vqS19tEeWK"
+      }
+    ],
+    "pinSettingsQuirks": [],
+    "knownCaseInventory": {
+      "shops": [
+        "A672wCH5e51CYax90yVl \"ALEX SHOP\" code=PBHKH6 ownerUid=yxE9H8BdSYgVxIYSBY8MKwZPkTo2 phone=0784712870 key=? status=approved enabled=false deleted=false",
+        {
+          "raw": {
+            "id": "A672wCH5e51CYax90yVl",
+            "name": "ALEX SHOP",
+            "code": "PBHKH6",
+            "ownerUid": "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+            "ownerName": "alex",
+            "ownerPhone": "0784712870",
+            "businessPhone": "0784712870",
+            "approvalStatus": "approved",
+            "enabled": false,
+            "createdAt": "2026-05-22T04:28:59.323321"
+          }
+        },
+        "Y6XpFI3Qp0vqS19tEeWK \"ALEX SHOP\" code=DFDXXY ownerUid=zFuDiCyZ5AV8a5RdShsp5PLVecs1 phone=0784712870 key=? status=approved enabled=true deleted=false",
+        {
+          "raw": {
+            "id": "Y6XpFI3Qp0vqS19tEeWK",
+            "name": "ALEX SHOP",
+            "code": "DFDXXY",
+            "ownerUid": "zFuDiCyZ5AV8a5RdShsp5PLVecs1",
+            "ownerName": "alex",
+            "ownerPhone": "0784712870",
+            "businessPhone": "0784712870",
+            "approvalStatus": "approved",
+            "enabled": true,
+            "createdAt": "2026-05-21T20:35:07.712969"
+          }
+        }
+      ],
+      "users": [
+        "oshMkZAte0gcGI71F5taEdbTUdj1 phone=0784712870 key=250784712870 name=kudzi shopId=Mcl5IaVSZjyQdMnogXh8 role=staff",
+        {
+          "raw": {
+            "id": "oshMkZAte0gcGI71F5taEdbTUdj1",
+            "phone": "0784712870",
+            "phoneKey": "250784712870",
+            "displayName": "kudzi",
+            "shopId": "Mcl5IaVSZjyQdMnogXh8",
+            "role": "staff"
+          }
+        }
+      ],
+      "members": [
+        {
+          "shopId": "A672wCH5e51CYax90yVl",
+          "uid": "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+          "role": "owner",
+          "phone": "0784712870",
+          "displayName": "alex",
+          "approvalStatus": "approved"
+        },
+        {
+          "shopId": "Mcl5IaVSZjyQdMnogXh8",
+          "uid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+          "role": "staff",
+          "phone": "0784712870",
+          "displayName": "kudzi",
+          "approvalStatus": "approved"
+        },
+        {
+          "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+          "uid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+          "role": "staff",
+          "phone": "0784712870",
+          "displayName": "ALEX",
+          "approvalStatus": "approved"
+        },
+        {
+          "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+          "uid": "zFuDiCyZ5AV8a5RdShsp5PLVecs1",
+          "role": "owner",
+          "phone": "0784712870",
+          "displayName": "alex",
+          "approvalStatus": "approved"
+        }
+      ],
+      "devices": [
+        {
+          "id": "128b1449-a6ac-47fc-b781-8cbc236bfcbd",
+          "ownerUid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+          "shopId": "Y6XpFI3Qp0vqS19tEeWK",
+          "deviceName": null,
+          "installId": "128b1449-a6ac-47fc-b781-8cbc236bfcbd",
+          "platform": "android",
+          "lastSeenAt": "2026-06-26T15:14:03.665Z"
+        },
+        {
+          "id": "7521c0fc-bea6-4de6-a1b6-cb1879f52e22",
+          "ownerUid": "yxE9H8BdSYgVxIYSBY8MKwZPkTo2",
+          "shopId": "A672wCH5e51CYax90yVl",
+          "deviceName": "KUDZI",
+          "installId": "7521c0fc-bea6-4de6-a1b6-cb1879f52e22",
+          "platform": "android",
+          "lastSeenAt": "2026-05-22T02:33:11.846Z"
+        },
+        {
+          "id": "d414804e-d569-479c-a7cd-76653781a6ca",
+          "boundUid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+          "ownerUid": "oshMkZAte0gcGI71F5taEdbTUdj1",
+          "shopId": "Mcl5IaVSZjyQdMnogXh8",
+          "deviceName": "Maggi",
+          "installId": "d414804e-d569-479c-a7cd-76653781a6ca",
+          "platform": "android",
+          "lastSeenAt": "2026-07-25T19:19:53.395Z"
+        }
+      ],
+      "admins": [
+        {
+          "id": "kqjuKRIfeUNoW2cEGXZUMdVOSyF3",
+          "phone": "0784712870",
+          "email": "alex@alexshop.rw",
+          "role": "owner"
+        }
+      ]
+    }
+  }
+}
