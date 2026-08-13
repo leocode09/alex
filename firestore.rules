@@ -371,6 +371,13 @@ service cloud.firestore {
       }
     }
 
+    // Collection-group reads so a signed-in user can find their own
+    // member docs across shops after a missing /users/{uid}.shopId
+    // pointer. Document id is the member uid.
+    match /{path=**}/members/{memberUid} {
+      allow read: if isSignedIn() && request.auth.uid == memberUid;
+    }
+
     // Fallback: deny anything not covered above.
     match /{document=**} {
       allow read, write: if false;

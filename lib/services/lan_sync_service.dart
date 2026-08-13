@@ -10,7 +10,10 @@ import '../models/license_policy.dart';
 import '../models/sync_data.dart';
 import 'admin/device_registration_service.dart';
 import 'cloud/account_service.dart';
+import 'cloud/firebase_init.dart';
+import 'cloud/shop_service.dart';
 import 'identity_label.dart';
+import 'shop_peer_gate.dart';
 import 'sync_frame_codec.dart';
 import 'sync_message_utils.dart';
 import 'sync_service.dart';
@@ -173,32 +176,44 @@ class LanSyncService extends ChangeNotifier {
     if (testShopId != null && testShopId.isNotEmpty) {
       _shopId = testShopId;
     } else {
-      final account = AccountService().current;
-      final shopId = account.shopId?.trim();
-      if (account.stage != AccountStage.approved ||
-          shopId == null ||
-          shopId.isEmpty) {
-        _status = 'account_not_approved';
-        _lastError =
+      final accounts = AccountService();
+      await accounts.waitForAttachIfInFlight();
+      var account = accounts.current;
+      if (account.stage == AccountStage.unknown &&
+          !account.firebaseUnavailable) {
+        await accounts.refresh();
+        account = accounts.current;
+      }
+      final shops = ShopService();
+      await shops.loadCache();
+      final gate = ShopPeerGate.evaluate(
+        account: account,
+        cachedShopId: shops.cachedShopId,
+      );
+      if (!gate.isAllowed) {
+        _status = gate.statusCode ?? 'account_not_approved';
+        _lastError = gate.message ??
             'LAN sharing requires an approved account in this shop.';
         notifyListeners();
         return;
       }
-      final binding =
-          await DeviceRegistrationService().verifyCurrentBinding();
-      if (!binding.isBound) {
-        _status = binding.peerGateStatus;
-        _lastError = binding.message;
-        // Approved AccountState with a missing Firebase session is a
-        // desync — refresh so routing can send the user to re-login
-        // instead of leaving a confusing "device not registered" state.
-        if (binding.status == DeviceBindingStatus.signedOut) {
-          unawaited(AccountService().refresh());
+      if (FirebaseInit.available && !account.firebaseUnavailable) {
+        final binding =
+            await DeviceRegistrationService().verifyCurrentBinding();
+        if (!binding.isBound) {
+          _status = binding.peerGateStatus;
+          _lastError = binding.message;
+          // Approved AccountState with a missing Firebase session is a
+          // desync — refresh so routing can send the user to re-login
+          // instead of leaving a confusing "device not registered" state.
+          if (binding.status == DeviceBindingStatus.signedOut) {
+            unawaited(AccountService().refresh());
+          }
+          notifyListeners();
+          return;
         }
-        notifyListeners();
-        return;
       }
-      _shopId = shopId;
+      _shopId = gate.shopId;
     }
     _lastError = null;
     await _ensureDeviceInfo();

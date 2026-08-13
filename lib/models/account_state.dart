@@ -90,11 +90,27 @@ class AccountState {
         firebaseUnavailable: firebaseUnavailable,
       );
 
+  /// Trimmed shop id when this device is linked to a business.
+  String? get linkedShopId {
+    final id = shopId?.trim();
+    if (id == null || id.isEmpty) return null;
+    return id;
+  }
+
   /// Whether the POS is reachable. When Firebase is missing on this
   /// build the app degrades to local-only and the gate stays open
   /// (mirrors the existing license behaviour).
   bool get allowsAppAccess =>
       firebaseUnavailable || stage == AccountStage.approved;
+
+  /// Whether this device may join shop-scoped LAN / Wi-Fi Direct peers.
+  ///
+  /// Cloud-approved members always can. When Firebase is down the POS
+  /// already stays open, so a cached shop link is enough to keep local
+  /// sharing working instead of reporting a false "not approved".
+  bool get canShareWithShopPeers =>
+      linkedShopId != null &&
+      (stage == AccountStage.approved || firebaseUnavailable);
 
   bool get isPending =>
       stage == AccountStage.businessPending ||

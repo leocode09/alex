@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -37,8 +39,16 @@ class _LanManagerPageState extends State<LanManagerPage> {
     super.initState();
     _lanService.initialize();
     _service.start();
-    _lanService.start();
+    unawaited(_startLanSharing());
     _lanService.refreshLocalAddresses();
+  }
+
+  Future<void> _startLanSharing() async {
+    final account = AccountService().current;
+    if (!account.canShareWithShopPeers) {
+      await AccountService().refresh();
+    }
+    await _lanService.start();
   }
 
   @override
@@ -352,8 +362,7 @@ class _LanManagerPageState extends State<LanManagerPage> {
             runSpacing: 8,
             children: [
               ElevatedButton.icon(
-                onPressed:
-                    _lanService.isRunning ? null : () => _lanService.start(),
+                onPressed: _lanService.isRunning ? null : _startLanSharing,
                 icon: const Icon(Icons.wifi_tethering),
                 label: const Text('Start Sharing'),
               ),

@@ -55,8 +55,7 @@ class AccountService {
   Map<String, dynamic>? _lastShop;
   Map<String, dynamic>? _lastMember;
   Map<String, dynamic>? _lastUser;
-  bool _attaching = false;
-  bool _reattachQueued = false;
+  Future<void> _attachTail = Future.value();
 
   AccountState get current => _current;
 
@@ -76,42 +75,61 @@ class AccountService {
   }
 
   void _kickstart() {
-    // The auth listener is attached inside [_reattach] once Firebase
+    // The auth listener is attached inside [_performAttach] once Firebase
     // init (which now runs in the background at boot) has completed, so
     // a kickstart that races app boot doesn't misread "unavailable".
-    unawaited(_reattach());
+    unawaited(_enqueueAttach());
   }
 
   /// Call after the user creates / joins / leaves a shop so the
   /// listeners reattach to the new shop id.
-  Future<void> refresh() => _reattach();
+  Future<void> refresh() => _enqueueAttach();
 
-  Future<void> _reattach() async {
-    // Auth can change while a previous attach is still in flight (Firebase
-    // init, ownership claim, first doc fetch). Dropping that event would
-    // leave a stale approved AccountState after the session is gone — the
-    // router keeps the user in-app while LAN correctly sees no Firebase
-    // user. Queue a follow-up pass instead.
-    if (_attaching) {
-      _reattachQueued = true;
+  /// Waits until every attach already queued has finished. Does not
+  /// start a new attach by itself — used by LAN start so a cold boot
+  /// does not read [current] while it is still [AccountStage.unknown].
+  Future<void> waitForAttachIfInFlight() async {
+    Future<void> current;
+    do {
+      current = _attachTail;
+      await current;
+    } while (!identical(current, _attachTail));
+  }
+
+  Future<void> _enqueueAttach() {
+    final run = _attachTail.then((_) => _performAttach());
+    _attachTail = run.onError((Object e, StackTrace st) {
+      if (kDebugMode) {
+        debugPrint('AccountService attach error: $e\n$st');
+      }
+    });
+    return run;
+  }
+
+  Future<void> _performAttach() async {
+    // Firebase init runs in the background at boot; wait for it to
+    // settle (a fast no-op once completed) so we only report
+    // "firebase down" when init actually failed, not merely because
+    // it has not finished yet. This does not block the first frame —
+    // the router reads [current] synchronously.
+    await FirebaseInit.ensureInitialized();
+    if (!FirebaseInit.available) {
+      await _shopService.loadCache();
+      final cachedId = _shopService.cachedShopId?.trim();
+      _emit(AccountState(
+        stage: AccountStage.unknown,
+        firebaseUnavailable: true,
+        shopId: (cachedId != null && cachedId.isNotEmpty) ? cachedId : null,
+        shopName: _shopService.cachedShopName,
+        shopCode: _shopService.cachedShopCode,
+      ));
       return;
     }
-    _attaching = true;
-    try {
-      // Firebase init runs in the background at boot; wait for it to
-      // settle (a fast no-op once completed) so we only report
-      // "firebase down" when init actually failed, not merely because
-      // it has not finished yet. This does not block the first frame —
-      // the router reads [current] synchronously.
-      await FirebaseInit.ensureInitialized();
-      if (!FirebaseInit.available) {
-        _emit(AccountState.firebaseDown);
-        return;
-      }
 
+    try {
       // React to login / logout so the gate updates immediately.
       _authSub ??= _userAuth.authStateChanges().listen((_) {
-        unawaited(_reattach());
+        unawaited(_enqueueAttach());
       });
 
       final uid = _userAuth.currentUid;
@@ -207,11 +225,9 @@ class AccountService {
 
       await _fetchLatestDocs(shopId, uid);
       _emitMerged();
-    } finally {
-      _attaching = false;
-      if (_reattachQueued) {
-        _reattachQueued = false;
-        unawaited(_reattach());
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('AccountService._performAttach error: $e\n$st');
       }
     }
   }
@@ -231,39 +247,61 @@ class AccountService {
   }
 
   Future<void> _fetchLatestDocs(String shopId, String uid) async {
-    try {
-      final db = FirebaseFirestore.instance;
-      // Fetch both docs concurrently — they are independent reads and
-      // this path gates the initial account state emission.
-      final snaps = await Future.wait([
+    final db = FirebaseFirestore.instance;
+    await Future.wait([
+      _readDocInto(
         db.collection(FirestorePaths.shopsCollection).doc(shopId).get(),
+        (data) => _lastShop = data,
+        'shop',
+      ),
+      _readDocInto(
         db
             .collection(FirestorePaths.shopsCollection)
             .doc(shopId)
             .collection(FirestorePaths.membersSubcollection)
             .doc(uid)
             .get(),
+        (data) => _lastMember = data,
+        'member',
+      ),
+      _readDocInto(
         db.collection(FirestorePaths.usersCollection).doc(uid).get(),
-      ]);
-      final shopSnap = snaps[0];
-      final memberSnap = snaps[1];
-      final userSnap = snaps[2];
-      _lastShop = shopSnap.exists ? shopSnap.data() : null;
-      _lastMember = memberSnap.exists ? memberSnap.data() : null;
-      _lastUser = userSnap.exists ? userSnap.data() : null;
+        (data) => _lastUser = data,
+        'user',
+      ),
+    ]);
+  }
+
+  Future<void> _readDocInto(
+    Future<DocumentSnapshot<Map<String, dynamic>>> future,
+    void Function(Map<String, dynamic>? data) assign,
+    String label,
+  ) async {
+    try {
+      final snap = await future;
+      assign(snap.exists ? snap.data() : null);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('AccountService._fetchLatestDocs error: $e');
+        debugPrint('AccountService._fetchLatestDocs $label error: $e');
       }
+      // Keep the previous snapshot so a single failed read cannot demote
+      // an approved member to pending / unknown.
     }
   }
 
   /// Finds the shop this user belongs to without relying on local cache:
-  /// first the pointer on `/users/{uid}`, then a shop they own.
+  /// first the pointer on `/users/{uid}`, then a shop they own, then an
+  /// approved membership (cached shop or collection-group lookup).
   Future<String?> _resolveShopIdForUser(String uid) async {
     final stored = await _userAuth.storedShopId();
     if (stored != null && stored.isNotEmpty) {
-      return stored;
+      final look = await _memberLook(shopId: stored, uid: uid);
+      // Keep the pointer whenever this uid still has a member doc there
+      // (approved, pending, or rejected) or the read failed (offline).
+      // Only search further when the pointer is proven stale.
+      if (look != _MemberLook.missing) {
+        return stored;
+      }
     }
 
     try {
@@ -304,7 +342,89 @@ class AccountService {
         debugPrint('AccountService._resolveShopIdForUser owned error: $e');
       }
     }
+
+    final cached = _shopService.cachedShopId?.trim();
+    if (cached != null &&
+        cached.isNotEmpty &&
+        cached != stored &&
+        await _isApprovedMemberOf(shopId: cached, uid: uid)) {
+      return cached;
+    }
+
+    final fromMembership = await _findShopIdFromMembership(uid);
+    if (fromMembership != null && fromMembership.isNotEmpty) {
+      return fromMembership;
+    }
+
+    if (stored != null && stored.isNotEmpty) {
+      return stored;
+    }
     return null;
+  }
+
+  Future<bool> _isApprovedMemberOf({
+    required String shopId,
+    required String uid,
+  }) async {
+    return await _memberLook(shopId: shopId, uid: uid) == _MemberLook.approved;
+  }
+
+  Future<_MemberLook> _memberLook({
+    required String shopId,
+    required String uid,
+  }) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection(FirestorePaths.shopsCollection)
+          .doc(shopId)
+          .collection(FirestorePaths.membersSubcollection)
+          .doc(uid)
+          .get();
+      if (!snap.exists) return _MemberLook.missing;
+      final status = (snap.data()?[AccountApproval.fieldStatus] as String?) ??
+          AccountApproval.statusApproved;
+      if (status == AccountApproval.statusRejected) {
+        return _MemberLook.rejected;
+      }
+      if (status == AccountApproval.statusPendingOwner) {
+        return _MemberLook.pending;
+      }
+      return _MemberLook.approved;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AccountService._memberLook error: $e');
+      }
+      return _MemberLook.unknown;
+    }
+  }
+
+  Future<String?> _findShopIdFromMembership(String uid) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collectionGroup(FirestorePaths.membersSubcollection)
+          .where('uid', isEqualTo: uid)
+          .limit(5)
+          .get();
+      String? pendingId;
+      for (final doc in snap.docs) {
+        final status =
+            (doc.data()[AccountApproval.fieldStatus] as String?) ??
+                AccountApproval.statusApproved;
+        if (status == AccountApproval.statusRejected) continue;
+        final shopId = doc.reference.parent.parent?.id;
+        if (shopId == null || shopId.isEmpty) continue;
+        if (status == AccountApproval.statusApproved) return shopId;
+        pendingId ??= shopId;
+      }
+      return pendingId;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          'AccountService._findShopIdFromMembership error: $e',
+        );
+      }
+      return null;
+    }
   }
 
   Future<void> _cacheShopFromDoc(String shopId) async {
@@ -461,9 +581,12 @@ class AccountService {
 
     final shop = _lastShop;
     if (shop == null) {
-      // Shop doc still loading / temporarily unreadable. Stay on the
-      // current gate using the cached identity instead of bouncing back
-      // to onboarding.
+      // Shop doc still loading / temporarily unreadable. Keep a known
+      // approved gate for this shop so LAN / routing do not flap to
+      // "not approved" while snapshots catch up.
+      if (_isSameApprovedMembership(uid: uid, shopId: shopId)) {
+        return;
+      }
       final cachedName = _shopService.cachedShopName;
       final cachedCode = _shopService.cachedShopCode;
       if (cachedName != null || cachedCode != null) {
@@ -562,7 +685,12 @@ class AccountService {
 
     if (member == null) {
       // A non-owner with no member doc has not been added to this shop
-      // yet — surface the staff-pending gate.
+      // yet — surface the staff-pending gate. Do not demote a member we
+      // already know is approved; a missing snapshot after reattach is
+      // a fetch race, not a revocation.
+      if (_isSameApprovedMembership(uid: uid, shopId: shopId)) {
+        return;
+      }
       _emit(AccountState(
         stage: AccountStage.staffPending,
         uid: uid,
@@ -634,6 +762,15 @@ class AccountService {
     if (c != null && !c.isClosed) {
       c.add(state);
     }
+  }
+
+  bool _isSameApprovedMembership({
+    required String uid,
+    required String shopId,
+  }) {
+    return _current.stage == AccountStage.approved &&
+        _current.uid == uid &&
+        _current.shopId == shopId;
   }
 
   // ---------- auth API ----------
@@ -1308,3 +1445,5 @@ class AccountService {
     ).join();
   }
 }
+
+enum _MemberLook { approved, pending, rejected, missing, unknown }

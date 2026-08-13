@@ -50,10 +50,7 @@ class _LanSyncWatcherState extends State<LanSyncWatcher>
 
   void _onAccountChanged(AccountState account) {
     if (!mounted) return;
-    final shopId = account.shopId?.trim();
-    if (account.stage != AccountStage.approved ||
-        shopId == null ||
-        shopId.isEmpty ||
+    if (!account.canShareWithShopPeers ||
         _service.isRunning ||
         _starting) {
       return;
