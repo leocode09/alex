@@ -18,6 +18,7 @@ import 'providers/account_provider.dart';
 import 'services/pin_service.dart';
 import 'models/license_policy.dart';
 import 'models/account_state.dart';
+import 'routing/account_gate_redirect.dart';
 import 'providers/time_tamper_provider.dart';
 import 'ui/pages/security/time_tamper_page.dart';
 import 'ui/pages/security/license_locked_page.dart';
@@ -363,12 +364,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnTimeLock = state.uri.path == '/time-lock';
       final isOnLicenseLocked = state.uri.path == '/license-locked';
       final isOnAdminRoute = state.uri.path.startsWith('/admin');
-      final isOnOnboarding = state.uri.path.startsWith('/onboarding');
-      final isOnPendingApproval = state.uri.path == '/pending-approval';
-      final isOnAccountLogin = state.uri.path == '/account-login' ||
+      final isOnAccountGate = state.uri.path.startsWith('/onboarding') ||
+          state.uri.path == '/pending-approval' ||
+          state.uri.path == '/account-login' ||
           state.uri.path == '/account-register';
-      final isOnAccountGate =
-          isOnOnboarding || isOnPendingApproval || isOnAccountLogin;
       final isSessionVerified = pinService.isSessionVerified();
       final isUnlocked = pinUnlocked || isSessionVerified;
 
@@ -398,39 +397,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Business-approval gate. Owners must register and be approved
       // by the system admin; staff must be approved by their owner.
       // Admin routes bypass this so support can fix accounts remotely.
-      if (!account.allowsAppAccess && !isOnAdminRoute) {
-        switch (account.stage) {
-          case AccountStage.signedOut:
-            // No user logged in: force the phone + password login.
-            if (!isOnAccountLogin) {
-              return '/account-login';
-            }
-            return null;
-          case AccountStage.noAccount:
-            if (!isOnOnboarding) {
-              return '/onboarding';
-            }
-            return null;
-          case AccountStage.businessPending:
-          case AccountStage.staffPending:
-          case AccountStage.businessRejected:
-          case AccountStage.staffRejected:
-            if (!isOnPendingApproval) {
-              return '/pending-approval';
-            }
-            return null;
-          case AccountStage.unknown:
-          case AccountStage.approved:
-            // While account state is still loading, keep the user on the
-            // account gate (login is the safe entry) instead of letting
-            // first-run PIN setup win. If Firebase is unavailable,
-            // allowsAppAccess is true and this block is skipped for the
-            // local-only fallback.
-            if (!isOnAccountGate) {
-              return '/account-login';
-            }
-            return null;
-        }
+      // See [accountGateRedirect] — noAccount without a uid is treated
+      // as signed-out so a stale detach snapshot cannot bounce
+      // /account-login ↔ /onboarding (go_router redirect loop).
+      final accountRedirect = accountGateRedirect(
+        account: account,
+        path: state.uri.path,
+      );
+      if (accountRedirect != null) {
+        return accountRedirect;
       }
 
       // The admin panel is a standalone, credential-gated escape hatch:

@@ -57,6 +57,9 @@ class AccountService {
   Map<String, dynamic>? _lastUser;
   bool _attaching = false;
   bool _reattachQueued = false;
+  /// Bumped on every [_detach] so in-flight Firestore snapshots cannot
+  /// emit after the session is gone.
+  int _listenerEpoch = 0;
 
   AccountState get current => _current;
 
@@ -156,12 +159,14 @@ class AccountService {
         await _detach();
         _attachedShopId = shopId;
         _attachedUid = uid;
+        final epoch = _listenerEpoch;
         _shopSub = FirebaseFirestore.instance
             .collection(FirestorePaths.shopsCollection)
             .doc(shopId)
             .snapshots()
             .listen(
           (doc) {
+            if (epoch != _listenerEpoch) return;
             _lastShop = doc.exists ? doc.data() : null;
             _emitMerged();
           },
@@ -179,6 +184,7 @@ class AccountService {
             .snapshots()
             .listen(
           (doc) {
+            if (epoch != _listenerEpoch) return;
             _lastMember = doc.exists ? doc.data() : null;
             _emitMerged();
           },
@@ -194,6 +200,7 @@ class AccountService {
             .snapshots()
             .listen(
           (doc) {
+            if (epoch != _listenerEpoch) return;
             _lastUser = doc.exists ? doc.data() : null;
             _emitMerged();
           },
@@ -217,6 +224,10 @@ class AccountService {
   }
 
   Future<void> _detach() async {
+    // Invalidate listeners before awaiting cancel so a snapshot that is
+    // already queued cannot emit noAccount with a null uid (that flicker
+    // is what sent the router /account-login ↔ /onboarding).
+    _listenerEpoch++;
     await _shopSub?.cancel();
     _shopSub = null;
     await _memberSub?.cancel();
@@ -454,7 +465,13 @@ class AccountService {
   void _emitMerged() {
     final uid = _attachedUid;
     final shopId = _attachedShopId;
-    if (uid == null || shopId == null || shopId.isEmpty) {
+    // After [_detach] the attached ids are null. A late snapshot used
+    // to emit [AccountState.noAccount] with a null uid, which the
+    // router treated as "logged in, pick a business".
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+    if (shopId == null || shopId.isEmpty) {
       _emit(AccountState.noAccount.copyWithUid(uid));
       return;
     }
@@ -628,6 +645,9 @@ class AccountService {
   }
 
   void _emit(AccountState state) {
+    if (state == _current) {
+      return;
+    }
     _current = state;
     unawaited(IdentityLabel.updateFromAccount(state));
     final c = _controller;

@@ -90,11 +90,56 @@ class AccountState {
         firebaseUnavailable: firebaseUnavailable,
       );
 
+  /// Whether a signed-in Firebase user is present on this snapshot.
+  bool get hasUid => (uid ?? '').trim().isNotEmpty;
+
+  /// Stage the router should use for the approval gate.
+  ///
+  /// `noAccount` means "logged in, no business yet". A snapshot with
+  /// that stage but no [uid] is detached or stale and must be treated
+  /// as signed-out. Otherwise the router bounces `/account-login` ↔
+  /// `/onboarding` until go_router trips a loop.
+  AccountStage get effectiveGateStage {
+    if (stage == AccountStage.noAccount && !hasUid) {
+      return AccountStage.signedOut;
+    }
+    return stage;
+  }
+
   /// Whether the POS is reachable. When Firebase is missing on this
   /// build the app degrades to local-only and the gate stays open
   /// (mirrors the existing license behaviour).
   bool get allowsAppAccess =>
       firebaseUnavailable || stage == AccountStage.approved;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AccountState &&
+          stage == other.stage &&
+          shopId == other.shopId &&
+          shopName == other.shopName &&
+          shopCode == other.shopCode &&
+          role == other.role &&
+          displayName == other.displayName &&
+          phone == other.phone &&
+          rejectionReason == other.rejectionReason &&
+          uid == other.uid &&
+          firebaseUnavailable == other.firebaseUnavailable;
+
+  @override
+  int get hashCode => Object.hash(
+        stage,
+        shopId,
+        shopName,
+        shopCode,
+        role,
+        displayName,
+        phone,
+        rejectionReason,
+        uid,
+        firebaseUnavailable,
+      );
 
   bool get isPending =>
       stage == AccountStage.businessPending ||
